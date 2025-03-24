@@ -1,0 +1,51 @@
+[package]
+name = "darkswap-daemon"
+version = "0.1.0"
+edition = "2021"
+authors = ["DarkSwap Team"]
+description = "DarkSwap Daemon - Background service for hosting an orderbook and facilitating trades"
+license = "MIT"
+repository = "https://github.com/darkswap/darkswap"
+
+[dependencies]
+# DarkSwap SDK
+darkswap-sdk = { path = "../darkswap-sdk" }
+
+# Command-line parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP server
+axum = "0.6"
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+hyper = "0.14"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+# Bitcoin
+bitcoin = { version = "0.30", features = ["rand", "serde"] }
+
+# Utilities
+rust_decimal = { version = "1.30", features = ["serde"] }
+hex = "0.4"
+async-stream = "0.3"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"

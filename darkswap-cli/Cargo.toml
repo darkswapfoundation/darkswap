@@ -1,0 +1,53 @@
+[package]
+name = "darkswap-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["DarkSwap Team"]
+description = "Command-line interface for DarkSwap"
+repository = "https://github.com/darkswap/darkswap"
+license = "MIT"
+readme = "README.md"
+keywords = ["bitcoin", "runes", "alkanes", "p2p", "trading"]
+categories = ["cryptography", "cryptocurrency", "command-line-utilities"]
+
+[dependencies]
+# DarkSwap SDK
+darkswap-sdk = { path = "../darkswap-sdk" }
+
+# Command-line interface
+clap = { version = "4.2.7", features = ["derive"] }
+
+# Async
+tokio = { version = "1.28.0", features = ["full"] }
+
+# Error handling
+anyhow = "1.0.71"
+thiserror = "1.0.40"
+
+# Logging
+log = "0.4.17"
+env_logger = "0.10.0"
+
+# Serialization
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+
+# Utilities
+rust-decimal = { version = "1.29.1", features = ["serde"] }
+uuid = { version = "1.3.3", features = ["v4", "serde"] }
+chrono = { version = "0.4.24", features = ["serde"] }
+colored = "2.0.0"
+prettytable-rs = "0.10.0"
+dialoguer = "0.10.4"
+indicatif = "0.17.3"
+
+[dev-dependencies]
+assert_cmd = "2.0.8"
+predicates = "3.0.3"
+tempfile = "3.5.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

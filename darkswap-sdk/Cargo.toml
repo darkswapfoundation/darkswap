@@ -1,0 +1,100 @@
+[package]
+name = "darkswap-sdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["DarkSwap Team"]
+description = "DarkSwap SDK for decentralized peer-to-peer trading of Bitcoin, runes, and alkanes"
+repository = "https://github.com/darkswap/darkswap"
+license = "MIT"
+readme = "README.md"
+keywords = ["bitcoin", "runes", "alkanes", "p2p", "trading"]
+categories = ["cryptography", "cryptocurrency", "network-programming"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Bitcoin
+bitcoin = { version = "0.30.0", features = ["rand"] }
+bdk = { version = "0.28.0", optional = true }
+
+# P2P networking
+libp2p = { version = "0.52.0", features = ["gossipsub", "identify", "kad", "mdns", "ping", "relay", "tcp", "tokio", "yamux"] }
+libp2p-quic = { version = "0.9.0", features = ["tokio"] }
+libp2p-dcutr = "0.9.0"
+libp2p-webrtc = { version = "0.5.0", optional = true }
+
+# Async
+tokio = { version = "1.28.0", features = ["full"] }
+futures = "0.3.28"
+
+# Serialization
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+hex = "0.4.3"
+prost = "0.11.9"
+
+# Cryptography
+rand = "0.8.5"
+sha2 = "0.10.6"
+
+# Utilities
+rust-decimal = { version = "1.29.1", features = ["serde"] }
+uuid = { version = "1.3.3", features = ["v4", "serde"] }
+log = "0.4.17"
+env_logger = "0.10.0"
+anyhow = "1.0.71"
+thiserror = "1.0.40"
+lazy_static = "1.4.0"
+zeroize = "1.6.0"
+trust-dns-resolver = "0.22.0"
+
+# WebAssembly
+wasm-bindgen = { version = "0.2.86", optional = true }
+wasm-bindgen-futures = { version = "0.4.36", optional = true }
+js-sys = { version = "0.3.63", optional = true }
+web-sys = { version = "0.3.63", features = [
+    "console",
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "RtcPeerConnection",
+    "RtcSessionDescription",
+    "RtcIceCandidate",
+    "RtcDataChannel",
+    "RtcConfiguration",
+    "RtcDataChannelInit",
+    "RtcIceCandidateInit",
+    "RtcSdpType",
+    "RtcSessionDescriptionInit",
+], optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+[dev-dependencies]
+tempfile = "3.5.0"
+criterion = "0.4.0"
+mockall = "0.11.4"
+wasm-bindgen-test = "0.3.36"
+
+[features]
+default = []
+bdk-wallet = ["bdk"]
+wasm = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "console_error_panic_hook"]
+webrtc = ["libp2p-webrtc"]
+full = ["bdk-wallet", "wasm", "webrtc"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
+
+[profile.wasm-release]
+inherits = "release"
+lto = true
+opt-level = 's'

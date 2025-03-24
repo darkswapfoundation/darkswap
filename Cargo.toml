@@ -1,0 +1,67 @@
+[workspace]
+members = [
+    "darkswap-sdk",
+    "darkswap-cli",
+    "darkswap-daemon",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["DarkSwap Team"]
+license = "MIT"
+repository = "https://github.com/darkswap/darkswap"
+
+[workspace.dependencies]
+# Core dependencies
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.10"
+
+# Bitcoin dependencies
+bitcoin = { version = "0.30", features = ["rand", "serde"] }
+
+# P2P networking dependencies
+libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc"] }
+
+# Utilities
+rust_decimal = { version = "1.30", features = ["serde"] }
+hex = "0.4"
+rand = "0.8"
+
+# WASM support
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true }
+
+# CLI dependencies
+clap = { version = "4.4", features = ["derive"] }
+
+# HTTP server dependencies
+axum = "0.6"
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+hyper = "0.14"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Optimize for faster compilation during development.
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = "unwind"
+incremental = true
+codegen-units = 256
+rpath = false
