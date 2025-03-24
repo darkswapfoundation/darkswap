@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 20% 8%;
+    --foreground: 210 40% 98%;
+  }
+
+  body {
+    @apply bg-twilight-darker text-white;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Card styles */
+  .card {
+    @apply bg-twilight-primary rounded-xl border border-twilight-accent shadow-lg;
+  }
+
+  .card-glass {
+    @apply bg-twilight-primary bg-opacity-50 backdrop-blur-md rounded-xl border border-twilight-accent shadow-lg;
+  }
+
+  .card-header {
+    @apply p-4 border-b border-twilight-dark;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  .card-footer {
+    @apply p-4 border-t border-twilight-dark;
+  }
+
+  /* Button styles */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1 text-sm rounded-md;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-lg rounded-xl;
+  }
+
+  .btn-primary {
+    @apply bg-twilight-accent hover:bg-twilight-secondary text-white;
+  }
+
+  .btn-secondary {
+    @apply bg-twilight-dark hover:bg-twilight-secondary text-white;
+  }
+
+  .btn-neon {
+    @apply bg-twilight-dark hover:bg-twilight-secondary text-twilight-neon-blue border border-twilight-neon-blue shadow-neon-blue;
+  }
+
+  .btn-error {
+    @apply bg-twilight-dark hover:bg-twilight-secondary text-ui-error border border-ui-error;
+  }
+
+  /* Form styles */
+  .form-label {
+    @apply block text-sm font-medium text-gray-400 mb-1;
+  }
+
+  .form-input {
+    @apply w-full px-3 py-2 bg-twilight-dark border border-twilight-accent rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-twilight-neon-blue focus:border-transparent;
+  }
+
+  /* Table styles */
+  .table {
+    @apply w-full border-collapse;
+  }
+
+  .table th {
+    @apply text-left py-3 px-4 text-sm font-medium text-gray-400 border-b border-twilight-dark;
+  }
+
+  .table td {
+    @apply py-3 px-4 border-b border-twilight-dark;
+  }
+
+  /* Neon text effects */
+  .neon-text-blue {
+    @apply text-twilight-neon-blue;
+    text-shadow: 0 0 5px rgba(77, 171, 247, 0.5), 0 0 10px rgba(77, 171, 247, 0.3);
+  }
+
+  .neon-text-purple {
+    @apply text-twilight-neon-purple;
+    text-shadow: 0 0 5px rgba(190, 75, 219, 0.5), 0 0 10px rgba(190, 75, 219, 0.3);
+  }
+
+  .neon-text-pink {
+    @apply text-twilight-neon-pink;
+    text-shadow: 0 0 5px rgba(230, 73, 128, 0.5), 0 0 10px rgba(230, 73, 128, 0.3);
+  }
+
+  .neon-text-green {
+    @apply text-twilight-neon-green;
+    text-shadow: 0 0 5px rgba(81, 207, 102, 0.5), 0 0 10px rgba(81, 207, 102, 0.3);
+  }
+
+  /* Vault item styles */
+  .vault-item {
+    @apply bg-twilight-primary rounded-xl border border-twilight-accent shadow-lg hover:border-twilight-neon-blue transition-all duration-200;
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-twilight-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-twilight-accent rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-twilight-secondary;
+}
