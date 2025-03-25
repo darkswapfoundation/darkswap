@@ -172,9 +172,9 @@ fn load_or_create_config(config_path: Option<PathBuf>, network: &str) -> Result<
     let bitcoin_network = parse_bitcoin_network(network)?;
 
     // Try to load configuration from file
-    if let Some(path) = config_path {
+    if let Some(ref path) = config_path {
         if path.exists() {
-            return Config::from_file(&path).context("Failed to load configuration");
+            return Config::from_file(path).context("Failed to load configuration");
         }
     }
 
@@ -183,8 +183,8 @@ fn load_or_create_config(config_path: Option<PathBuf>, network: &str) -> Result<
     config.bitcoin.network = bitcoin_network;
 
     // Save configuration to file if path is provided
-    if let Some(path) = config_path {
-        config.to_file(&path).context("Failed to save configuration")?;
+    if let Some(ref path) = config_path {
+        config.to_file(path).context("Failed to save configuration")?;
     }
 
     Ok(config)

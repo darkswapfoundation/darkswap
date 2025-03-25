@@ -38,6 +38,10 @@ pub enum Error {
     #[error("Invalid asset: {0}")]
     InvalidAsset(String),
 
+    /// Invalid order side
+    #[error("Invalid order side: {0}")]
+    InvalidOrderSide(String),
+
     /// Invalid order
     #[error("Invalid order: {0}")]
     InvalidOrder(String),
