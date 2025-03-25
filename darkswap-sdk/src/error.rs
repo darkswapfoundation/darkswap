@@ -54,6 +54,10 @@ pub enum Error {
     #[error("Invalid amount: {0}")]
     InvalidAmount(String),
 
+    /// Invalid trade amount
+    #[error("Invalid trade amount")]
+    InvalidTradeAmount,
+
     /// Insufficient funds
     #[error("Insufficient funds")]
     InsufficientFunds,
@@ -86,6 +90,14 @@ pub enum Error {
     #[error("Alkane lock error")]
     AlkaneLockError,
 
+    /// Trade lock error
+    #[error("Trade lock error")]
+    TradeLockError,
+
+    /// Orderbook lock error
+    #[error("Orderbook lock error")]
+    OrderbookLockError,
+
     /// WASM error
     #[error("WASM error: {0}")]
     WasmError(String),
@@ -100,7 +112,7 @@ pub enum Error {
 
     /// Bitcoin consensus error
     #[error("Bitcoin consensus error: {0}")]
-    BitcoinConsensusError(#[from] bitcoin::consensus::Error),
+    BitcoinConsensusError(String),
 
     /// Bitcoin hashes error
     #[error("Bitcoin hashes error: {0}")]
@@ -164,5 +176,12 @@ impl From<String> for Error {
 impl From<&str> for Error {
     fn from(error: &str) -> Self {
         Error::UnknownError(error.to_string())
+    }
+}
+
+// Add From implementation for libp2p ConnectionDenied
+impl From<libp2p::swarm::ConnectionDenied> for Error {
+    fn from(error: libp2p::swarm::ConnectionDenied) -> Self {
+        Error::NetworkError(format!("Connection denied: {:?}", error))
     }
 }

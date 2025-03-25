@@ -20,6 +20,13 @@ impl fmt::Display for PeerId {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct OrderId(pub String);
 
+impl OrderId {
+    /// Create a new order ID
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
 impl fmt::Display for OrderId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -29,6 +36,13 @@ impl fmt::Display for OrderId {
 /// Trade ID
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TradeId(pub String);
+
+impl TradeId {
+    /// Create a new trade ID
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
 
 impl fmt::Display for TradeId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

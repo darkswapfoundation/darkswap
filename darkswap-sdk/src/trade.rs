@@ -222,7 +222,7 @@ impl TradeManager {
             update_fn(trade);
             Ok(())
         } else {
-            Err(Error::TradeNotFound)
+            Err(Error::TradeNotFound(trade_id.to_string()))
         }
     }
 }
@@ -324,7 +324,7 @@ impl PsbtBuilder {
 
         // Create transaction
         let tx = Transaction {
-            version: bitcoin::transaction::Version(2),
+            version: 2,
             lock_time: bitcoin::absolute::LockTime::ZERO,
             input: inputs,
             output: outputs,
@@ -381,13 +381,13 @@ impl PsbtBuilder {
         // Verify that the PSBT is finalized
         for input in &psbt.inputs {
             if input.final_script_sig.is_none() && input.final_script_witness.is_none() {
-                return Err(Error::PsbtNotFinalized);
+                return Err(Error::BitcoinPsbtError("PSBT is not finalized".to_string()));
             }
         }
 
-        // Extract the transaction
-        psbt.extract_tx()
-            .map_err(|e| Error::PsbtError(e.to_string()))
+        // Extract the transaction (need to clone since extract_tx takes ownership)
+        let tx = psbt.clone().extract_tx();
+        Ok(tx)
     }
 
     /// Broadcast a transaction
@@ -424,7 +424,7 @@ impl TradeNegotiator {
 
         // Verify that the amount is valid
         if amount <= Decimal::ZERO || amount > order.amount {
-            return Err(Error::InvalidTradeAmount);
+            return Err(Error::InvalidAmount("Trade amount must be positive and not exceed order amount".to_string()));
         }
 
         // Create the trade

@@ -1,0 +1,10 @@
+/home/ghostinthegrey/darkswap/bitcoin_utils_test/target/debug/deps/libsecp256k1_sys-1a6be3d98be2784c.rmeta: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/recovery.rs
+
+/home/ghostinthegrey/darkswap/bitcoin_utils_test/target/debug/deps/libsecp256k1_sys-1a6be3d98be2784c.rlib: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/recovery.rs
+
+/home/ghostinthegrey/darkswap/bitcoin_utils_test/target/debug/deps/secp256k1_sys-1a6be3d98be2784c.d: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/recovery.rs
+
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/lib.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/macros.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/types.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.1/src/recovery.rs:

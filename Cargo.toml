@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "darkswap-sdk",
     "darkswap-cli",
@@ -26,7 +27,7 @@ env_logger = "0.10"
 bitcoin = { version = "0.30", features = ["rand", "serde"] }
 
 # P2P networking dependencies
-libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc"] }
+libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc", "mdns"] }
 
 # Utilities
 rust_decimal = { version = "1.30", features = ["serde"] }
@@ -34,9 +35,9 @@ hex = "0.4"
 rand = "0.8"
 
 # WASM support
-wasm-bindgen = { version = "0.2", optional = true }
-js-sys = { version = "0.3", optional = true }
-web-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2" }
+js-sys = { version = "0.3" }
+web-sys = { version = "0.3" }
 
 # CLI dependencies
 clap = { version = "4.4", features = ["derive"] }
