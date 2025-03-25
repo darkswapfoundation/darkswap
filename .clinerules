@@ -1,0 +1,191 @@
+# DarkSwap Project Rules
+
+## Code Style
+
+- Use consistent naming conventions:
+  - CamelCase for types and traits
+  - snake_case for functions, methods, and variables
+  - SCREAMING_SNAKE_CASE for constants
+  - kebab-case for file names
+
+- Follow Rust style guidelines:
+  - Use 4 spaces for indentation
+  - Keep lines under 100 characters
+  - Use meaningful variable names
+  - Add documentation comments for public APIs
+
+- Follow TypeScript style guidelines:
+  - Use 2 spaces for indentation
+  - Keep lines under 100 characters
+  - Use meaningful variable names
+  - Add JSDoc comments for public APIs
+
+## Project Structure
+
+- Maintain modular architecture:
+  - darkswap-sdk: Core functionality
+  - darkswap-cli: Command-line interface
+  - darkswap-daemon: Background service
+  - web: Web interface
+
+- Keep related code together:
+  - Group related functionality in modules
+  - Keep files focused on a single responsibility
+  - Use directories to organize code by feature
+
+## Git Workflow
+
+- Use descriptive commit messages:
+  - Start with a verb in imperative form
+  - Keep the first line under 50 characters
+  - Add details in the body if needed
+
+- Create feature branches for new features:
+  - Use the format `feature/feature-name`
+  - Keep branches focused on a single feature
+  - Merge back to main when complete
+
+- Create bugfix branches for bug fixes:
+  - Use the format `bugfix/bug-name`
+  - Keep branches focused on a single bug fix
+  - Merge back to main when complete
+
+## Documentation
+
+- Keep memory bank up to date:
+  - Update activeContext.md with current focus
+  - Update progress.md with current status
+  - Update systemPatterns.md with new patterns
+  - Update techContext.md with new technologies
+
+- Document public APIs:
+  - Add documentation comments for all public functions
+  - Include examples where appropriate
+  - Explain parameters and return values
+
+## Testing
+
+- Write tests for all functionality:
+  - Unit tests for individual functions
+  - Integration tests for components
+  - End-to-end tests for workflows
+
+- Maintain high test coverage:
+  - Aim for at least 80% code coverage
+  - Focus on testing critical paths
+  - Use mocks and stubs where appropriate
+
+## Performance
+
+- Optimize for performance:
+  - Use efficient data structures
+  - Avoid unnecessary allocations
+  - Use async/await for I/O operations
+
+- Optimize for memory usage:
+  - Avoid unnecessary clones
+  - Use references where appropriate
+  - Use Arc/Mutex for shared ownership
+
+## Security
+
+- Follow security best practices:
+  - Validate all inputs
+  - Use secure cryptographic primitives
+  - Avoid unsafe code unless necessary
+
+- Handle errors gracefully:
+  - Use Result and Option types
+  - Provide meaningful error messages
+  - Log errors for debugging
+
+## Dependencies
+
+- Minimize dependencies:
+  - Use standard library when possible
+  - Evaluate dependencies carefully
+  - Keep dependencies up to date
+
+- Use workspace dependencies:
+  - Define common dependencies in workspace
+  - Use consistent versions across crates
+
+## Build and Deployment
+
+- Use the build script:
+  - Build all components with `./build.sh --all`
+  - Build specific components as needed
+  - Use `--release` for production builds
+
+- Follow semantic versioning:
+  - Major version for breaking changes
+  - Minor version for new features
+  - Patch version for bug fixes
+
+## User Experience
+
+- Design for usability:
+  - Provide clear error messages
+  - Use consistent UI patterns
+  - Follow accessibility guidelines
+
+- Support multiple platforms:
+  - Desktop (Linux, macOS, Windows)
+  - Web browsers (Chrome, Firefox, Safari)
+  - Mobile browsers (iOS, Android)
+
+## Critical Implementation Paths
+
+- P2P networking:
+  - Use rust-libp2p with WebRTC support
+  - Implement circuit relay for NAT traversal
+  - Use GossipSub for orderbook distribution
+
+- Bitcoin integration:
+  - Use PSBTs for trade execution
+  - Implement wallet integration
+  - Support runes and alkanes
+
+- Orderbook management:
+  - Implement efficient data structures
+  - Support filtering and sorting
+  - Handle order expiry
+
+- Trade execution:
+  - Implement secure trade protocol
+  - Handle timeouts and errors
+  - Provide transaction validation
+
+## Known Challenges
+
+- NAT traversal:
+  - Use circuit relay and STUN/TURN
+  - Handle connection failures gracefully
+  - Provide fallback mechanisms
+
+- Browser compatibility:
+  - Use WebRTC for browser-to-browser communication
+  - Test on multiple browsers
+  - Provide fallback mechanisms
+
+- Transaction validation:
+  - Implement comprehensive validation
+  - Handle edge cases
+  - Provide clear error messages
+
+## Evolution of Project Decisions
+
+- Initial design:
+  - Based on PintSwap architecture
+  - Adapted for Bitcoin, runes, and alkanes
+  - Implemented in Rust for performance and safety
+
+- Current focus:
+  - Implementing core functionality
+  - Building reference documentation
+  - Setting up project structure
+
+- Future directions:
+  - Enhance P2P networking
+  - Improve trade execution
+  - Develop web interface

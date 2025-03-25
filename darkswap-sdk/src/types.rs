@@ -33,6 +33,14 @@ impl fmt::Display for OrderId {
     }
 }
 
+impl std::str::FromStr for OrderId {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(OrderId(s.to_string()))
+    }
+}
+
 /// Trade ID
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TradeId(pub String);
@@ -120,6 +128,26 @@ impl fmt::Display for Asset {
             Asset::Rune(id) => write!(f, "RUNE:{}", id),
             Asset::Alkane(id) => write!(f, "ALKANE:{}", id),
         }
+    }
+}
+
+impl std::str::FromStr for Asset {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if s == "BTC" {
+            return Ok(Asset::Bitcoin);
+        }
+
+        if let Some(id) = s.strip_prefix("RUNE:") {
+            return Ok(Asset::Rune(RuneId(id.to_string())));
+        }
+
+        if let Some(id) = s.strip_prefix("ALKANE:") {
+            return Ok(Asset::Alkane(AlkaneId(id.to_string())));
+        }
+
+        Err(crate::error::Error::InvalidAsset(s.to_string()))
     }
 }
 

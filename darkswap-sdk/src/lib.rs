@@ -21,15 +21,16 @@ use crate::error::{Error, Result};
 use crate::network::{Network, NetworkEvent};
 use crate::orderbook::{Order, OrderSide, OrderStatus, Orderbook};
 use crate::trade::{Trade, TradeStatus};
-use crate::types::{Asset, Event, OrderId, PeerId, RuneId, AlkaneId, TradeId};
+use crate::types::{Asset, OrderId, PeerId, RuneId, AlkaneId, TradeId};
+pub use crate::types::Event;
 use crate::bitcoin_utils::{BitcoinWallet, PsbtUtils, SimpleWallet};
 use crate::runes::{Rune, RuneTransfer, ThreadSafeRuneProtocol};
 use crate::alkanes::{Alkane, AlkaneTransfer, ThreadSafeAlkaneProtocol};
 
 use bitcoin::{Address, Network as BitcoinNetwork, OutPoint, Transaction, TxOut};
 use rust_decimal::Decimal;
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use std::sync::Arc;
+use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 /// DarkSwap SDK
@@ -174,8 +175,7 @@ impl DarkSwap {
         
         // Add order to orderbook
         {
-            let mut orderbook = self.orderbook.lock()
-                .map_err(|_| Error::OrderbookError("Failed to lock orderbook".to_string()))?;
+            let mut orderbook = self.orderbook.lock().await;
             orderbook.add_order(orderbook_order);
         }
 
@@ -196,8 +196,7 @@ impl DarkSwap {
 
         // Get order from orderbook
         let mut order = {
-            let mut orderbook = self.orderbook.lock()
-                .map_err(|_| Error::OrderbookError("Failed to lock orderbook".to_string()))?;
+            let mut orderbook = self.orderbook.lock().await;
             
             let order = orderbook.get_order(order_id)
                 .ok_or_else(|| Error::OrderNotFound(order_id.to_string()))?
@@ -239,8 +238,7 @@ impl DarkSwap {
 
         // Get order from orderbook
         let order = {
-            let orderbook = self.orderbook.lock()
-                .map_err(|_| Error::OrderbookError("Failed to lock orderbook".to_string()))?;
+            let orderbook = self.orderbook.lock().await;
             
             orderbook.get_order(order_id)
                 .ok_or_else(|| Error::OrderNotFound(order_id.to_string()))?
@@ -295,17 +293,15 @@ impl DarkSwap {
     }
 
     /// Get orders for a given asset pair
-    pub fn get_orders(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Vec<Order>> {
-        let orderbook = self.orderbook.lock()
-            .map_err(|_| Error::OrderbookError("Failed to lock orderbook".to_string()))?;
+    pub async fn get_orders(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Vec<Order>> {
+        let orderbook = self.orderbook.lock().await;
         
         Ok(orderbook.get_orders(base_asset, quote_asset))
     }
 
     /// Get the best bid and ask for a given asset pair
-    pub fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
-        let orderbook = self.orderbook.lock()
-            .map_err(|_| Error::OrderbookError("Failed to lock orderbook".to_string()))?;
+    pub async fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
+        let orderbook = self.orderbook.lock().await;
         
         Ok(orderbook.get_best_bid_ask(base_asset, quote_asset))
     }
