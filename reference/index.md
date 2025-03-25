@@ -5,14 +5,21 @@ This directory contains reference documentation for the DarkSwap project, a dece
 ## Overview Documents
 
 - [README.md](../README.md) - Project overview and getting started guide
+- [DarkSwap Reference Guide](darkswap-reference-guide.md) - Comprehensive reference guide for the DarkSwap project
 - [DarkSwap vs. PintSwap](darkswap-vs-pintswap.md) - Detailed comparison of DarkSwap and PintSwap architectures
 - [DarkSwap Architecture Analysis](darkswap-architecture-analysis.md) - Analysis of DarkSwap's architecture
 - [Core Functionality Analysis](core-functionality-analysis.md) - Analysis of DarkSwap's core functionality
 
 ## Implementation Guides
 
+- [DarkSwap Implementation Plan](darkswap-implementation-plan-detailed.md) - Detailed implementation plan for the DarkSwap project
+- [Runes and Alkanes Technical Implementation](runes-alkanes-technical-implementation.md) - Technical implementation plan for runes and alkanes support
 - [WebRTC Implementation Guide](webrtc-implementation-guide.md) - Guide for implementing WebRTC support in rust-libp2p
 - [Runes and Alkanes Implementation Plan](runes-alkanes-implementation-plan.md) - Plan for adding support for Bitcoin-based assets
+
+## Project Planning
+
+- [DarkSwap Project Roadmap](darkswap-project-roadmap.md) - Project roadmap with timeline and milestones
 
 ## Analysis Documents
 

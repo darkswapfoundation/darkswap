@@ -104,6 +104,11 @@ impl Order {
         self.amount * self.price
     }
 
+    /// Cancel the order
+    pub fn cancel(&mut self) {
+        self.status = OrderStatus::Canceled;
+    }
+
     /// Check if the order can be matched with another order
     pub fn can_match(&self, other: &Order) -> bool {
         // Orders must be for the same assets
@@ -214,6 +219,17 @@ impl Orderbook {
     /// Get an order by ID
     pub fn get_order(&self, order_id: &OrderId) -> Option<&Order> {
         self.orders.get(order_id)
+    }
+
+    /// Cancel an order by ID
+    pub fn cancel_order(&mut self, order_id: &OrderId) -> Result<()> {
+        let order = self.orders.get_mut(order_id)
+            .ok_or_else(|| Error::OrderNotFound(order_id.to_string()))?;
+        
+        // Update order status
+        order.status = OrderStatus::Canceled;
+        
+        Ok(())
     }
 
     /// Get all orders for a given asset pair

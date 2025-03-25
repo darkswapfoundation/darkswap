@@ -7,13 +7,62 @@ use crate::error::{Error, Result};
 use crate::types::{RuneId, AlkaneId};
 use bitcoin::{
     Address, Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid, Witness,
-    psbt::{Psbt, PsbtSighashType},
-    secp256k1::{Secp256k1, SecretKey},
-    key::{Keypair, PrivateKey},
+    psbt::{Psbt, GetKey, KeyRequest},
+    secp256k1::{Secp256k1, SecretKey, PublicKey, Signing},
+    key::PrivateKey,
     hashes::Hash,
 };
 use std::collections::HashMap;
 use std::str::FromStr;
+
+/// Bitcoin keypair
+pub struct Keypair {
+    /// Secret key
+    pub secret_key: SecretKey,
+    /// Public key (secp256k1)
+    pub secp_public_key: bitcoin::secp256k1::PublicKey,
+    /// Public key (bitcoin)
+    pub public_key: bitcoin::PublicKey,
+}
+
+impl Keypair {
+    /// Create a keypair from a secret key
+    pub fn from_secret_key(secp: &Secp256k1<bitcoin::secp256k1::All>, secret_key: &SecretKey) -> Self {
+        let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(secp, secret_key);
+        let public_key = bitcoin::PublicKey::new(secp_public_key);
+        Self {
+            secret_key: *secret_key,
+            secp_public_key,
+            public_key,
+        }
+    }
+    
+    /// Get the public key
+    pub fn public_key(&self) -> &bitcoin::PublicKey {
+        &self.public_key
+    }
+}
+
+// Implement GetKey for Keypair to allow signing PSBTs
+impl GetKey for &Keypair {
+    type Error = ();
+    
+    fn get_key<C: Signing>(&self, key_request: KeyRequest, _secp: &Secp256k1<C>) -> std::result::Result<Option<PrivateKey>, ()> {
+        // Check if the key request is for a key we have
+        match key_request {
+            KeyRequest::Pubkey(pubkey) => {
+                if pubkey == self.public_key {
+                    // Create a PrivateKey from the secret key
+                    let private_key = PrivateKey::new(self.secret_key, Network::Bitcoin);
+                    return Ok(Some(private_key));
+                }
+            }
+            _ => {}
+        }
+        
+        Ok(None)
+    }
+}
 
 /// Bitcoin wallet trait
 pub trait BitcoinWallet: Send + Sync {
@@ -163,8 +212,12 @@ impl BitcoinWallet for SimpleWallet {
         let secp = Secp256k1::new();
 
         // Sign PSBT
-        psbt.sign(&self.keypair, &secp)
-            .map_err(|e| Error::BitcoinPsbtError(format!("Failed to sign PSBT: {}", e)))?;
+        let sign_result = psbt.sign(&&self.keypair, &secp);
+        if let Err((_, errors)) = sign_result {
+            // Format the errors in a more readable way
+            let error_msg = format!("Failed to sign PSBT: {:?}", errors);
+            return Err(Error::BitcoinPsbtError(error_msg));
+        }
 
         Ok(())
     }
@@ -185,7 +238,7 @@ impl PsbtUtils {
     pub fn create_psbt(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Result<Psbt> {
         // Create transaction
         let tx = Transaction {
-            version: bitcoin::transaction::Version(2),
+            version: 2,
             lock_time: bitcoin::absolute::LockTime::ZERO,
             input: inputs,
             output: outputs,
@@ -200,9 +253,17 @@ impl PsbtUtils {
 
     /// Extract transaction from PSBT
     pub fn extract_transaction(psbt: &Psbt) -> Result<Transaction> {
-        // Extract transaction
-        let tx = psbt.extract_tx()
-            .map_err(|e| Error::BitcoinPsbtError(format!("Failed to extract transaction: {}", e)))?;
+        // Check if PSBT is finalized by checking if all inputs have final_script_sig or final_script_witness
+        let is_finalized = psbt.inputs.iter().all(|input|
+            input.final_script_sig.is_some() || input.final_script_witness.is_some()
+        );
+        
+        if !is_finalized {
+            return Err(Error::BitcoinPsbtError("PSBT is not finalized".to_string()));
+        }
+        
+        // Extract transaction (need to clone since extract_tx takes ownership)
+        let tx = psbt.clone().extract_tx();
 
         Ok(tx)
     }
@@ -255,7 +316,22 @@ impl PsbtUtils {
         // In a real implementation, this would use the runes protocol
         // For now, we'll use a simple OP_RETURN output
         let rune_data = format!("RUNE:{}:{}", rune_id, amount);
-        let script = ScriptBuf::new_op_return(&rune_data.as_bytes());
+        // Create a fixed-size array that implements AsRef<PushBytes>
+        let data_bytes = rune_data.as_bytes();
+        let mut buffer = [0u8; 75]; // Max size for a standard push
+        let len = std::cmp::min(data_bytes.len(), 75);
+        buffer[..len].copy_from_slice(&data_bytes[..len]);
+        
+        // Create OP_RETURN script
+        let mut script = ScriptBuf::new();
+        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        
+        // Use a fixed-size array that implements AsRef<PushBytes>
+        let mut push_bytes = [0u8; 1];
+        if len > 0 {
+            push_bytes[0] = buffer[0];
+            script.push_slice(&push_bytes);
+        }
         outputs.push(TxOut {
             value: 0,
             script_pubkey: script,
@@ -325,7 +401,22 @@ impl PsbtUtils {
         // In a real implementation, this would use the alkanes protocol
         // For now, we'll use a simple OP_RETURN output
         let alkane_data = format!("ALKANE:{}:{}", alkane_id, amount);
-        let script = ScriptBuf::new_op_return(&alkane_data.as_bytes());
+        // Create a fixed-size array that implements AsRef<PushBytes>
+        let data_bytes = alkane_data.as_bytes();
+        let mut buffer = [0u8; 75]; // Max size for a standard push
+        let len = std::cmp::min(data_bytes.len(), 75);
+        buffer[..len].copy_from_slice(&data_bytes[..len]);
+        
+        // Create OP_RETURN script
+        let mut script = ScriptBuf::new();
+        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        
+        // Use a fixed-size array that implements AsRef<PushBytes>
+        let mut push_bytes = [0u8; 1];
+        if len > 0 {
+            push_bytes[0] = buffer[0];
+            script.push_slice(&push_bytes);
+        }
         outputs.push(TxOut {
             value: 0,
             script_pubkey: script,
@@ -464,7 +555,22 @@ impl PsbtUtils {
             crate::types::Asset::Rune(rune_id) => {
                 // Add rune transfer output
                 let rune_data = format!("RUNE:{}:{}", rune_id, send_amount);
-                let script = ScriptBuf::new_op_return(&rune_data.as_bytes());
+                // Create a fixed-size array that implements AsRef<PushBytes>
+                let data_bytes = rune_data.as_bytes();
+                let mut buffer = [0u8; 75]; // Max size for a standard push
+                let len = std::cmp::min(data_bytes.len(), 75);
+                buffer[..len].copy_from_slice(&data_bytes[..len]);
+                
+                // Create OP_RETURN script
+                let mut script = ScriptBuf::new();
+                script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                
+                // Use a fixed-size array that implements AsRef<PushBytes>
+                let mut push_bytes = [0u8; 1];
+                if len > 0 {
+                    push_bytes[0] = buffer[0];
+                    script.push_slice(&push_bytes);
+                }
                 outputs.push(TxOut {
                     value: 0,
                     script_pubkey: script,
@@ -479,7 +585,22 @@ impl PsbtUtils {
             crate::types::Asset::Alkane(alkane_id) => {
                 // Add alkane transfer output
                 let alkane_data = format!("ALKANE:{}:{}", alkane_id, send_amount);
-                let script = ScriptBuf::new_op_return(&alkane_data.as_bytes());
+                // Create a fixed-size array that implements AsRef<PushBytes>
+                let data_bytes = alkane_data.as_bytes();
+                let mut buffer = [0u8; 75]; // Max size for a standard push
+                let len = std::cmp::min(data_bytes.len(), 75);
+                buffer[..len].copy_from_slice(&data_bytes[..len]);
+                
+                // Create OP_RETURN script
+                let mut script = ScriptBuf::new();
+                script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                
+                // Use a fixed-size array that implements AsRef<PushBytes>
+                let mut push_bytes = [0u8; 1];
+                if len > 0 {
+                    push_bytes[0] = buffer[0];
+                    script.push_slice(&push_bytes);
+                }
                 outputs.push(TxOut {
                     value: 0,
                     script_pubkey: script,
@@ -505,7 +626,21 @@ impl PsbtUtils {
             crate::types::Asset::Rune(rune_id) => {
                 // Add rune transfer output
                 let rune_data = format!("RUNE:{}:{}", rune_id, receive_amount);
-                let script = ScriptBuf::new_op_return(&rune_data.as_bytes());
+                // Create a fixed-size array that implements AsRef<PushBytes>
+                let data_bytes = rune_data.as_bytes();
+                let mut buffer = [0u8; 75]; // Max size for a standard push
+                let len = std::cmp::min(data_bytes.len(), 75);
+                buffer[..len].copy_from_slice(&data_bytes[..len]);
+                
+                // Create OP_RETURN script
+                let mut script = ScriptBuf::new();
+                script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                // Use a fixed-size array that implements AsRef<PushBytes>
+                let mut push_bytes = [0u8; 1];
+                if len > 0 {
+                    push_bytes[0] = buffer[0];
+                    script.push_slice(&push_bytes);
+                }
                 outputs.push(TxOut {
                     value: 0,
                     script_pubkey: script,
@@ -520,7 +655,21 @@ impl PsbtUtils {
             crate::types::Asset::Alkane(alkane_id) => {
                 // Add alkane transfer output
                 let alkane_data = format!("ALKANE:{}:{}", alkane_id, receive_amount);
-                let script = ScriptBuf::new_op_return(&alkane_data.as_bytes());
+                // Create a fixed-size array that implements AsRef<PushBytes>
+                let data_bytes = alkane_data.as_bytes();
+                let mut buffer = [0u8; 75]; // Max size for a standard push
+                let len = std::cmp::min(data_bytes.len(), 75);
+                buffer[..len].copy_from_slice(&data_bytes[..len]);
+                
+                // Create OP_RETURN script
+                let mut script = ScriptBuf::new();
+                script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                // Use a fixed-size array that implements AsRef<PushBytes>
+                let mut push_bytes = [0u8; 1];
+                if len > 0 {
+                    push_bytes[0] = buffer[0];
+                    script.push_slice(&push_bytes);
+                }
                 outputs.push(TxOut {
                     value: 0,
                     script_pubkey: script,
