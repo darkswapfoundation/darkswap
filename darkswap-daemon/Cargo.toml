@@ -18,10 +18,13 @@ clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 
 # HTTP server
-axum = "0.6"
+axum = { version = "0.6", features = ["macros"] }
 tower = "0.4"
 tower-http = { version = "0.4", features = ["cors", "trace"] }
 hyper = "0.14"
+tokio-stream = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = "0.4"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -42,6 +45,7 @@ bitcoin = { version = "0.30", features = ["rand", "serde"] }
 rust_decimal = { version = "1.30", features = ["serde"] }
 hex = "0.4"
 async-stream = "0.3"
+futures-util = "0.3"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
