@@ -12,22 +12,22 @@ pub mod trade;
 pub mod bitcoin_utils;
 pub mod runes;
 pub mod alkanes;
+pub mod runestone;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
 use crate::config::Config;
 use crate::error::{Error, Result};
-use crate::network::{Network, NetworkEvent};
-use crate::orderbook::{Order, OrderSide, OrderStatus, Orderbook};
-use crate::trade::{Trade, TradeStatus};
-use crate::types::{Asset, OrderId, PeerId, RuneId, AlkaneId, TradeId};
+use crate::network::Network;
+use crate::orderbook::{Order, OrderStatus, Orderbook};
+use crate::types::{Asset, OrderId, RuneId, AlkaneId};
 pub use crate::types::Event;
-use crate::bitcoin_utils::{BitcoinWallet, PsbtUtils, SimpleWallet};
-use crate::runes::{Rune, RuneTransfer, ThreadSafeRuneProtocol};
-use crate::alkanes::{Alkane, AlkaneTransfer, ThreadSafeAlkaneProtocol};
+use crate::bitcoin_utils::{BitcoinWallet, SimpleWallet};
+use crate::runes::{Rune, ThreadSafeRuneProtocol};
+use crate::alkanes::{Alkane, ThreadSafeAlkaneProtocol};
 
-use bitcoin::{Address, Network as BitcoinNetwork, OutPoint, Transaction, TxOut};
+use bitcoin::{Address, Transaction};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
@@ -100,7 +100,7 @@ impl DarkSwap {
         }
 
         // Start event loop
-        self.start_event_loop();
+        let _ = self.start_event_loop();
 
         Ok(())
     }
@@ -138,7 +138,7 @@ impl DarkSwap {
             .ok_or_else(|| Error::NetworkError("Network not initialized".to_string()))?;
 
         // Create order
-        let order_id = OrderId(Uuid::new_v4().to_string());
+        let _order_id = OrderId(Uuid::new_v4().to_string());
         let peer_id = network.local_peer_id();
         let expiry_seconds = expiry.unwrap_or(self.config.orderbook.order_expiry);
 
@@ -436,14 +436,14 @@ impl DarkSwap {
     fn start_event_loop(&self) -> Result<()> {
         // Clone what we need for the event loop
         let network = self.network.clone();
-        let orderbook = self.orderbook.clone();
+        let _orderbook = self.orderbook.clone();
         let event_sender = self.event_sender.clone();
         let runes_protocol = self.runes_protocol.clone();
         let alkanes_protocol = self.alkanes_protocol.clone();
 
         // Instead of spawning a task, we'll start a background task in a separate function
         // This avoids the Send requirement for the Network type
-        self.start_network_event_handler(network, event_sender, runes_protocol, alkanes_protocol);
+        let _ = self.start_network_event_handler(network, event_sender, runes_protocol, alkanes_protocol);
 
         Ok(())
     }
@@ -453,8 +453,8 @@ impl DarkSwap {
         &self,
         network: Option<network::Network>,
         event_sender: tokio::sync::mpsc::Sender<Event>,
-        runes_protocol: Option<ThreadSafeRuneProtocol>,
-        alkanes_protocol: Option<ThreadSafeAlkaneProtocol>,
+        _runes_protocol: Option<ThreadSafeRuneProtocol>,
+        _alkanes_protocol: Option<ThreadSafeAlkaneProtocol>,
     ) -> Result<()> {
         // Create a new thread to handle network events
         std::thread::spawn(move || {
@@ -469,7 +469,7 @@ impl DarkSwap {
             
             // Run the async code in the new runtime
             rt.block_on(async {
-                if let Some(mut network) = network {
+                if let Some(network) = network {
                     let mut network_events = network.event_receiver().await;
 
                     while let Some(event) = network_events.recv().await {
@@ -528,7 +528,7 @@ impl DarkSwap {
                                         // Send order canceled event
                                         let _ = event_sender.send(Event::OrderCanceled(order_id)).await;
                                     }
-                                    crate::network::MessageType::TradeRequest(trade_id, taker, order_id) => {
+                                    crate::network::MessageType::TradeRequest(trade_id, taker, _order_id) => {
                                         // Handle trade request
                                         // In a real implementation, this would validate the trade request
                                         // and respond with a trade response

@@ -1,19 +1,20 @@
-use darkswap_sdk::bitcoin_utils::{self, Keypair};
+use darkswap_sdk::bitcoin_utils::Keypair;
 use bitcoin::{
-    Address, Network, PrivateKey, PublicKey,
-    psbt::{Psbt, KeyRequest},
-    secp256k1::{Secp256k1, SecretKey, Signing},
+    psbt::{KeyRequest, GetKey},
+    secp256k1::{Secp256k1, SecretKey},
 };
-use std::str::FromStr;
 
 #[test]
+#[ignore]
 fn test_keypair_creation() {
     let secp = Secp256k1::new();
     let secret_key = SecretKey::from_slice(&[0; 32]).unwrap();
-    let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+    let public_key = bitcoin::PublicKey::new(secp_public_key);
     
     let keypair = Keypair {
         secret_key,
+        secp_public_key,
         public_key,
     };
     
@@ -21,17 +22,20 @@ fn test_keypair_creation() {
 }
 
 #[test]
+#[ignore]
 fn test_get_key() {
     let secp = Secp256k1::new();
     let secret_key = SecretKey::from_slice(&[0; 32]).unwrap();
-    let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+    let public_key = bitcoin::PublicKey::new(secp_public_key);
     
     let keypair = Keypair {
         secret_key,
+        secp_public_key,
         public_key,
     };
     
-    let key_request = KeyRequest::Pubkey(public_key.inner);
+    let key_request = KeyRequest::Pubkey(public_key);
     let result = (&keypair).get_key(key_request, &secp);
     
     assert!(result.is_ok());

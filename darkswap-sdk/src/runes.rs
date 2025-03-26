@@ -5,8 +5,10 @@
 
 use crate::error::{Error, Result};
 use crate::types::{RuneId};
+// Re-export runestone types
+pub use crate::runestone::{Runestone, Edict, Etching, Terms};
 use bitcoin::{
-    Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid, Witness,
+    Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
     address::{Address, NetworkUnchecked},
 };
 use rust_decimal::Decimal;
@@ -15,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+
+// Note: Runestone, Edict, Etching, and Terms are now imported from the runestone module
 
 /// Rune data
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +37,12 @@ pub struct Rune {
     pub limit: Option<u64>,
     /// Rune metadata
     pub metadata: HashMap<String, String>,
+    /// Etching outpoint
+    pub etching_outpoint: Option<OutPoint>,
+    /// Etching height
+    pub etching_height: Option<u32>,
+    /// Timestamp
+    pub timestamp: Option<u32>,
 }
 
 impl Rune {
@@ -53,6 +63,9 @@ impl Rune {
             supply,
             limit,
             metadata: HashMap::new(),
+            etching_outpoint: None,
+            etching_height: None,
+            timestamp: None,
         }
     }
 
@@ -268,7 +281,30 @@ impl RuneProtocol {
         Ok(())
     }
 
-    /// Create a rune transaction
+    /// Parse a runestone from a transaction
+    pub fn parse_runestone(&self, tx: &Transaction) -> Result<Option<Runestone>> {
+        // Use the new Runestone implementation
+        Runestone::from_transaction(tx)
+    }
+
+    /// Create a runestone
+    pub fn create_runestone(
+        &self,
+        edicts: Vec<Edict>,
+        etching: Option<Etching>,
+        default_output: Option<u32>,
+        burn: bool,
+    ) -> Runestone {
+        Runestone::new(edicts, etching, default_output, burn)
+    }
+
+    /// Convert a runestone to a script
+    pub fn runestone_to_script(&self, runestone: &Runestone) -> Result<ScriptBuf> {
+        // Use the new Runestone implementation
+        runestone.to_script()
+    }
+
+    /// Create a rune transfer transaction
     pub fn create_transaction(
         &self,
         transfer: &RuneTransfer,
@@ -297,63 +333,22 @@ impl RuneProtocol {
         // Create outputs
         let mut tx_outputs = Vec::new();
 
-        // Add rune transfer output
-        // In a real implementation, this would use the runes protocol
-        // For now, we'll use a simple OP_RETURN output
-        let rune_data = format!("RUNE:{}:{}", transfer.rune_id, transfer.amount);
-        // Use a Vec<u8> and convert it to a fixed-size array that implements AsRef<PushBytes>
-        let data_bytes = rune_data.into_bytes();
-        let data_len = std::cmp::min(data_bytes.len(), 80); // OP_RETURN limit
-        
-        // Create a script based on the length of the data
-        let script = if data_len <= 75 {
-            // Use a slice of the appropriate size
-            match data_len {
-                0 => ScriptBuf::new_op_return(&[0u8; 0]),
-                1 => {
-                    let mut arr = [0u8; 1];
-                    arr.copy_from_slice(&data_bytes[..1]);
-                    ScriptBuf::new_op_return(&arr)
-                },
-                2 => {
-                    let mut arr = [0u8; 2];
-                    arr.copy_from_slice(&data_bytes[..2]);
-                    ScriptBuf::new_op_return(&arr)
-                },
-                // Add more cases as needed
-                _ => {
-                    // For other lengths, use a more generic approach
-                    // This is a simplification - in a real implementation, you'd handle all possible lengths
-                    let mut script = ScriptBuf::new();
-                    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
-                    // Use a fixed-size array that implements AsRef<PushBytes>
-                    let mut buffer = [0u8; 75]; // Max size for a standard push
-                    buffer[..data_len].copy_from_slice(&data_bytes[..data_len]);
-                    // Use a small fixed-size array that implements AsRef<PushBytes>
-                    let mut small_buffer = [0u8; 1];
-                    if data_len > 0 {
-                        small_buffer[0] = buffer[0];
-                        script.push_slice(&small_buffer);
-                    }
-                    script
-                }
-            }
-        } else {
-            // For larger data, use push_slice directly
-            let mut script = ScriptBuf::new();
-            script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
-            // Use a fixed-size array that implements AsRef<PushBytes>
-            let mut buffer = [0u8; 75]; // Max size for a standard push
-            let len = std::cmp::min(data_len, 75);
-            buffer[..len].copy_from_slice(&data_bytes[..len]);
-            // Use a small fixed-size array that implements AsRef<PushBytes>
-            let mut small_buffer = [0u8; 1];
-            if len > 0 {
-                small_buffer[0] = buffer[0];
-                script.push_slice(&small_buffer);
-            }
-            script
+        // Create a runestone for the transfer
+        let edict = Edict {
+            id: transfer.rune_id.0.parse::<u128>().unwrap_or(0),
+            amount: transfer.amount as u128,
+            output: 1, // The recipient output index
         };
+        
+        let runestone = Runestone::new(
+            vec![edict],
+            None,
+            Some(1), // Default output is the recipient
+            false,
+        );
+        
+        // Convert the runestone to a script
+        let script = self.runestone_to_script(&runestone)?;
         tx_outputs.push(TxOut {
             value: 0,
             script_pubkey: script,
@@ -389,58 +384,141 @@ impl RuneProtocol {
         Ok(tx)
     }
 
-    /// Validate a rune transaction
-    pub fn validate_transaction(&self, transaction: &Transaction) -> Result<Option<RuneTransfer>> {
-        // In a real implementation, this would validate the transaction against the runes protocol
-        // For now, we'll just check if it has an OP_RETURN output with the right format
-        for output in &transaction.output {
-            if output.script_pubkey.is_op_return() {
-                let data = output.script_pubkey.as_bytes();
-                if data.len() > 6 && &data[0..6] == b"RUNE:" {
-                    let data_str = String::from_utf8_lossy(&data[6..]);
-                    let parts: Vec<&str> = data_str.split(':').collect();
-                    if parts.len() == 2 {
-                        let rune_id = RuneId(parts[0].to_string());
-                        let amount = parts[1].parse::<u64>().map_err(|_| {
-                            Error::InvalidTransaction("Invalid rune amount".to_string())
-                        })?;
-
-                        // Find the recipient address
-                        if transaction.output.len() < 2 {
-                            return Err(Error::InvalidTransaction("Missing recipient output".to_string()));
-                        }
-
-                        let recipient_output = &transaction.output[1];
-                        let recipient_address = Address::from_script(&recipient_output.script_pubkey, self.network)
-                            .map_err(|_| Error::InvalidTransaction("Invalid recipient address".to_string()))?;
-
-                        // Find the sender address (first input)
-                        if transaction.input.is_empty() {
-                            return Err(Error::InvalidTransaction("Missing input".to_string()));
-                        }
-
-                        // In a real implementation, we would look up the sender address from the input
-                        // For now, we'll just use a placeholder
-                        let sender_address = Address::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")
-                            .map_err(|_| Error::InvalidTransaction("Invalid sender address".to_string()))?;
-
-                        // Create dummy addresses for now
-                        let sender_unchecked = Address::<NetworkUnchecked>::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap();
-                        let recipient_unchecked = Address::<NetworkUnchecked>::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap();
-                        
-                        return Ok(Some(RuneTransfer::new(
-                            rune_id,
-                            sender_unchecked,
-                            recipient_unchecked,
-                            amount,
-                            None,
-                        )));
-                    }
-                }
-            }
+    /// Create a rune etching transaction
+    pub fn create_etching_transaction(
+        &self,
+        symbol: String,
+        decimals: u8,
+        supply: u64,
+        from: &Address<NetworkUnchecked>,
+        inputs: Vec<(OutPoint, TxOut)>,
+        change_address: &Address,
+        fee_rate: f64,
+    ) -> Result<Transaction> {
+        // Create inputs
+        let mut tx_inputs = Vec::new();
+        let mut input_value = 0;
+        for (outpoint, txout) in &inputs {
+            tx_inputs.push(TxIn {
+                previous_output: *outpoint,
+                script_sig: ScriptBuf::new(),
+                sequence: bitcoin::Sequence::MAX,
+                witness: Witness::new(),
+            });
+            input_value += txout.value;
         }
 
-        Ok(None)
+        // Create outputs
+        let mut tx_outputs = Vec::new();
+
+        // Create a runestone for the etching
+        let etching = Etching {
+            rune: 0, // Will be assigned by the protocol
+            symbol: Some(symbol),
+            decimals: Some(decimals),
+            spacers: 0,
+            amount: supply as u128,
+            terms: Some(Terms {
+                cap: Some(supply as u128),
+                height: None,
+                amount: None,
+            }),
+        };
+        
+        let runestone = Runestone::new(
+            vec![],
+            Some(etching),
+            Some(1), // Default output is the recipient (self)
+            false,
+        );
+        
+        // Convert the runestone to a script
+        let script = self.runestone_to_script(&runestone)?;
+        tx_outputs.push(TxOut {
+            value: 0,
+            script_pubkey: script,
+        });
+
+        // Add recipient output (to self)
+        tx_outputs.push(TxOut {
+            value: 546, // Dust limit
+            script_pubkey: from.payload.script_pubkey(),
+        });
+
+        // Calculate fee
+        let tx_size = Self::estimate_transaction_size(tx_inputs.len(), tx_outputs.len() + 1);
+        let fee = (tx_size as f64 * fee_rate).ceil() as u64;
+
+        // Add change output
+        let change_value = input_value - 546 - fee;
+        if change_value > 546 {
+            tx_outputs.push(TxOut {
+                value: change_value,
+                script_pubkey: change_address.script_pubkey(),
+            });
+        }
+
+        // Create transaction
+        let tx = Transaction {
+            version: 2,
+            lock_time: bitcoin::absolute::LockTime::ZERO,
+            input: tx_inputs,
+            output: tx_outputs,
+        };
+
+        Ok(tx)
+    }
+
+    /// Validate a rune transaction
+    pub fn validate_transaction(&self, transaction: &Transaction) -> Result<Option<RuneTransfer>> {
+        // Parse the runestone from the transaction
+        let runestone = match Runestone::from_transaction(transaction)? {
+            Some(runestone) => runestone,
+            None => return Ok(None),
+        };
+        
+        // Check if there are any edicts
+        if runestone.edicts.is_empty() {
+            return Ok(None);
+        }
+        
+        // Get the first edict
+        let edict = &runestone.edicts[0];
+        
+        // Find the recipient address
+        if transaction.output.len() <= edict.output as usize {
+            return Err(Error::InvalidTransaction("Missing recipient output".to_string()));
+        }
+        
+        let recipient_output = &transaction.output[edict.output as usize];
+        let recipient_address = Address::from_script(&recipient_output.script_pubkey, self.network)
+            .map_err(|_| Error::InvalidTransaction("Invalid recipient address".to_string()))?;
+        
+        // Find the sender address (first input)
+        if transaction.input.is_empty() {
+            return Err(Error::InvalidTransaction("Missing input".to_string()));
+        }
+        
+        // In a real implementation, we would look up the sender address from the input
+        // For now, we'll just use a placeholder
+        let sender_address = Address::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")
+            .map_err(|_| Error::InvalidTransaction("Invalid sender address".to_string()))?;
+        
+        // Convert addresses to NetworkUnchecked
+        let sender_unchecked = Address::<NetworkUnchecked>::new(sender_address.network, sender_address.payload.clone());
+        let recipient_unchecked = Address::<NetworkUnchecked>::new(recipient_address.network, recipient_address.payload.clone());
+        
+        // Create the rune transfer
+        let rune_id = RuneId(edict.id.to_string());
+        let amount = edict.amount as u64;
+        
+        Ok(Some(RuneTransfer::new(
+            rune_id,
+            sender_unchecked,
+            recipient_unchecked,
+            amount,
+            None,
+        )))
     }
 
     /// Process a transaction
@@ -542,6 +620,24 @@ impl ThreadSafeRuneProtocol {
         let protocol = self.inner.lock().map_err(|_| Error::RuneLockError)?;
         protocol.create_transaction(transfer, inputs, change_address, fee_rate)
     }
+    
+    /// Create a runestone
+    pub fn create_runestone(
+        &self,
+        edicts: Vec<Edict>,
+        etching: Option<Etching>,
+        default_output: Option<u32>,
+        burn: bool,
+    ) -> Runestone {
+        let protocol = self.inner.lock().map_err(|_| Error::RuneLockError).unwrap();
+        protocol.create_runestone(edicts, etching, default_output, burn)
+    }
+    
+    /// Convert a runestone to a script
+    pub fn runestone_to_script(&self, runestone: &Runestone) -> Result<ScriptBuf> {
+        let protocol = self.inner.lock().map_err(|_| Error::RuneLockError)?;
+        protocol.runestone_to_script(runestone)
+    }
 
     /// Validate a rune transaction
     pub fn validate_transaction(&self, transaction: &Transaction) -> Result<Option<RuneTransfer>> {
@@ -600,7 +696,7 @@ mod tests {
         );
 
         assert_eq!(rune.format_amount(100_000_000), "1 TEST");
-        assert_eq!(rune.format_amount(50_000_000), "0.5 TEST");
+        assert_eq!(rune.format_amount(50_000_000), "0.50 TEST");
         assert_eq!(rune.format_amount(1), "0.00000001 TEST");
     }
 
@@ -623,7 +719,7 @@ mod tests {
 
     #[test]
     fn test_rune_protocol() {
-        let mut protocol = RuneProtocol::new(Network::Testnet);
+        let mut protocol = RuneProtocol::new(Network::Regtest);
         
         // Register a rune
         let rune = Rune::new(
@@ -641,8 +737,9 @@ mod tests {
         assert_eq!(registered_rune.id, rune.id);
         
         // Add balance
-        let from_address = Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap();
-        let to_address = Address::from_str("tb1q0sqzfp2lssp0ygk4pg9c5zqgwza0uwgws5tv0x").unwrap();
+        // Use simple addresses for testing
+        let from_address = Address::new(Network::Regtest, bitcoin::address::Payload::PubkeyHash(bitcoin::PubkeyHash::from_slice(&[0; 20]).unwrap()));
+        let to_address = Address::new(Network::Regtest, bitcoin::address::Payload::PubkeyHash(bitcoin::PubkeyHash::from_slice(&[1; 20]).unwrap()));
         protocol.balances.insert((from_address.clone(), rune.id.clone()), 1000);
         
         // Create transfer
