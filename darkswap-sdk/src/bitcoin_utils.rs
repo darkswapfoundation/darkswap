@@ -11,6 +11,7 @@ use bitcoin::{
     secp256k1::{Secp256k1, SecretKey, PublicKey, Signing},
     key::PrivateKey,
     hashes::Hash,
+    address::NetworkUnchecked,
 };
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -228,6 +229,53 @@ impl BitcoinWallet for SimpleWallet {
         // For now, we'll just return the transaction ID
         Ok(tx.txid())
     }
+}
+
+/// Generate a valid Bech32 address for testing with NetworkUnchecked
+pub fn generate_test_address_unchecked(network: Network, seed: u8) -> Result<Address<NetworkUnchecked>> {
+    // Create secp256k1 context
+    let secp = Secp256k1::new();
+
+    // Generate deterministic keypair from seed
+    let mut seed_bytes = [0u8; 32];
+    seed_bytes[0] = seed;
+    
+    let secret_key = SecretKey::from_slice(&seed_bytes)
+        .map_err(|e| Error::BitcoinError(format!("Invalid secret key: {}", e)))?;
+    
+    let keypair = Keypair::from_secret_key(&secp, &secret_key);
+
+    // Create address
+    let address = Address::p2wpkh(&keypair.public_key(), network)
+        .map_err(|e| Error::BitcoinAddressError(e.to_string()))?;
+    
+    // Convert to NetworkUnchecked address
+    let address_str = address.to_string();
+    let unchecked_address = Address::<NetworkUnchecked>::from_str(&address_str)
+        .map_err(|e| Error::BitcoinAddressError(format!("Invalid address: {}", e)))?;
+
+    Ok(unchecked_address)
+}
+
+/// Generate a valid Bech32 address for testing
+pub fn generate_test_address(network: Network, seed: u8) -> Result<Address> {
+    // Create secp256k1 context
+    let secp = Secp256k1::new();
+
+    // Generate deterministic keypair from seed
+    let mut seed_bytes = [0u8; 32];
+    seed_bytes[0] = seed;
+    
+    let secret_key = SecretKey::from_slice(&seed_bytes)
+        .map_err(|e| Error::BitcoinError(format!("Invalid secret key: {}", e)))?;
+    
+    let keypair = Keypair::from_secret_key(&secp, &secret_key);
+
+    // Create address
+    let address = Address::p2wpkh(&keypair.public_key(), network)
+        .map_err(|e| Error::BitcoinAddressError(e.to_string()))?;
+
+    Ok(address)
 }
 
 /// PSBT utilities

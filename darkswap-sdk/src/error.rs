@@ -97,6 +97,10 @@ pub enum Error {
     /// Trade lock error
     #[error("Trade lock error")]
     TradeLockError,
+    
+    /// Invalid runestone
+    #[error("Invalid runestone: {0}")]
+    InvalidRunestone(String),
 
     /// Orderbook lock error
     #[error("Orderbook lock error")]
@@ -189,3 +193,6 @@ impl From<libp2p::swarm::ConnectionDenied> for Error {
         Error::NetworkError(format!("Connection denied: {:?}", error))
     }
 }
+
+// Note: We don't need to implement From<std::io::Error> for Error
+// because it's already implemented by the thiserror derive macro

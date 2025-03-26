@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand};
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
     types::{Asset, RuneId, AlkaneId},
-    orderbook::{OrderSide, OrderStatus},
+    orderbook::{Order, OrderSide, OrderStatus},
     DarkSwap, Event,
 };
 use rust_decimal::Decimal;
@@ -350,7 +350,7 @@ async fn list_orders(
     let orders = if let (Some(base_asset_str), Some(quote_asset_str)) = (base_asset_str, quote_asset_str) {
         let base_asset = parse_asset(base_asset_str)?;
         let quote_asset = parse_asset(quote_asset_str)?;
-        darkswap.get_orders(&base_asset, &quote_asset)?
+        darkswap.get_orders(&base_asset, &quote_asset).await?
     } else {
         // TODO: Get all orders
         vec![]
@@ -423,7 +423,7 @@ async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: 
     darkswap.start().await?;
 
     // Get best bid and ask
-    let (bid, ask) = darkswap.get_best_bid_ask(&base_asset, &quote_asset)?;
+    let (bid, ask) = darkswap.get_best_bid_ask(&base_asset, &quote_asset).await?;
 
     // Print market data
     println!("Market data for {}/{}", base_asset, quote_asset);
@@ -442,11 +442,11 @@ async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: 
 
 /// Connect wallet
 async fn connect_wallet(
-    config: Config,
-    wallet_type: &str,
-    private_key: Option<&str>,
-    mnemonic: Option<&str>,
-    derivation_path: Option<&str>,
+    _config: Config,
+    _wallet_type: &str,
+    _private_key: Option<&str>,
+    _mnemonic: Option<&str>,
+    _derivation_path: Option<&str>,
 ) -> Result<()> {
     // TODO: Implement wallet connection
     println!("Wallet connection not implemented yet");

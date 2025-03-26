@@ -290,19 +290,19 @@ impl Clone for ThreadSafeTradeManager {
 /// PSBT builder for creating PSBTs for trades
 pub struct PsbtBuilder {
     /// Bitcoin network
-    network: bitcoin::Network,
+    _network: bitcoin::Network,
 }
 
 impl PsbtBuilder {
     /// Create a new PSBT builder
     pub fn new(network: bitcoin::Network) -> Self {
-        Self { network }
+        Self { _network: network }
     }
 
     /// Create a PSBT for a trade
     pub fn create_psbt(
         &self,
-        trade: &Trade,
+        _trade: &Trade,
         maker_inputs: Vec<(OutPoint, TxOut)>,
         maker_outputs: Vec<TxOut>,
         taker_inputs: Vec<(OutPoint, TxOut)>,
@@ -346,7 +346,7 @@ impl PsbtBuilder {
     }
 
     /// Verify a PSBT for a trade
-    pub fn verify_psbt(&self, trade: &Trade, psbt: &Psbt) -> Result<bool> {
+    pub fn verify_psbt(&self, _trade: &Trade, psbt: &Psbt) -> Result<bool> {
         // Verify that the PSBT is valid
         if psbt.inputs.is_empty() || psbt.outputs.is_empty() {
             return Ok(false);
@@ -370,7 +370,7 @@ impl PsbtBuilder {
     }
 
     /// Finalize a PSBT
-    pub fn finalize_psbt(&self, psbt: &mut Psbt) -> Result<()> {
+    pub fn finalize_psbt(&self, _psbt: &mut Psbt) -> Result<()> {
         // In a real implementation, we would finalize the PSBT by adding signatures
         // For now, we'll just return Ok
         Ok(())
