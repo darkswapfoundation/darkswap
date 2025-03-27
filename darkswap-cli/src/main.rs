@@ -126,10 +126,12 @@ fn parse_asset(asset_str: &str) -> Result<Asset> {
         Ok(Asset::Bitcoin)
     } else if asset_str.starts_with("RUNE:") {
         let id = asset_str.strip_prefix("RUNE:").unwrap();
-        Ok(Asset::Rune(RuneId(id.to_string())))
+        let id_num = id.parse::<u128>().map_err(|_| anyhow::anyhow!("Invalid rune ID: {}", id))?;
+        Ok(Asset::Rune(id_num))
     } else if asset_str.starts_with("ALKANE:") {
         let id = asset_str.strip_prefix("ALKANE:").unwrap();
-        Ok(Asset::Alkane(AlkaneId(id.to_string())))
+        let alkane_id = AlkaneId(format!("ALKANE:{}", id));
+        Ok(Asset::Alkane(alkane_id))
     } else {
         anyhow::bail!("Invalid asset: {}", asset_str)
     }

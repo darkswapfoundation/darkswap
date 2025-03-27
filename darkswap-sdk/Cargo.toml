@@ -27,7 +27,7 @@ libp2p-yamux = "0.44.0"
 libp2p-relay = "0.16.0"
 libp2p-quic = { version = "0.9.0", features = ["tokio"] }
 libp2p-dcutr = "0.9.0"
-libp2p-webrtc = { version = "0.9.0-alpha", optional = true }
+libp2p-webrtc = { version = "0.9.0-alpha", optional = true, features = ["tokio"] }
 libp2p-swarm-derive = "0.33.0"
 
 # Async
@@ -43,6 +43,9 @@ prost = "0.11.9"
 # Cryptography
 rand = "0.8.5"
 sha2 = "0.10.6"
+
+# Compression
+flate2 = "1.0.28"
 
 # Utilities
 rust_decimal = { version = "1.29.1", features = ["serde"] }

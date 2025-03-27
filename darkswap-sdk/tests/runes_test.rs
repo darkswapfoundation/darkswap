@@ -1,241 +1,474 @@
-use darkswap_sdk::runes::{Rune, RuneTransfer, RuneProtocol, Runestone, Edict, Etching};
-use darkswap_sdk::types::RuneId;
+use darkswap_sdk::runes::{Rune, RuneBalance, RuneTransfer, RuneProtocol, ThreadSafeRuneProtocol};
+use darkswap_sdk::runestone::{Runestone, Edict, Etching, Terms};
+use darkswap_sdk::error::{Error, Result};
 use bitcoin::{
-    Address, Network, OutPoint, TxOut,
     address::{NetworkUnchecked, NetworkChecked},
+    Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
+    hashes::Hash,
+    psbt::Psbt,
 };
+use darkswap_sdk::bitcoin_utils::{BitcoinWallet, SimpleWallet, generate_test_address_unchecked};
 use std::str::FromStr;
 
-#[test]
-fn test_rune_creation() {
-    let rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
-        8,
-        1_000_000,
-        Some(1_000_000),
-    );
+// Mock wallet for testing
+struct MockWallet {
+    network: Network,
+    address: bitcoin::Address,
+    utxos: Vec<(OutPoint, TxOut)>,
+}
 
-    assert_eq!(rune.id.0, "test_rune");
-    assert_eq!(rune.symbol, "TEST");
-    assert_eq!(rune.name, "Test Rune");
+impl MockWallet {
+    fn new(network: Network) -> Self {
+        let address = bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
+            .unwrap()
+            .require_network(network)
+            .unwrap();
+        
+        let outpoint = OutPoint {
+            txid: bitcoin::Txid::from_str("0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
+            vout: 0,
+        };
+        
+        let txout = TxOut {
+            value: 100_000_000, // 1 BTC
+            script_pubkey: address.script_pubkey(),
+        };
+        
+        Self {
+            network,
+            address,
+            utxos: vec![(outpoint, txout)],
+        }
+    }
+}
+
+impl BitcoinWallet for MockWallet {
+    fn network(&self) -> Network {
+        self.network
+    }
+    
+    fn get_address(&self, _index: u32) -> Result<bitcoin::Address> {
+        Ok(self.address.clone())
+    }
+    
+    fn get_addresses(&self) -> Result<Vec<bitcoin::Address>> {
+        Ok(vec![self.address.clone()])
+    }
+    
+    fn get_utxos(&self) -> Result<Vec<(OutPoint, TxOut)>> {
+        Ok(self.utxos.clone())
+    }
+    
+    fn sign_psbt(&self, _psbt: &mut Psbt) -> Result<()> {
+        // Mock implementation
+        Ok(())
+    }
+    
+    fn broadcast_transaction(&self, tx: &Transaction) -> Result<bitcoin::Txid> {
+        // Mock implementation
+        Ok(tx.txid())
+    }
+}
+
+#[test]
+fn test_rune_creation() -> Result<()> {
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
+    let rune = Rune::new(
+        123456789,
+        Some("TEST".to_string()),
+        8,
+        21000000,
+        0,
+        outpoint,
+        0,
+    );
+    
+    assert_eq!(rune.id, 123456789);
+    assert_eq!(rune.symbol, Some("TEST".to_string()));
     assert_eq!(rune.decimals, 8);
-    assert_eq!(rune.supply, 1_000_000);
-    assert_eq!(rune.limit, Some(1_000_000));
-    assert!(rune.etching_outpoint.is_none());
-    assert!(rune.etching_height.is_none());
-    assert!(rune.timestamp.is_none());
+    assert_eq!(rune.supply, 21000000);
+    
+    Ok(())
 }
 
 #[test]
-fn test_rune_format_amount() {
+fn test_rune_format_amount() -> Result<()> {
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
     let rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        123456789,
+        Some("TEST".to_string()),
         8,
-        1_000_000,
-        Some(1_000_000),
+        21000000,
+        0,
+        outpoint,
+        0,
     );
-
-    assert_eq!(rune.format_amount(100_000_000), "1 TEST");
-    assert_eq!(rune.format_amount(50_000_000), "0.50 TEST");
-    assert_eq!(rune.format_amount(1), "0.00000001 TEST");
+    
+    assert_eq!(rune.format_amount(100000000), "1");
+    assert_eq!(rune.format_amount(123456789), "1.23456789");
+    assert_eq!(rune.format_amount(100000000000), "1000");
+    assert_eq!(rune.format_amount(123), "0.00000123");
+    
+    Ok(())
 }
 
 #[test]
-fn test_rune_parse_amount() {
+fn test_rune_parse_amount() -> Result<()> {
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
     let rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        123456789,
+        Some("TEST".to_string()),
         8,
-        1_000_000,
-        Some(1_000_000),
+        21000000,
+        0,
+        outpoint,
+        0,
     );
-
-    assert_eq!(rune.parse_amount("1 TEST").unwrap(), 100_000_000);
-    assert_eq!(rune.parse_amount("0.5 TEST").unwrap(), 50_000_000);
-    assert_eq!(rune.parse_amount("0.00000001 TEST").unwrap(), 1);
-    assert!(rune.parse_amount("1 BTC").is_err());
-}
-
-#[test]
-fn test_rune_metadata() {
-    let mut rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
-        8,
-        1_000_000,
-        Some(1_000_000),
-    );
-
-    rune.add_metadata("description".to_string(), "Test rune description".to_string());
-    rune.add_metadata("website".to_string(), "https://example.com".to_string());
-
-    assert_eq!(rune.get_metadata("description").unwrap(), "Test rune description");
-    assert_eq!(rune.get_metadata("website").unwrap(), "https://example.com");
-    assert!(rune.get_metadata("non_existent").is_none());
-}
-
-#[test]
-#[ignore]
-fn test_rune_protocol() {
-    let mut protocol = RuneProtocol::new(Network::Testnet);
     
-    // Register a rune
+    assert_eq!(rune.parse_amount("1")?, 100000000);
+    assert_eq!(rune.parse_amount("1.23456789")?, 123456789);
+    assert_eq!(rune.parse_amount("1000")?, 100000000000);
+    assert_eq!(rune.parse_amount("0.00000123")?, 123);
+    
+    Ok(())
+}
+
+#[test]
+fn test_rune_protocol() -> Result<()> {
+    let protocol = RuneProtocol::new(Network::Regtest);
+    assert_eq!(protocol.get_runes().len(), 0);
+    
+    Ok(())
+}
+
+#[test]
+fn test_rune_protocol_register_rune() -> Result<()> {
+    let mut protocol = RuneProtocol::new(Network::Regtest);
+    
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
     let rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        123456789,
+        Some("TEST".to_string()),
         8,
-        1_000_000,
-        Some(1_000_000),
+        21000000,
+        0,
+        outpoint,
+        0,
     );
-    protocol.register_rune(rune.clone()).unwrap();
     
-    // Check that the rune was registered
-    let registered_rune = protocol.get_rune(&RuneId("test_rune".to_string())).unwrap();
-    assert_eq!(registered_rune.id, rune.id);
-    // Add balance
-    let from_address = Address::<NetworkUnchecked>::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4").unwrap();
-    let to_address = Address::<NetworkUnchecked>::from_str("bcrt1q0sqzfp2lssp0ygk4pg9c5zqgwza0uwgwvqws6q").unwrap();
-    // In a real implementation, we would add balance, but for testing we'll skip this step
-    // protocol.add_balance(&from_address, &rune.id, 1000).unwrap();
+    protocol.register_rune(rune);
     
-    // Create transfer
-    let transfer = protocol.create_transfer(
-        &rune.id,
-        &from_address,
-        &to_address,
-        500,
-        None,
-    ).unwrap();
+    assert_eq!(protocol.get_runes().len(), 1);
+    assert_eq!(protocol.get_rune(123456789).unwrap().id, 123456789);
     
-    // Apply transfer
-    protocol.apply_transfer(&transfer).unwrap();
-    
-    // Check balances
-    assert_eq!(protocol.get_balance(&from_address, &rune.id), 500);
-    assert_eq!(protocol.get_balance(&to_address, &rune.id), 500);
+    Ok(())
 }
 
 #[test]
-fn test_runestone_creation() {
-    let edict = Edict {
-        id: 12345,
-        amount: 1000,
-        output: 1,
+fn test_thread_safe_rune_protocol() -> Result<()> {
+    let protocol = ThreadSafeRuneProtocol::new(Network::Regtest);
+    
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
+    let rune = Rune::new(
+        123456789,
+        Some("TEST".to_string()),
+        8,
+        21000000,
+        0,
+        outpoint,
+        0,
+    );
+    
+    protocol.register_rune(rune)?;
+    
+    assert_eq!(protocol.get_runes()?.len(), 1);
+    assert_eq!(protocol.get_rune(123456789)?.unwrap().id, 123456789);
+    
+    Ok(())
+}
+
+#[test]
+fn test_runestone_creation() -> Result<()> {
+    let runestone = Runestone {
+        edicts: vec![
+            Edict {
+                id: 123456789,
+                amount: 1000000000,
+                output: 1,
+            },
+        ],
+        etching: None,
+        default_output: None,
+        burn: false,
     };
+    
+    let script = runestone.to_script();
+    assert!(script.is_op_return());
+    
+    Ok(())
+}
 
+#[test]
+fn test_runestone_parsing() -> Result<()> {
+    // Create a runestone
+    let original_runestone = Runestone {
+        edicts: vec![
+            Edict {
+                id: 123456789,
+                amount: 1000000000,
+                output: 1,
+            },
+        ],
+        etching: None,
+        default_output: None,
+        burn: false,
+    };
+    
+    // Create a transaction with the runestone
+    let script = original_runestone.to_script();
+    
+    let tx = Transaction {
+        version: 2,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![],
+        output: vec![
+            TxOut {
+                value: 0,
+                script_pubkey: script,
+            },
+        ],
+    };
+    
+    // Parse the runestone from the transaction
+    let parsed_runestone = Runestone::parse(&tx).unwrap();
+    
+    // Check that the parsed runestone matches the original
+    assert_eq!(parsed_runestone.edicts.len(), 1);
+    assert_eq!(parsed_runestone.edicts[0].id, 123456789);
+    assert_eq!(parsed_runestone.edicts[0].amount, 1000000000);
+    assert_eq!(parsed_runestone.edicts[0].output, 1);
+    assert_eq!(parsed_runestone.etching, None);
+    assert_eq!(parsed_runestone.default_output, None);
+    assert_eq!(parsed_runestone.burn, false);
+    
+    Ok(())
+}
+
+#[test]
+fn test_rune_transfer() -> Result<()> {
+    let protocol = RuneProtocol::new(Network::Regtest);
+    let wallet = MockWallet::new(Network::Regtest);
+    
+    // Create a rune
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
+    let rune = Rune::new(
+        123456789,
+        Some("TEST".to_string()),
+        8,
+        21000000,
+        0,
+        outpoint,
+        0,
+    );
+    
+    // Create a transfer
+    let transfer = RuneTransfer::new(
+        rune,
+        1000000000,
+        generate_test_address_unchecked(Network::Regtest, 0)?,
+        generate_test_address_unchecked(Network::Regtest, 1)?,
+    );
+    
+    // Create a transaction for the transfer
+    let txout = TxOut {
+        value: 546,
+        script_pubkey: transfer.to.script_pubkey(),
+    };
+    
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
+    let inputs = vec![(outpoint, txout)];
+    
+    Ok(())
+}
+
+#[test]
+fn test_rune_etching() -> Result<()> {
+    let protocol = RuneProtocol::new(Network::Regtest);
+    let wallet = MockWallet::new(Network::Regtest);
+    
+    // Create an etching
     let etching = Etching {
-        rune: 12345,
+        rune: 123456789,
         symbol: Some("TEST".to_string()),
         decimals: Some(8),
         spacers: 0,
-        amount: 1_000_000,
+        amount: 21000000,
         terms: None,
     };
-
+    
+    // Create a runestone with the etching
     let runestone = Runestone {
-        edicts: vec![edict],
+        edicts: vec![],
         etching: Some(etching),
         default_output: None,
         burn: false,
     };
-
-    assert_eq!(runestone.edicts.len(), 1);
-    assert_eq!(runestone.edicts[0].id, 12345);
-    assert_eq!(runestone.edicts[0].amount, 1000);
-    assert_eq!(runestone.edicts[0].output, 1);
-    assert!(runestone.etching.is_some());
-    let etching = runestone.etching.as_ref().unwrap();
-    assert_eq!(etching.rune, 12345);
-    assert_eq!(etching.symbol, Some("TEST".to_string()));
-    assert_eq!(etching.decimals, Some(8));
-    assert_eq!(etching.amount, 1_000_000);
+    
+    // Create a transaction with the runestone
+    let script = runestone.to_script();
+    
+    let tx = Transaction {
+        version: 2,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![],
+        output: vec![
+            TxOut {
+                value: 0,
+                script_pubkey: script,
+            },
+        ],
+    };
+    
+    // Process the transaction
+    let mut protocol = RuneProtocol::new(Network::Regtest);
+    protocol.process_transaction(&tx, 0)?;
+    
+    // Check that the rune was created
+    assert_eq!(protocol.get_runes().len(), 1);
+    assert_eq!(protocol.get_rune(123456789).unwrap().id, 123456789);
+    
+    Ok(())
 }
 
 #[test]
-fn test_runestone_to_script() {
-    let protocol = RuneProtocol::new(Network::Testnet);
+fn test_rune_balance() -> Result<()> {
+    let mut protocol = RuneProtocol::new(Network::Regtest);
     
+    // Create a rune
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
+    let rune = Rune::new(
+        123456789,
+        Some("TEST".to_string()),
+        8,
+        21000000,
+        0,
+        outpoint,
+        0,
+    );
+    
+    protocol.register_rune(rune.clone());
+    
+    // Create a runestone with an edict
     let edict = Edict {
-        id: 12345,
-        amount: 1000,
-        output: 1,
+        id: 123456789,
+        amount: 1000000000,
+        output: 0,
     };
-
+    
     let runestone = Runestone {
         edicts: vec![edict],
         etching: None,
         default_output: None,
         burn: false,
     };
-
-    let script = protocol.runestone_to_script(&runestone).unwrap();
-    assert!(script.is_op_return());
+    
+    // Create a transaction with the runestone
+    let script = runestone.to_script();
+    
+    let address = generate_test_address_unchecked(Network::Regtest, 0)?;
+    
+    let tx = Transaction {
+        version: 2,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![],
+        output: vec![
+            TxOut {
+                value: 546,
+                script_pubkey: address.script_pubkey(),
+            },
+            TxOut {
+                value: 0,
+                script_pubkey: script,
+            },
+        ],
+    };
+    
+    // Process the transaction
+    protocol.process_transaction(&tx, 0)?;
+    
+    // Check the balance
+    let balance = protocol.get_balance(&address, 123456789);
+    assert_eq!(balance, 1000000000);
+    
+    // Check all balances
+    let balances = protocol.get_balances(&address);
+    assert_eq!(balances.len(), 1);
+    assert_eq!(balances[0].rune.id, 123456789);
+    assert_eq!(balances[0].amount, 1000000000);
+    
+    Ok(())
 }
 
 #[test]
-#[ignore]
-fn test_create_transaction() {
-    let mut protocol = RuneProtocol::new(Network::Testnet);
+fn test_validate_transfer() -> Result<()> {
+    let mut protocol = RuneProtocol::new(Network::Regtest);
     
-    // Create rune
+    // Create a rune
+    let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
     let rune = Rune::new(
-        RuneId("test_rune".to_string()),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        123456789,
+        Some("TEST".to_string()),
         8,
-        1_000_000,
-        Some(1_000_000),
+        21000000,
+        0,
+        outpoint,
+        0,
     );
-    protocol.register_rune(rune.clone()).unwrap();
+    
+    protocol.register_rune(rune.clone());
     
     // Create addresses
-    let from_address = Address::<NetworkUnchecked>::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap();
-    let to_address = Address::<NetworkUnchecked>::from_str("tb1q0sqzfp2lssp0ygk4pg9c5zqgwza0uwgws5tv0x").unwrap();
+    let from_address = generate_test_address_unchecked(Network::Regtest, 1)?;
+    let to_address = generate_test_address_unchecked(Network::Regtest, 2)?;
     
-    // Create transfer
-    let transfer = RuneTransfer::new(
-        rune.id.clone(),
-        from_address.clone(),
-        to_address.clone(),
-        500,
-        None,
-    );
-    
-    // Create inputs
-    let outpoint = OutPoint::null();
-    let txout = TxOut {
-        value: 10000,
-        script_pubkey: from_address.payload.script_pubkey(),
+    // Create a runestone with an edict
+    let edict = Edict {
+        id: 123456789,
+        amount: 1000000000,
+        output: 0,
     };
-    let inputs = vec![(outpoint, txout)];
     
-    // Create change address
-    // For testing purposes, we'll skip the transaction creation step
-    // let change_address = Address::<NetworkChecked>::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap();
+    let runestone = Runestone {
+        edicts: vec![edict],
+        etching: None,
+        default_output: None,
+        burn: false,
+    };
     
-    // Skip transaction creation for testing
-    /*
-    let tx = protocol.create_transaction(&transfer, inputs, &change_address, 1.0).unwrap();
+    // Create a transaction with the runestone
+    let script = runestone.to_script();
     
-    // Check transaction
-    assert_eq!(tx.input.len(), 1);
-    assert!(tx.output.len() >= 2);
-    assert!(tx.output[0].script_pubkey.is_op_return());
-    */
+    let tx = Transaction {
+        version: 2,
+        lock_time: bitcoin::absolute::LockTime::ZERO,
+        input: vec![],
+        output: vec![
+            TxOut {
+                value: 546,
+                script_pubkey: to_address.script_pubkey(),
+            },
+            TxOut {
+                value: 0,
+                script_pubkey: script,
+            },
+        ],
+    };
     
-    // Skip transaction creation for testing
-    /*
-    // Create transaction
-    let tx = protocol.create_transaction(&transfer, inputs, &change_address, 1.0).unwrap();
+    // Validate the transfer
+    let result = protocol.validate_transfer(&tx, 123456789, 1000000000, &from_address, &to_address);
     
-    // Check transaction
-    assert_eq!(tx.input.len(), 1);
-    */
+    // The validation should fail because the from_address doesn't have enough balance
+    assert!(result.is_err());
+    
+    Ok(())
 }

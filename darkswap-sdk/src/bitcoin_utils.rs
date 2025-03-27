@@ -182,6 +182,38 @@ impl SimpleWallet {
     }
 }
 
+impl<T: BitcoinWallet + ?Sized> BitcoinWallet for Box<T> {
+    /// Get the network
+    fn network(&self) -> Network {
+        (**self).network()
+    }
+
+    /// Get an address
+    fn get_address(&self, index: u32) -> Result<Address> {
+        (**self).get_address(index)
+    }
+
+    /// Get all addresses
+    fn get_addresses(&self) -> Result<Vec<Address>> {
+        (**self).get_addresses()
+    }
+
+    /// Get UTXOs
+    fn get_utxos(&self) -> Result<Vec<(OutPoint, TxOut)>> {
+        (**self).get_utxos()
+    }
+
+    /// Sign a PSBT
+    fn sign_psbt(&self, psbt: &mut Psbt) -> Result<()> {
+        (**self).sign_psbt(psbt)
+    }
+
+    /// Broadcast a transaction
+    fn broadcast_transaction(&self, tx: &Transaction) -> Result<Txid> {
+        (**self).broadcast_transaction(tx)
+    }
+}
+
 impl BitcoinWallet for SimpleWallet {
     /// Get the network
     fn network(&self) -> Network {
@@ -335,7 +367,7 @@ impl PsbtUtils {
         rune_id: &RuneId,
         from_address: &Address,
         to_address: &Address,
-        amount: u64,
+        amount: u128,
         fee_rate: f64,
     ) -> Result<Psbt> {
         // Get UTXOs
@@ -360,29 +392,25 @@ impl PsbtUtils {
         // Create outputs
         let mut outputs = Vec::new();
 
-        // Add rune transfer output
-        // In a real implementation, this would use the runes protocol
-        // For now, we'll use a simple OP_RETURN output
-        let rune_data = format!("RUNE:{}:{}", rune_id, amount);
-        // Create a fixed-size array that implements AsRef<PushBytes>
-        let data_bytes = rune_data.as_bytes();
-        let mut buffer = [0u8; 75]; // Max size for a standard push
-        let len = std::cmp::min(data_bytes.len(), 75);
-        buffer[..len].copy_from_slice(&data_bytes[..len]);
-        
-        // Create OP_RETURN script
-        let mut script = ScriptBuf::new();
-        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
-        
-        // Use a fixed-size array that implements AsRef<PushBytes>
-        let mut push_bytes = [0u8; 1];
-        if len > 0 {
-            push_bytes[0] = buffer[0];
-            script.push_slice(&push_bytes);
-        }
+        // Create the edict for the rune transfer
+        let edict = crate::runestone::Edict {
+            id: *rune_id,
+            amount,
+            output: 1, // The recipient output will be at index 1
+        };
+
+        // Create the runestone
+        let runestone = crate::runestone::Runestone {
+            edicts: vec![edict],
+            etching: None,
+            default_output: None,
+            burn: false,
+        };
+
+        // Add the runestone as an OP_RETURN output
         outputs.push(TxOut {
             value: 0,
-            script_pubkey: script,
+            script_pubkey: runestone.to_script(),
         });
 
         // Add recipient output
@@ -420,83 +448,34 @@ impl PsbtUtils {
         alkane_id: &AlkaneId,
         from_address: &Address,
         to_address: &Address,
-        amount: u64,
+        amount: u128,
         fee_rate: f64,
     ) -> Result<Psbt> {
-        // Get UTXOs
-        let utxos = wallet.get_utxos()?;
-        if utxos.is_empty() {
-            return Err(Error::BitcoinError("No UTXOs available".to_string()));
-        }
-
-        // Create inputs
-        let mut inputs = Vec::new();
-        let mut input_value = 0;
-        for (outpoint, txout) in &utxos {
-            inputs.push(TxIn {
-                previous_output: *outpoint,
-                script_sig: ScriptBuf::new(),
-                sequence: bitcoin::Sequence::MAX,
-                witness: Witness::new(),
-            });
-            input_value += txout.value;
-        }
-
-        // Create outputs
-        let mut outputs = Vec::new();
-
-        // Add alkane transfer output
-        // In a real implementation, this would use the alkanes protocol
-        // For now, we'll use a simple OP_RETURN output
-        let alkane_data = format!("ALKANE:{}:{}", alkane_id, amount);
-        // Create a fixed-size array that implements AsRef<PushBytes>
-        let data_bytes = alkane_data.as_bytes();
-        let mut buffer = [0u8; 75]; // Max size for a standard push
-        let len = std::cmp::min(data_bytes.len(), 75);
-        buffer[..len].copy_from_slice(&data_bytes[..len]);
+        // Alkanes are implemented on top of runes, so we can use the rune transfer PSBT
+        // with the alkane ID as the rune ID
+        let numeric_id = if let Some(rune_id) = alkane_id.0.strip_prefix("ALKANE:") {
+            if let Ok(rune_id_num) = rune_id.parse::<u128>() {
+                rune_id_num
+            } else {
+                return Err(Error::InvalidAlkane);
+            }
+        } else {
+            // Try to parse the entire ID as a number
+            if let Ok(id_num) = alkane_id.0.parse::<u128>() {
+                id_num
+            } else {
+                return Err(Error::InvalidAlkane);
+            }
+        };
         
-        // Create OP_RETURN script
-        let mut script = ScriptBuf::new();
-        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
-        
-        // Use a fixed-size array that implements AsRef<PushBytes>
-        let mut push_bytes = [0u8; 1];
-        if len > 0 {
-            push_bytes[0] = buffer[0];
-            script.push_slice(&push_bytes);
-        }
-        outputs.push(TxOut {
-            value: 0,
-            script_pubkey: script,
-        });
-
-        // Add recipient output
-        outputs.push(TxOut {
-            value: 546, // Dust limit
-            script_pubkey: to_address.script_pubkey(),
-        });
-
-        // Calculate fee
-        let fee = Self::estimate_transaction_fee(inputs.len(), outputs.len() + 1, fee_rate);
-
-        // Add change output
-        let change_value = input_value - 546 - fee;
-        if change_value > 546 {
-            outputs.push(TxOut {
-                value: change_value,
-                script_pubkey: from_address.script_pubkey(),
-            });
-        }
-
-        // Create PSBT
-        let mut psbt = Self::create_psbt(inputs, outputs)?;
-
-        // Add input information
-        for (i, (_, txout)) in utxos.iter().enumerate() {
-            psbt.inputs[i].witness_utxo = Some(txout.clone());
-        }
-
-        Ok(psbt)
+        Self::create_rune_transfer_psbt(
+            wallet,
+            &numeric_id,
+            from_address,
+            to_address,
+            amount,
+            fee_rate,
+        )
     }
 
     /// Create a PSBT for a Bitcoin transfer

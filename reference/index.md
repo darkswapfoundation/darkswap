@@ -15,6 +15,8 @@ This directory contains reference documentation for the DarkSwap project, a dece
 - [DarkSwap Implementation Plan](darkswap-implementation-plan-detailed.md) - Detailed implementation plan for the DarkSwap project
 - [Runes and Alkanes Technical Implementation](runes-alkanes-technical-implementation.md) - Technical implementation plan for runes and alkanes support
 - [WebRTC Implementation Guide](webrtc-implementation-guide.md) - Guide for implementing WebRTC support in rust-libp2p
+- [WebRTC Usage Guide](webrtc-usage-guide.md) - Guide to using WebRTC functionality in DarkSwap
+- [WebRTC Implementation Phase 2](webrtc-implementation-phase2.md) - Detailed plan for the next phase of WebRTC implementation
 - [Runes and Alkanes Implementation Plan](runes-alkanes-implementation-plan.md) - Plan for adding support for Bitcoin-based assets
 
 ## Project Planning
@@ -56,15 +58,19 @@ The DarkSwap SDK is organized into the following modules:
 ```
 darkswap-sdk/
 ├── src/
-│   ├── lib.rs           # Main entry point
-│   ├── config.rs        # Configuration
-│   ├── error.rs         # Error handling
-│   ├── types.rs         # Common types
-│   ├── network.rs       # P2P networking
-│   ├── orderbook.rs     # Orderbook management
-│   ├── trade.rs         # Trade execution
-│   ├── bitcoin_utils.rs # Bitcoin utilities
-│   └── wasm.rs          # WASM bindings
+│   ├── lib.rs               # Main entry point
+│   ├── config.rs            # Configuration
+│   ├── error.rs             # Error handling
+│   ├── types.rs             # Common types
+│   ├── network.rs           # P2P networking
+│   ├── orderbook.rs         # Orderbook management
+│   ├── trade.rs             # Trade execution
+│   ├── bitcoin_utils.rs     # Bitcoin utilities
+│   ├── wasm.rs              # WASM bindings
+│   ├── webrtc_relay.rs      # WebRTC circuit relay
+│   ├── webrtc_signaling.rs  # WebRTC signaling
+│   ├── wasm_webrtc.rs       # WebRTC WASM bindings
+│   └── wasm_webrtc_methods.rs # WebRTC methods for WASM
 ```
 
 ### CLI Structure
@@ -99,10 +105,20 @@ web/
 
 DarkSwap uses a peer-to-peer network for order discovery and matching. The network is built on rust-libp2p with WebRTC support for browser compatibility. Key components include:
 
-- **WebRTC Transport**: Enables browser compatibility
-- **Circuit Relay**: Enables NAT traversal
-- **Gossipsub**: Enables efficient message broadcasting
-- **Kademlia DHT**: Enables peer discovery and routing
+- **WebRTC Transport**: Enables browser compatibility through WebRTC connections
+- **WebRTC Circuit Relay**: Enables NAT traversal for WebRTC connections
+- **WebRTC Signaling**: Enables WebRTC connection establishment through signaling
+- **Gossipsub**: Enables efficient message broadcasting for orderbook updates
+- **Kademlia DHT**: Enables peer discovery and routing for finding trading partners
+
+The WebRTC implementation is feature-gated behind the `webrtc` feature flag, allowing it to be enabled or disabled as needed. When enabled, it provides the following capabilities:
+
+1. **Browser Compatibility**: WebRTC allows DarkSwap to run in browsers, enabling web-based trading without requiring a separate daemon.
+2. **NAT Traversal**: WebRTC includes built-in NAT traversal mechanisms, allowing peers behind NATs to connect directly.
+3. **Secure Communication**: WebRTC provides encrypted communication channels for secure trading.
+4. **Peer-to-Peer Data Channels**: WebRTC data channels allow direct peer-to-peer communication for trade negotiation and execution.
+
+For more details, see the [WebRTC Usage Guide](webrtc-usage-guide.md) and [WebRTC Implementation Phase 2](webrtc-implementation-phase2.md) documents.
 
 ### Orderbook Management
 

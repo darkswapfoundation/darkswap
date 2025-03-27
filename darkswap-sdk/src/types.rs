@@ -59,14 +59,7 @@ impl fmt::Display for TradeId {
 }
 
 /// Rune ID
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RuneId(pub String);
-
-impl fmt::Display for RuneId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+pub type RuneId = u128;
 
 /// Alkane ID
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -75,6 +68,14 @@ pub struct AlkaneId(pub String);
 impl fmt::Display for AlkaneId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for AlkaneId {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(AlkaneId(s.to_string()))
     }
 }
 
@@ -139,12 +140,14 @@ impl std::str::FromStr for Asset {
             return Ok(Asset::Bitcoin);
         }
 
-        if let Some(id) = s.strip_prefix("RUNE:") {
-            return Ok(Asset::Rune(RuneId(id.to_string())));
+        if let Some(id_str) = s.strip_prefix("RUNE:") {
+            if let Ok(id) = id_str.parse::<u128>() {
+                return Ok(Asset::Rune(id));
+            }
         }
 
-        if let Some(id) = s.strip_prefix("ALKANE:") {
-            return Ok(Asset::Alkane(AlkaneId(id.to_string())));
+        if let Some(id_str) = s.strip_prefix("ALKANE:") {
+            return Ok(Asset::Alkane(AlkaneId(s.to_string())));
         }
 
         Err(crate::error::Error::InvalidAsset(s.to_string()))

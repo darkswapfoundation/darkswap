@@ -501,7 +501,7 @@ mod tests {
     fn test_order_creation() {
         let maker = PeerId("test_maker".to_string());
         let base_asset = Asset::Bitcoin;
-        let quote_asset = Asset::Rune(crate::types::RuneId("test_rune".to_string()));
+        let quote_asset = Asset::Rune(123456789);
         let side = OrderSide::Buy;
         let amount = Decimal::new(100, 0);
         let price = Decimal::new(50000, 0);
@@ -535,7 +535,7 @@ mod tests {
         let maker1 = PeerId("maker1".to_string());
         let maker2 = PeerId("maker2".to_string());
         let base_asset = Asset::Bitcoin;
-        let quote_asset = Asset::Rune(crate::types::RuneId("test_rune".to_string()));
+        let quote_asset = Asset::Rune(123456789);
         let expiry = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -584,7 +584,7 @@ mod tests {
         let maker1 = PeerId("maker1".to_string());
         let maker2 = PeerId("maker2".to_string());
         let base_asset = Asset::Bitcoin;
-        let quote_asset = Asset::Rune(crate::types::RuneId("test_rune".to_string()));
+        let quote_asset = Asset::Rune(123456789);
         let expiry = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
