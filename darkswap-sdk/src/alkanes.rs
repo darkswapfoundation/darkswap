@@ -790,6 +790,15 @@ impl AlkaneProtocol {
         Ok(())
     }
 
+    /// Set balance for testing purposes
+    pub fn set_balance_for_testing(&mut self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) {
+        let address_str = format!("{:?}", address);
+        self.balances
+            .entry(address_str)
+            .or_insert_with(HashMap::new)
+            .insert(alkane_id.0.clone(), amount);
+    }
+
     /// Validate an alkane transfer transaction
     pub fn validate_transfer(
         &self,
@@ -1029,6 +1038,13 @@ impl ThreadSafeAlkaneProtocol {
         protocol.process_transaction(tx, height)
     }
 
+    /// Set balance for testing purposes
+    pub fn set_balance_for_testing(&self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) -> Result<()> {
+        let mut protocol = self.inner.lock().map_err(|_| Error::LockError)?;
+        protocol.set_balance_for_testing(address, alkane_id, amount);
+        Ok(())
+    }
+
     /// Validate an alkane transfer transaction
     pub fn validate_transfer(
         &self,
@@ -1066,7 +1082,6 @@ mod tests {
     
     #[test]
     fn test_alkane_creation() {
-        let outpoint = OutPoint::new(Txid::all_zeros(), 0);
         let properties = AlkaneProperties {
             name: "Test Alkane".to_string(),
             description: Some("A test alkane".to_string()),
@@ -1074,23 +1089,24 @@ mod tests {
             metadata: HashMap::new(),
         };
         
-        let alkane = Alkane::new(
-            123456789,
+        let alkane_id = AlkaneId("ALKANE:123456789".to_string());
+        let mut alkane = Alkane::new(
+            alkane_id.clone(),
             "TEST".to_string(),
+            "Test Alkane".to_string(),
             8,
             21000000,
-            0,
-            outpoint,
-            0,
-            properties,
+            Some(21000000),
         );
         
-        assert_eq!(alkane.id, 123456789);
+        alkane.properties = Some(properties);
+        
+        assert_eq!(alkane.id, alkane_id);
         assert_eq!(alkane.symbol, "TEST");
         assert_eq!(alkane.decimals, 8);
         assert_eq!(alkane.supply, 21000000);
-        assert_eq!(alkane.properties.name, "Test Alkane");
-        assert_eq!(alkane.properties.description, Some("A test alkane".to_string()));
+        assert_eq!(alkane.properties.as_ref().unwrap().name, "Test Alkane");
+        assert_eq!(alkane.properties.as_ref().unwrap().description, Some("A test alkane".to_string()));
     }
     
     #[test]
@@ -1115,17 +1131,16 @@ mod tests {
         
         let alkane = Alkane::from_rune(&rune, properties);
         
-        assert_eq!(alkane.id, rune.id);
+        assert_eq!(alkane.id.0, format!("ALKANE:{}", rune.id));
         assert_eq!(alkane.symbol, "TEST");
         assert_eq!(alkane.decimals, rune.decimals);
         assert_eq!(alkane.supply, rune.supply);
         assert_eq!(alkane.etching_outpoint, rune.etching_outpoint);
-        assert_eq!(alkane.properties.name, "Test Alkane");
+        assert_eq!(alkane.properties.as_ref().unwrap().name, "Test Alkane");
     }
     
     #[test]
     fn test_alkane_format_amount() {
-        let outpoint = OutPoint::new(Txid::all_zeros(), 0);
         let properties = AlkaneProperties {
             name: "Test Alkane".to_string(),
             description: None,
@@ -1133,16 +1148,17 @@ mod tests {
             metadata: HashMap::new(),
         };
         
-        let alkane = Alkane::new(
-            123456789,
+        let alkane_id = AlkaneId("ALKANE:123456789".to_string());
+        let mut alkane = Alkane::new(
+            alkane_id.clone(),
             "TEST".to_string(),
+            "Test Alkane".to_string(),
             8,
             21000000,
-            0,
-            outpoint,
-            0,
-            properties,
+            Some(21000000),
         );
+        
+        alkane.properties = Some(properties);
         
         assert_eq!(alkane.format_amount(100000000), "1");
         assert_eq!(alkane.format_amount(123456789), "1.23456789");
@@ -1152,7 +1168,6 @@ mod tests {
     
     #[test]
     fn test_alkane_parse_amount() {
-        let outpoint = OutPoint::new(Txid::all_zeros(), 0);
         let properties = AlkaneProperties {
             name: "Test Alkane".to_string(),
             description: None,
@@ -1160,16 +1175,17 @@ mod tests {
             metadata: HashMap::new(),
         };
         
-        let alkane = Alkane::new(
-            123456789,
+        let alkane_id = AlkaneId("ALKANE:123456789".to_string());
+        let mut alkane = Alkane::new(
+            alkane_id.clone(),
             "TEST".to_string(),
+            "Test Alkane".to_string(),
             8,
             21000000,
-            0,
-            outpoint,
-            0,
-            properties,
+            Some(21000000),
         );
+        
+        alkane.properties = Some(properties);
         
         assert_eq!(alkane.parse_amount("1").unwrap(), 100000000);
         assert_eq!(alkane.parse_amount("1.23456789").unwrap(), 123456789);
