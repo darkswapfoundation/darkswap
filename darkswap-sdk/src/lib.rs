@@ -12,10 +12,38 @@ pub mod trade;
 pub mod bitcoin_utils;
 pub mod runes;
 pub mod alkanes;
+pub mod alkane_trade;
 pub mod runestone;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_relay;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_signaling;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
+
+#[cfg(all(feature = "wasm", feature = "webrtc"))]
+pub mod wasm_webrtc;
+
+#[cfg(all(feature = "wasm", feature = "webrtc"))]
+pub mod wasm_webrtc_methods;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_data_channel;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_connection_pool;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_message_batch;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_compression;
+
+#[cfg(feature = "webrtc")]
+pub mod webrtc_error_handler;
 
 use crate::config::Config;
 use crate::error::{Error, Result};
@@ -315,7 +343,7 @@ impl DarkSwap {
     }
 
     /// Get a rune by ID
-    pub fn get_rune(&self, rune_id: &RuneId) -> Result<Option<Rune>> {
+    pub fn get_rune(&self, rune_id: RuneId) -> Result<Option<Rune>> {
         let runes_protocol = self.runes_protocol.as_ref()
             .ok_or_else(|| Error::RuneError("Runes protocol not initialized".to_string()))?;
         
@@ -350,20 +378,16 @@ impl DarkSwap {
         let from = wallet.get_address(0)?;
         
         // Create transfer - convert addresses to NetworkUnchecked
-        let from_unchecked = bitcoin::Address::new(from.network, from.payload.clone());
-        let to_unchecked = bitcoin::Address::new(to.network, to.payload.clone());
-        
-        let transfer = runes_protocol.create_transfer(rune_id, &from_unchecked, &to_unchecked, amount, memo)?;
-        
-        // Get UTXOs
-        let utxos = wallet.get_utxos()?;
+        let from_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(from.network, from.payload.clone());
+        let to_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(to.network, to.payload.clone());
         
         // Create transaction
-        let tx = runes_protocol.create_transaction(
-            &transfer,
-            utxos,
-            &from,
-            self.config.bitcoin.fee_rate,
+        let tx = runes_protocol.create_transfer_transaction(
+            wallet,
+            *rune_id,
+            amount as u128,
+            &to_unchecked,
+            self.config.bitcoin.fee_rate as f32,
         )?;
         
         Ok(tx)
@@ -378,11 +402,11 @@ impl DarkSwap {
     }
 
     /// Get an alkane by ID
-    pub fn get_alkane(&self, alkane_id: &AlkaneId) -> Result<Option<Alkane>> {
+    pub fn get_alkane(&self, alkane_id: AlkaneId) -> Result<Option<Alkane>> {
         let alkanes_protocol = self.alkanes_protocol.as_ref()
             .ok_or_else(|| Error::AlkaneError("Alkanes protocol not initialized".to_string()))?;
         
-        alkanes_protocol.get_alkane(alkane_id)
+        alkanes_protocol.get_alkane(&alkane_id)
     }
 
     /// Get all alkanes
@@ -413,20 +437,16 @@ impl DarkSwap {
         let from = wallet.get_address(0)?;
         
         // Create transfer - convert addresses to NetworkUnchecked
-        let from_unchecked = bitcoin::Address::new(from.network, from.payload.clone());
-        let to_unchecked = bitcoin::Address::new(to.network, to.payload.clone());
-        
-        let transfer = alkanes_protocol.create_transfer(alkane_id, &from_unchecked, &to_unchecked, amount, memo)?;
-        
-        // Get UTXOs
-        let utxos = wallet.get_utxos()?;
+        let from_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(from.network, from.payload.clone());
+        let to_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(to.network, to.payload.clone());
         
         // Create transaction
-        let tx = alkanes_protocol.create_transaction(
-            &transfer,
-            utxos,
-            &from,
-            self.config.bitcoin.fee_rate,
+        let tx = alkanes_protocol.create_transfer_transaction(
+            wallet,
+            alkane_id.clone(),
+            amount as u128,
+            &to_unchecked,
+            self.config.bitcoin.fee_rate as f32,
         )?;
         
         Ok(tx)

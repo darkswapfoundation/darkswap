@@ -494,7 +494,7 @@ mod tests {
         let maker = PeerId("maker".to_string());
         let taker = PeerId("taker".to_string());
         let base_asset = Asset::Bitcoin;
-        let quote_asset = Asset::Rune(RuneId("test_rune".to_string()));
+        let quote_asset = Asset::Rune(123456789);
         let expiry = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -534,7 +534,7 @@ mod tests {
         let maker = PeerId("maker".to_string());
         let taker = PeerId("taker".to_string());
         let base_asset = Asset::Bitcoin;
-        let quote_asset = Asset::Rune(RuneId("test_rune".to_string()));
+        let quote_asset = Asset::Rune(123456789);
         let expiry = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

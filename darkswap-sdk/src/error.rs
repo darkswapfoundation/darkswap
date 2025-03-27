@@ -65,6 +65,10 @@ pub enum Error {
     /// Insufficient funds
     #[error("Insufficient funds")]
     InsufficientFunds,
+    
+    /// Insufficient balance
+    #[error("Insufficient balance")]
+    InsufficientBalance,
 
     /// Order not found
     #[error("Order not found: {0}")]
@@ -81,6 +85,26 @@ pub enum Error {
     /// Rune error
     #[error("Rune error: {0}")]
     RuneError(String),
+    
+    /// Rune not found
+    #[error("Rune not found")]
+    RuneNotFound,
+    
+    /// Invalid rune
+    #[error("Invalid rune")]
+    InvalidRune,
+    
+    /// Invalid symbol
+    #[error("Invalid symbol")]
+    InvalidSymbol,
+    
+    /// Invalid decimals
+    #[error("Invalid decimals")]
+    InvalidDecimals,
+    
+    /// Invalid recipient
+    #[error("Invalid recipient")]
+    InvalidRecipient,
 
     /// Rune lock error
     #[error("Rune lock error")]
@@ -89,10 +113,46 @@ pub enum Error {
     /// Alkane error
     #[error("Alkane error: {0}")]
     AlkaneError(String),
+    
+    /// Alkane not found
+    #[error("Alkane not found: {0}")]
+    AlkaneNotFound(String),
+    
+    /// Alkane already exists
+    #[error("Alkane already exists")]
+    AlkaneAlreadyExists,
+    
+    /// Invalid alkane
+    #[error("Invalid alkane")]
+    InvalidAlkane,
+    
+    /// Invalid name
+    #[error("Invalid name")]
+    InvalidName,
+    
+    /// Invalid description
+    #[error("Invalid description")]
+    InvalidDescription,
+    
+    /// Invalid icon
+    #[error("Invalid icon")]
+    InvalidIcon,
+    
+    /// Invalid metadata
+    #[error("Invalid metadata")]
+    InvalidMetadata,
 
     /// Alkane lock error
     #[error("Alkane lock error")]
     AlkaneLockError,
+    
+    /// Lock error
+    #[error("Lock error")]
+    LockError,
+    
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
 
     /// Trade lock error
     #[error("Trade lock error")]
@@ -145,6 +205,14 @@ pub enum Error {
     /// Decimal error
     #[error("Decimal error: {0}")]
     DecimalError(String),
+
+    /// Compression error
+    #[error("Compression error: {0}")]
+    CompressionError(String),
+
+    /// Invalid PSBT
+    #[error("Invalid PSBT")]
+    InvalidPsbt,
 
     /// Unknown error
     #[error("Unknown error: {0}")]

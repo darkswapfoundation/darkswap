@@ -101,6 +101,26 @@ pub struct NetworkConfig {
     pub webrtc_enabled: bool,
     /// WebRTC ICE servers
     pub webrtc_ice_servers: Vec<String>,
+    /// Maximum number of connections
+    pub max_connections: Option<usize>,
+    /// Connection timeout in seconds
+    pub connection_timeout: Option<u64>,
+    /// Message batch size
+    pub message_batch_size: Option<usize>,
+    /// Message batch timeout in milliseconds
+    pub message_batch_timeout: Option<u64>,
+    /// Compression enabled
+    pub compression_enabled: Option<bool>,
+    /// Compression algorithm
+    pub compression_algorithm: Option<String>,
+    /// Compression level
+    pub compression_level: Option<String>,
+    /// Maximum retry count for WebRTC errors
+    pub max_retry_count: Option<u32>,
+    /// Retry interval in milliseconds
+    pub retry_interval: Option<u64>,
+    /// Error retention period in seconds
+    pub error_retention_period: Option<u64>,
 }
 
 impl Default for NetworkConfig {
@@ -126,6 +146,16 @@ impl Default for NetworkConfig {
                 "stun:stun.l.google.com:19302".to_string(),
                 "stun:stun1.l.google.com:19302".to_string(),
             ],
+            max_connections: Some(100),
+            connection_timeout: Some(300), // 5 minutes
+            message_batch_size: Some(10),
+            message_batch_timeout: Some(100), // 100 milliseconds
+            compression_enabled: Some(true),
+            compression_algorithm: Some("gzip".to_string()),
+            compression_level: Some("default".to_string()),
+            max_retry_count: Some(3),
+            retry_interval: Some(5000), // 5 seconds
+            error_retention_period: Some(3600), // 1 hour
         }
     }
 }

@@ -18,6 +18,15 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::future_to_promise;
 use web_sys::{console, Window};
 
+#[cfg(feature = "webrtc")]
+use crate::wasm_webrtc::{JsSessionDescription, JsIceCandidate, WebRtcConnection, JsRelayReservation};
+
+#[cfg(feature = "webrtc")]
+use crate::webrtc_signaling::{SessionDescription, IceCandidate};
+
+#[cfg(feature = "webrtc")]
+use crate::webrtc_relay::RelayReservation;
+
 /// Initialize panic hook for better error messages in the browser
 #[wasm_bindgen(start)]
 pub fn start() {
@@ -208,6 +217,18 @@ pub struct DarkSwapWasm {
     trade_completed_callback: Option<js_sys::Function>,
     /// Trade failed callback
     trade_failed_callback: Option<js_sys::Function>,
+    /// WebRTC offer received callback
+    #[cfg(feature = "webrtc")]
+    webrtc_offer_callback: Option<js_sys::Function>,
+    /// WebRTC answer received callback
+    #[cfg(feature = "webrtc")]
+    webrtc_answer_callback: Option<js_sys::Function>,
+    /// WebRTC ICE candidate received callback
+    #[cfg(feature = "webrtc")]
+    webrtc_ice_candidate_callback: Option<js_sys::Function>,
+    /// WebRTC connections
+    #[cfg(feature = "webrtc")]
+    webrtc_connections: std::collections::HashMap<String, WebRtcConnection>,
 }
 
 #[wasm_bindgen]
@@ -249,7 +270,8 @@ impl DarkSwapWasm {
         let darkswap = DarkSwap::new(config)
             .map_err(|e| JsValue::from_str(&format!("Failed to create DarkSwap: {}", e)))?;
 
-        Ok(Self {
+        #[cfg(feature = "webrtc")]
+        let instance = Self {
             darkswap: Arc::new(darkswap),
             order_created_callback: None,
             order_canceled_callback: None,
@@ -257,7 +279,24 @@ impl DarkSwapWasm {
             trade_started_callback: None,
             trade_completed_callback: None,
             trade_failed_callback: None,
-        })
+            webrtc_offer_callback: None,
+            webrtc_answer_callback: None,
+            webrtc_ice_candidate_callback: None,
+            webrtc_connections: std::collections::HashMap::new(),
+        };
+
+        #[cfg(not(feature = "webrtc"))]
+        let instance = Self {
+            darkswap: Arc::new(darkswap),
+            order_created_callback: None,
+            order_canceled_callback: None,
+            order_filled_callback: None,
+            trade_started_callback: None,
+            trade_completed_callback: None,
+            trade_failed_callback: None,
+        };
+
+        Ok(instance)
     }
 
     /// Start DarkSwap
@@ -526,5 +565,116 @@ impl DarkSwapWasm {
     #[wasm_bindgen]
     pub fn on_trade_failed(&mut self, callback: js_sys::Function) {
         self.trade_failed_callback = Some(callback);
+    }
+
+    /// Make a WebRTC relay reservation
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn make_webrtc_relay_reservation(&self, relay_peer_id: &str) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        let relay_peer_id = relay_peer_id.to_string();
+        
+        future_to_promise(async move {
+            // Make reservation
+            let reservation = darkswap.make_relay_reservation(PeerId(relay_peer_id)).await.map_err(error_to_js_value)?;
+            
+            // Convert to JsRelayReservation
+            let js_reservation = JsRelayReservation::new(
+                reservation.relay_peer_id.0.clone(),
+                reservation.reservation_id.clone(),
+                reservation.expires_at,
+            );
+            
+            Ok(JsValue::from(js_reservation))
+        })
+    }
+    
+    /// Connect through a WebRTC relay
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn connect_through_webrtc_relay(&self, relay_peer_id: &str, target_peer_id: &str) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        let relay_peer_id = relay_peer_id.to_string();
+        let target_peer_id = target_peer_id.to_string();
+        
+        future_to_promise(async move {
+            // Connect through relay
+            darkswap.connect_through_relay(PeerId(relay_peer_id), PeerId(target_peer_id)).await.map_err(error_to_js_value)?;
+            
+            Ok(JsValue::UNDEFINED)
+        })
+    }
+    
+    /// Disconnect from a WebRTC relay
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn disconnect_from_webrtc_relay(&self, peer_id: &str) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        let peer_id = peer_id.to_string();
+        
+        future_to_promise(async move {
+            // Disconnect from relay
+            darkswap.disconnect_from_webrtc_relay(PeerId(peer_id)).await.map_err(error_to_js_value)?;
+            
+            Ok(JsValue::UNDEFINED)
+        })
+    }
+    
+    /// Get WebRTC relay metrics
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn get_webrtc_relay_metrics(&self) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        
+        future_to_promise(async move {
+            // Get metrics
+            let metrics = darkswap.get_webrtc_relay_metrics().map_err(error_to_js_value)?;
+            
+            // Convert to JS object
+            let result = js_sys::Object::new();
+            js_sys::Reflect::set(&result, &JsValue::from_str("successful_connections"), &JsValue::from_f64(metrics.successful_connections as f64)).unwrap();
+            js_sys::Reflect::set(&result, &JsValue::from_str("failed_connections"), &JsValue::from_f64(metrics.failed_connections as f64)).unwrap();
+            js_sys::Reflect::set(&result, &JsValue::from_str("active_connections"), &JsValue::from_f64(metrics.active_connections as f64)).unwrap();
+            
+            Ok(result.into())
+        })
+    }
+    
+    /// Check if a WebRTC relay reservation is valid
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn is_webrtc_relay_reservation_valid(&self, relay_peer_id: &str) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        let relay_peer_id = relay_peer_id.to_string();
+        
+        future_to_promise(async move {
+            // Check if reservation is valid
+            let is_valid = darkswap.is_webrtc_relay_reservation_valid(&PeerId(relay_peer_id)).map_err(error_to_js_value)?;
+            
+            Ok(JsValue::from_bool(is_valid))
+        })
+    }
+    
+    /// Get active WebRTC relay reservations
+    #[cfg(feature = "webrtc")]
+    #[wasm_bindgen]
+    pub fn get_active_webrtc_relay_reservations(&self) -> js_sys::Promise {
+        let darkswap = self.darkswap.clone();
+        
+        future_to_promise(async move {
+            // Get active reservations
+            let reservations = darkswap.get_active_webrtc_relay_reservations().map_err(error_to_js_value)?;
+            
+            // Convert to JsRelayReservation array
+            let js_reservations = reservations.into_iter().map(|reservation| {
+                JsRelayReservation::new(
+                    reservation.relay_peer_id.0.clone(),
+                    reservation.reservation_id.clone(),
+                    reservation.expires_at,
+                )
+            }).collect::<Vec<_>>();
+            
+            Ok(js_sys::Array::from_iter(js_reservations.into_iter().map(JsValue::from)).into())
+        })
     }
 }

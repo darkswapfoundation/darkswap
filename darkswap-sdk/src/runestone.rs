@@ -1,29 +1,19 @@
-//! Runestone implementation for DarkSwap
+//! Runestone implementation
 //!
-//! This module provides a more complete implementation of the Runestone protocol
-//! for Bitcoin-based tokens using the Ordinals protocol.
+//! This module provides the implementation of the Runestone structure and related functionality.
 
-use crate::error::{Error, Result};
 use bitcoin::{
-    ScriptBuf, Transaction, TxOut,
-    opcodes::all::OP_RETURN,
+    ScriptBuf, Transaction,
 };
-use serde::{Deserialize, Serialize};
-use std::io::{Cursor, Read};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use crate::error::{Error, Result};
+use std::collections::HashMap;
 
-/// Runestone protocol prefix
-pub const RUNESTONE_PREFIX: &[u8] = &[0x72, 0x75, 0x6e, 0x65]; // "rune" in ASCII
-
-/// Runestone protocol version
-pub const RUNESTONE_VERSION: u8 = 1;
-
-/// Runestone structure according to the runes protocol
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Runestone structure
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runestone {
-    /// Edicts in the runestone
+    /// Edicts
     pub edicts: Vec<Edict>,
-    /// Optional etching
+    /// Etching
     pub etching: Option<Etching>,
     /// Default output
     pub default_output: Option<u32>,
@@ -31,21 +21,21 @@ pub struct Runestone {
     pub burn: bool,
 }
 
-/// Edict structure for rune transfers
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Edict structure
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edict {
     /// Rune ID
     pub id: u128,
-    /// Amount to transfer
+    /// Amount
     pub amount: u128,
-    /// Output index
+    /// Output
     pub output: u32,
 }
 
-/// Etching structure for rune creation
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Etching structure
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Etching {
-    /// Rune ID
+    /// Rune
     pub rune: u128,
     /// Symbol
     pub symbol: Option<String>,
@@ -59,8 +49,8 @@ pub struct Etching {
     pub terms: Option<Terms>,
 }
 
-/// Terms structure for rune etching
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Terms structure
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Terms {
     /// Cap
     pub cap: Option<u128>,
@@ -71,7 +61,7 @@ pub struct Terms {
 }
 
 impl Runestone {
-    /// Create a new runestone
+    /// Create a new Runestone
     pub fn new(
         edicts: Vec<Edict>,
         etching: Option<Etching>,
@@ -86,433 +76,511 @@ impl Runestone {
         }
     }
 
-    /// Serialize the runestone to bytes
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut buffer = Vec::new();
-        
-        // Write prefix
-        buffer.extend_from_slice(RUNESTONE_PREFIX);
-        
-        // Write version
-        buffer.push(RUNESTONE_VERSION);
-        
-        // Write flags
-        let mut flags = 0u8;
-        if self.burn {
-            flags |= 0x01;
-        }
-        if self.etching.is_some() {
-            flags |= 0x02;
-        }
-        if self.default_output.is_some() {
-            flags |= 0x04;
-        }
-        buffer.push(flags);
-        
-        // Write default output if present
-        if let Some(output) = self.default_output {
-            buffer.write_u32::<LittleEndian>(output)?;
-        }
-        
-        // Write etching if present
-        if let Some(ref etching) = self.etching {
-            // Write rune ID
-            buffer.write_u128::<LittleEndian>(etching.rune)?;
-            
-            // Write amount
-            buffer.write_u128::<LittleEndian>(etching.amount)?;
-            
-            // Write spacers
-            buffer.write_u32::<LittleEndian>(etching.spacers)?;
-            
-            // Write flags for etching
-            let mut etching_flags = 0u8;
-            if etching.symbol.is_some() {
-                etching_flags |= 0x01;
-            }
-            if etching.decimals.is_some() {
-                etching_flags |= 0x02;
-            }
-            if etching.terms.is_some() {
-                etching_flags |= 0x04;
-            }
-            buffer.push(etching_flags);
-            
-            // Write symbol if present
-            if let Some(ref symbol) = etching.symbol {
-                buffer.push(symbol.len() as u8);
-                buffer.extend_from_slice(symbol.as_bytes());
-            }
-            
-            // Write decimals if present
-            if let Some(decimals) = etching.decimals {
-                buffer.push(decimals);
-            }
-            
-            // Write terms if present
-            if let Some(ref terms) = etching.terms {
-                // Write flags for terms
-                let mut terms_flags = 0u8;
-                if terms.cap.is_some() {
-                    terms_flags |= 0x01;
-                }
-                if terms.height.is_some() {
-                    terms_flags |= 0x02;
-                }
-                if terms.amount.is_some() {
-                    terms_flags |= 0x04;
-                }
-                buffer.push(terms_flags);
+    /// Parse a Runestone from a transaction
+    pub fn parse(tx: &Transaction) -> Option<Self> {
+        // Look for OP_RETURN outputs with the rune protocol prefix
+        for output in &tx.output {
+            if output.script_pubkey.is_op_return() {
+                // Extract the data from the OP_RETURN output
+                let data = output.script_pubkey.as_bytes();
                 
-                // Write cap if present
-                if let Some(cap) = terms.cap {
-                    buffer.write_u128::<LittleEndian>(cap)?;
-                }
-                
-                // Write height if present
-                if let Some(height) = terms.height {
-                    buffer.write_u32::<LittleEndian>(height)?;
-                }
-                
-                // Write amount if present
-                if let Some(amount) = terms.amount {
-                    buffer.write_u128::<LittleEndian>(amount)?;
+                // Check if the data starts with the rune protocol prefix
+                if data.len() > 4 && &data[0..4] == b"RUNE" {
+                    // Parse the data according to the rune protocol specification
+                    return parse_runestone_data(&data[4..]);
                 }
             }
         }
         
-        // Write number of edicts
-        buffer.write_u32::<LittleEndian>(self.edicts.len() as u32)?;
-        
-        // Write edicts
-        for edict in &self.edicts {
-            buffer.write_u128::<LittleEndian>(edict.id)?;
-            buffer.write_u128::<LittleEndian>(edict.amount)?;
-            buffer.write_u32::<LittleEndian>(edict.output)?;
-        }
-        
-        Ok(buffer)
+        None
     }
 
-    /// Parse a runestone from bytes
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let mut cursor = Cursor::new(bytes);
+    /// Convert the Runestone to a script
+    pub fn to_script(&self) -> ScriptBuf {
+        // Create a script with the rune protocol prefix
+        let mut data = Vec::with_capacity(1024);
+        data.extend_from_slice(b"RUNE");
         
-        // Check prefix
-        let mut prefix = [0u8; 4];
-        cursor.read_exact(&mut prefix)?;
-        if prefix != RUNESTONE_PREFIX {
-            return Err(Error::InvalidRunestone("Invalid prefix".to_string()));
+        // Add the Runestone data
+        self.serialize_to(&mut data);
+        
+        // Create an OP_RETURN script with the data
+        // We need to use a fixed-size array that implements AsRef<PushBytes>
+        let mut script = ScriptBuf::new();
+        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        
+        // Add the data in chunks of 75 bytes (max size for a standard push)
+        for chunk in data.chunks(75) {
+            // Convert the chunk to a fixed-size array that implements AsRef<PushBytes>
+            match chunk.len() {
+                1 => script.push_slice(&[chunk[0]]),
+                2 => script.push_slice(&[chunk[0], chunk[1]]),
+                3 => script.push_slice(&[chunk[0], chunk[1], chunk[2]]),
+                4 => script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3]]),
+                5 => script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3], chunk[4]]),
+                // Add more cases as needed for larger chunks
+                _ => {
+                    // For larger chunks, we'll push bytes individually
+                    for &byte in chunk {
+                        script.push_slice(&[byte]);
+                    }
+                }
+            }
         }
         
-        // Check version
-        let version = cursor.read_u8()?;
-        if version != RUNESTONE_VERSION {
-            return Err(Error::InvalidRunestone(format!("Unsupported version: {}", version)));
+        script
+    }
+
+    /// Serialize the Runestone to a byte vector
+    fn serialize_to(&self, data: &mut Vec<u8>) {
+        // Add the burn flag
+        if self.burn {
+            data.push(0x01);
+        } else {
+            data.push(0x00);
         }
         
-        // Read flags
-        let flags = cursor.read_u8()?;
-        let burn = (flags & 0x01) != 0;
-        let has_etching = (flags & 0x02) != 0;
-        let has_default_output = (flags & 0x04) != 0;
+        // Add the default output if present
+        if let Some(output) = self.default_output {
+            data.push(0x01);
+            data.extend_from_slice(&output.to_le_bytes());
+        } else {
+            data.push(0x00);
+        }
         
-        // Read default output if present
-        let default_output = if has_default_output {
-            Some(cursor.read_u32::<LittleEndian>()?)
+        // Add the etching if present
+        if let Some(ref etching) = self.etching {
+            data.push(0x01);
+            
+            // Add the rune
+            data.extend_from_slice(&etching.rune.to_le_bytes());
+            
+            // Add the symbol if present
+            if let Some(ref symbol) = etching.symbol {
+                data.push(0x01);
+                data.push(symbol.len() as u8);
+                data.extend_from_slice(symbol.as_bytes());
+            } else {
+                data.push(0x00);
+            }
+            
+            // Add the decimals if present
+            if let Some(decimals) = etching.decimals {
+                data.push(0x01);
+                data.push(decimals);
+            } else {
+                data.push(0x00);
+            }
+            
+            // Add the spacers
+            data.extend_from_slice(&etching.spacers.to_le_bytes());
+            
+            // Add the amount
+            data.extend_from_slice(&etching.amount.to_le_bytes());
+            
+            // Add the terms if present
+            if let Some(ref terms) = etching.terms {
+                data.push(0x01);
+                
+                // Add the cap if present
+                if let Some(cap) = terms.cap {
+                    data.push(0x01);
+                    data.extend_from_slice(&cap.to_le_bytes());
+                } else {
+                    data.push(0x00);
+                }
+                
+                // Add the height if present
+                if let Some(height) = terms.height {
+                    data.push(0x01);
+                    data.extend_from_slice(&height.to_le_bytes());
+                } else {
+                    data.push(0x00);
+                }
+                
+                // Add the amount if present
+                if let Some(amount) = terms.amount {
+                    data.push(0x01);
+                    data.extend_from_slice(&amount.to_le_bytes());
+                } else {
+                    data.push(0x00);
+                }
+            } else {
+                data.push(0x00);
+            }
+        } else {
+            data.push(0x00);
+        }
+        
+        // Add the edicts
+        data.extend_from_slice(&(self.edicts.len() as u32).to_le_bytes());
+        for edict in &self.edicts {
+            // Add the id
+            data.extend_from_slice(&edict.id.to_le_bytes());
+            
+            // Add the amount
+            data.extend_from_slice(&edict.amount.to_le_bytes());
+            
+            // Add the output
+            data.extend_from_slice(&edict.output.to_le_bytes());
+        }
+    }
+}
+
+/// Parse Runestone data
+fn parse_runestone_data(data: &[u8]) -> Option<Runestone> {
+    if data.is_empty() {
+        return None;
+    }
+    
+    let mut index = 0;
+    
+    // Parse the burn flag
+    if index >= data.len() {
+        return None;
+    }
+    let burn = data[index] != 0;
+    index += 1;
+    
+    // Parse the default output
+    if index >= data.len() {
+        return None;
+    }
+    let has_default_output = data[index] != 0;
+    index += 1;
+    
+    let default_output = if has_default_output {
+        if index + 4 > data.len() {
+            return None;
+        }
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&data[index..index + 4]);
+        index += 4;
+        Some(u32::from_le_bytes(bytes))
+    } else {
+        None
+    };
+    
+    // Parse the etching
+    if index >= data.len() {
+        return None;
+    }
+    let has_etching = data[index] != 0;
+    index += 1;
+    
+    let etching = if has_etching {
+        // Parse the rune
+        if index + 16 > data.len() {
+            return None;
+        }
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&data[index..index + 16]);
+        let rune = u128::from_le_bytes(bytes);
+        index += 16;
+        
+        // Parse the symbol
+        if index >= data.len() {
+            return None;
+        }
+        let has_symbol = data[index] != 0;
+        index += 1;
+        
+        let symbol = if has_symbol {
+            if index >= data.len() {
+                return None;
+            }
+            let symbol_len = data[index] as usize;
+            index += 1;
+            
+            if index + symbol_len > data.len() {
+                return None;
+            }
+            let symbol_bytes = &data[index..index + symbol_len];
+            index += symbol_len;
+            
+            match std::str::from_utf8(symbol_bytes) {
+                Ok(s) => Some(s.to_string()),
+                Err(_) => return None,
+            }
         } else {
             None
         };
         
-        // Read etching if present
-        let etching = if has_etching {
-            // Read rune ID
-            let rune = cursor.read_u128::<LittleEndian>()?;
+        // Parse the decimals
+        if index >= data.len() {
+            return None;
+        }
+        let has_decimals = data[index] != 0;
+        index += 1;
+        
+        let decimals = if has_decimals {
+            if index >= data.len() {
+                return None;
+            }
+            let decimals = data[index];
+            index += 1;
+            Some(decimals)
+        } else {
+            None
+        };
+        
+        // Parse the spacers
+        if index + 4 > data.len() {
+            return None;
+        }
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&data[index..index + 4]);
+        let spacers = u32::from_le_bytes(bytes);
+        index += 4;
+        
+        // Parse the amount
+        if index + 16 > data.len() {
+            return None;
+        }
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&data[index..index + 16]);
+        let amount = u128::from_le_bytes(bytes);
+        index += 16;
+        
+        // Parse the terms
+        if index >= data.len() {
+            return None;
+        }
+        let has_terms = data[index] != 0;
+        index += 1;
+        
+        let terms = if has_terms {
+            // Parse the cap
+            if index >= data.len() {
+                return None;
+            }
+            let has_cap = data[index] != 0;
+            index += 1;
             
-            // Read amount
-            let amount = cursor.read_u128::<LittleEndian>()?;
-            
-            // Read spacers
-            let spacers = cursor.read_u32::<LittleEndian>()?;
-            
-            // Read flags for etching
-            let etching_flags = cursor.read_u8()?;
-            let has_symbol = (etching_flags & 0x01) != 0;
-            let has_decimals = (etching_flags & 0x02) != 0;
-            let has_terms = (etching_flags & 0x04) != 0;
-            
-            // Read symbol if present
-            let symbol = if has_symbol {
-                let symbol_len = cursor.read_u8()? as usize;
-                let mut symbol_bytes = vec![0u8; symbol_len];
-                cursor.read_exact(&mut symbol_bytes)?;
-                Some(String::from_utf8(symbol_bytes)
-                    .map_err(|_| Error::InvalidRunestone("Invalid symbol encoding".to_string()))?)
+            let cap = if has_cap {
+                if index + 16 > data.len() {
+                    return None;
+                }
+                let mut bytes = [0u8; 16];
+                bytes.copy_from_slice(&data[index..index + 16]);
+                let cap = u128::from_le_bytes(bytes);
+                index += 16;
+                Some(cap)
             } else {
                 None
             };
             
-            // Read decimals if present
-            let decimals = if has_decimals {
-                Some(cursor.read_u8()?)
+            // Parse the height
+            if index >= data.len() {
+                return None;
+            }
+            let has_height = data[index] != 0;
+            index += 1;
+            
+            let height = if has_height {
+                if index + 4 > data.len() {
+                    return None;
+                }
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&data[index..index + 4]);
+                let height = u32::from_le_bytes(bytes);
+                index += 4;
+                Some(height)
             } else {
                 None
             };
             
-            // Read terms if present
-            let terms = if has_terms {
-                // Read flags for terms
-                let terms_flags = cursor.read_u8()?;
-                let has_cap = (terms_flags & 0x01) != 0;
-                let has_height = (terms_flags & 0x02) != 0;
-                let has_amount = (terms_flags & 0x04) != 0;
-                
-                // Read cap if present
-                let cap = if has_cap {
-                    Some(cursor.read_u128::<LittleEndian>()?)
-                } else {
-                    None
-                };
-                
-                // Read height if present
-                let height = if has_height {
-                    Some(cursor.read_u32::<LittleEndian>()?)
-                } else {
-                    None
-                };
-                
-                // Read amount if present
-                let amount = if has_amount {
-                    Some(cursor.read_u128::<LittleEndian>()?)
-                } else {
-                    None
-                };
-                
-                Some(Terms {
-                    cap,
-                    height,
-                    amount,
-                })
+            // Parse the amount
+            if index >= data.len() {
+                return None;
+            }
+            let has_amount = data[index] != 0;
+            index += 1;
+            
+            let amount = if has_amount {
+                if index + 16 > data.len() {
+                    return None;
+                }
+                let mut bytes = [0u8; 16];
+                bytes.copy_from_slice(&data[index..index + 16]);
+                let amount = u128::from_le_bytes(bytes);
+                index += 16;
+                Some(amount)
             } else {
                 None
             };
             
-            Some(Etching {
-                rune,
-                symbol,
-                decimals,
-                spacers,
+            Some(Terms {
+                cap,
+                height,
                 amount,
-                terms,
             })
         } else {
             None
         };
         
-        // Read number of edicts
-        let num_edicts = cursor.read_u32::<LittleEndian>()? as usize;
-        
-        // Read edicts
-        let mut edicts = Vec::with_capacity(num_edicts);
-        for _ in 0..num_edicts {
-            let id = cursor.read_u128::<LittleEndian>()?;
-            let amount = cursor.read_u128::<LittleEndian>()?;
-            let output = cursor.read_u32::<LittleEndian>()?;
-            
-            edicts.push(Edict {
-                id,
-                amount,
-                output,
-            });
-        }
-        
-        Ok(Runestone {
-            edicts,
-            etching,
-            default_output,
-            burn,
+        Some(Etching {
+            rune,
+            symbol,
+            decimals,
+            spacers,
+            amount,
+            terms,
         })
+    } else {
+        None
+    };
+    
+    // Parse the edicts
+    if index + 4 > data.len() {
+        return None;
     }
-
-    /// Convert the runestone to a script
-    pub fn to_script(&self) -> Result<ScriptBuf> {
-        let data = self.to_bytes()?;
-        
-        // Create OP_RETURN script with the runestone data
-        let mut script = ScriptBuf::new();
-        script.push_opcode(OP_RETURN);
-        
-        // Push data using the appropriate push opcode
-        if data.len() <= 75 {
-            // Use a fixed-size array that implements AsRef<PushBytes>
-            match data.len() {
-                0 => script.push_slice(&[0u8; 0]),
-                1 => {
-                    let mut arr = [0u8; 1];
-                    arr.copy_from_slice(&data[..1]);
-                    script.push_slice(&arr);
-                },
-                2 => {
-                    let mut arr = [0u8; 2];
-                    arr.copy_from_slice(&data[..2]);
-                    script.push_slice(&arr);
-                },
-                3 => {
-                    let mut arr = [0u8; 3];
-                    arr.copy_from_slice(&data[..3]);
-                    script.push_slice(&arr);
-                },
-                // Add more cases as needed for common sizes
-                _ => {
-                    // For other lengths, use a more generic approach
-                    // This is a simplification - in a real implementation, you'd handle all possible lengths
-                    let mut script_data = ScriptBuf::new();
-                    script_data.push_opcode(OP_RETURN);
-                    for byte in data {
-                        script_data.push_slice(&[byte]);
-                    }
-                    return Ok(script_data);
-                }
-            }
-        } else {
-            return Err(Error::InvalidRunestone("Runestone data too large".to_string()));
+    let mut bytes = [0u8; 4];
+    bytes.copy_from_slice(&data[index..index + 4]);
+    let edict_count = u32::from_le_bytes(bytes) as usize;
+    index += 4;
+    
+    let mut edicts = Vec::with_capacity(edict_count);
+    for _ in 0..edict_count {
+        // Parse the id
+        if index + 16 > data.len() {
+            return None;
         }
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&data[index..index + 16]);
+        let id = u128::from_le_bytes(bytes);
+        index += 16;
         
-        Ok(script)
-    }
-
-    /// Parse a runestone from a transaction
-    pub fn from_transaction(tx: &Transaction) -> Result<Option<Self>> {
-        // Look for OP_RETURN outputs with the runestone protocol prefix
-        for output in &tx.output {
-            if output.script_pubkey.is_op_return() {
-                let data = output.script_pubkey.as_bytes();
-                
-                // Skip the OP_RETURN opcode and push opcode/length
-                if data.len() < 6 {  // OP_RETURN + push opcode + minimum prefix length
-                    continue;
-                }
-                
-                // Extract the data after the OP_RETURN and push opcode
-                let op_return_data = if data[1] <= 75 {
-                    // Direct push with length
-                    &data[2..]
-                } else if data[1] == 0x4c {
-                    // OP_PUSHDATA1
-                    &data[3..]
-                } else {
-                    // Unsupported push opcode
-                    continue;
-                };
-                
-                // Check for runestone prefix
-                if op_return_data.len() >= 4 && &op_return_data[0..4] == RUNESTONE_PREFIX {
-                    // Try to parse the runestone
-                    match Self::from_bytes(op_return_data) {
-                        Ok(runestone) => return Ok(Some(runestone)),
-                        Err(_) => continue,  // Not a valid runestone, try next output
-                    }
-                }
-            }
+        // Parse the amount
+        if index + 16 > data.len() {
+            return None;
         }
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&data[index..index + 16]);
+        let amount = u128::from_le_bytes(bytes);
+        index += 16;
         
-        // No runestone found
-        Ok(None)
+        // Parse the output
+        if index + 4 > data.len() {
+            return None;
+        }
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&data[index..index + 4]);
+        let output = u32::from_le_bytes(bytes);
+        index += 4;
+        
+        edicts.push(Edict {
+            id,
+            amount,
+            output,
+        });
     }
+    
+    Some(Runestone {
+        edicts,
+        etching,
+        default_output,
+        burn,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    
     #[test]
     fn test_runestone_serialization() {
-        // Create a simple runestone with one edict
-        let edict = Edict {
-            id: 12345,
-            amount: 1000,
-            output: 1,
-        };
-        
+        // Create a Runestone
         let runestone = Runestone {
-            edicts: vec![edict],
-            etching: None,
-            default_output: None,
+            edicts: vec![
+                Edict {
+                    id: 123456789,
+                    amount: 1000000000,
+                    output: 1,
+                },
+                Edict {
+                    id: 987654321,
+                    amount: 2000000000,
+                    output: 2,
+                },
+            ],
+            etching: Some(Etching {
+                rune: 123456789,
+                symbol: Some("TEST".to_string()),
+                decimals: Some(8),
+                spacers: 0,
+                amount: 21000000,
+                terms: Some(Terms {
+                    cap: Some(21000000),
+                    height: Some(100000),
+                    amount: Some(10000),
+                }),
+            }),
+            default_output: Some(0),
             burn: false,
         };
         
-        // Serialize to bytes
-        let bytes = runestone.to_bytes().unwrap();
+        // Serialize the Runestone
+        let mut data = Vec::new();
+        data.extend_from_slice(b"RUNE");
+        runestone.serialize_to(&mut data);
         
-        // Deserialize from bytes
-        let parsed_runestone = Runestone::from_bytes(&bytes).unwrap();
+        // Parse the Runestone
+        let parsed = parse_runestone_data(&data[4..]).unwrap();
         
-        // Check that the parsed runestone matches the original
-        assert_eq!(parsed_runestone, runestone);
+        // Check that the parsed Runestone matches the original
+        assert_eq!(parsed, runestone);
     }
-
-    #[test]
-    fn test_runestone_with_etching() {
-        // Create a runestone with an etching
-        let edict = Edict {
-            id: 12345,
-            amount: 1000,
-            output: 1,
-        };
-        
-        let etching = Etching {
-            rune: 12345,
-            symbol: Some("TEST".to_string()),
-            decimals: Some(8),
-            spacers: 0,
-            amount: 1000000,
-            terms: Some(Terms {
-                cap: Some(1000000),
-                height: Some(100000),
-                amount: None,
-            }),
-        };
-        
-        let runestone = Runestone {
-            edicts: vec![edict],
-            etching: Some(etching),
-            default_output: Some(0),
-            burn: true,
-        };
-        
-        // Serialize to bytes
-        let bytes = runestone.to_bytes().unwrap();
-        
-        // Deserialize from bytes
-        let parsed_runestone = Runestone::from_bytes(&bytes).unwrap();
-        
-        // Check that the parsed runestone matches the original
-        assert_eq!(parsed_runestone, runestone);
-    }
-
+    
     #[test]
     fn test_runestone_to_script() {
-        // Create a simple runestone
-        let edict = Edict {
-            id: 12345,
-            amount: 1000,
-            output: 1,
-        };
-        
+        // Create a Runestone
         let runestone = Runestone {
-            edicts: vec![edict],
+            edicts: vec![
+                Edict {
+                    id: 123456789,
+                    amount: 1000000000,
+                    output: 1,
+                },
+            ],
             etching: None,
             default_output: None,
             burn: false,
         };
         
-        // Convert to bytes
-        let bytes = runestone.to_bytes().unwrap();
+        // Convert the Runestone to a script
+        let script = runestone.to_script();
         
-        // Convert bytes back to runestone
-        let parsed_runestone = Runestone::from_bytes(&bytes).unwrap();
+        // Check that the script is an OP_RETURN script
+        assert!(script.is_op_return());
+    }
+    
+    #[test]
+    fn test_runestone_with_etching() {
+        // Create a Runestone with an etching
+        let runestone = Runestone {
+            edicts: vec![],
+            etching: Some(Etching {
+                rune: 123456789,
+                symbol: Some("TEST".to_string()),
+                decimals: Some(8),
+                spacers: 0,
+                amount: 21000000,
+                terms: None,
+            }),
+            default_output: None,
+            burn: false,
+        };
         
-        // Check that the parsed runestone matches the original
-        assert_eq!(parsed_runestone, runestone);
+        // Serialize the Runestone
+        let mut data = Vec::new();
+        data.extend_from_slice(b"RUNE");
+        runestone.serialize_to(&mut data);
+        
+        // Parse the Runestone
+        let parsed = parse_runestone_data(&data[4..]).unwrap();
+        
+        // Check that the parsed Runestone matches the original
+        assert_eq!(parsed, runestone);
     }
 }
