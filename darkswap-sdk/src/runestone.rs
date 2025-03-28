@@ -82,10 +82,24 @@ impl Runestone {
         for output in &tx.output {
             if output.script_pubkey.is_op_return() {
                 // Extract the data from the OP_RETURN output
-                let data = output.script_pubkey.as_bytes();
+                let script = &output.script_pubkey;
+                
+                // Reconstruct the data from the script
+                let mut data = Vec::new();
+                let mut instructions = script.instructions();
+                
+                // Skip the OP_RETURN
+                let _ = instructions.next();
+                
+                // Collect all push operations
+                for instruction in instructions {
+                    if let Ok(bitcoin::blockdata::script::Instruction::PushBytes(bytes)) = instruction {
+                        data.extend_from_slice(bytes.as_bytes());
+                    }
+                }
                 
                 // Check if the data starts with the rune protocol prefix
-                if data.len() > 4 && &data[0..4] == b"RUNE" {
+                if data.len() >= 4 && &data[0..4] == b"RUNE" {
                     // Parse the data according to the rune protocol specification
                     return parse_runestone_data(&data[4..]);
                 }

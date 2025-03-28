@@ -1,0 +1,44 @@
+[package]
+name = "darkswap-relay"
+version = "0.1.0"
+edition = "2021"
+description = "DarkSwap relay server"
+authors = ["DarkSwap Team"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.28", features = ["full"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+# Command line arguments
+clap = { version = "4.3", features = ["derive"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization/Deserialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# WebSocket server
+warp = { version = "0.3", features = ["tls"] }
+futures = "0.3"
+
+# P2P networking
+libp2p = { version = "0.52", features = ["tcp", "noise", "yamux", "relay"] }
+
+# WebSocket client (for testing)
+tokio-tungstenite = { version = "0.20", features = ["native-tls"], optional = true }
+
+[features]
+default = []
+test-utils = ["tokio-tungstenite"]
+
+[[bin]]
+name = "darkswap-relay"
+path = "src/main.rs"

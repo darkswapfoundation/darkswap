@@ -265,13 +265,17 @@ impl BitcoinWallet for SimpleWallet {
 
 /// Generate a valid Bech32 address for testing with NetworkUnchecked
 pub fn generate_test_address_unchecked(network: Network, seed: u8) -> Result<Address<NetworkUnchecked>> {
+    // Create a valid seed for secp256k1
+    let mut seed_bytes = [0u8; 32];
+    // Fill with non-zero values to ensure it's a valid key
+    for i in 0..32 {
+        seed_bytes[i] = ((seed as u32 + i as u32) % 255) as u8 + 1;
+    }
+    
     // Create secp256k1 context
     let secp = Secp256k1::new();
-
-    // Generate deterministic keypair from seed
-    let mut seed_bytes = [0u8; 32];
-    seed_bytes[0] = seed;
     
+    // Generate deterministic keypair from seed
     let secret_key = SecretKey::from_slice(&seed_bytes)
         .map_err(|e| Error::BitcoinError(format!("Invalid secret key: {}", e)))?;
     
@@ -291,12 +295,15 @@ pub fn generate_test_address_unchecked(network: Network, seed: u8) -> Result<Add
 
 /// Generate a valid Bech32 address for testing
 pub fn generate_test_address(network: Network, seed: u8) -> Result<Address> {
+    // Create a valid seed for secp256k1
+    let mut seed_bytes = [0u8; 32];
+    // Fill with non-zero values to ensure it's a valid key
+    for i in 0..32 {
+        seed_bytes[i] = ((seed as u32 + i as u32) % 255) as u8 + 1;
+    }
+    
     // Create secp256k1 context
     let secp = Secp256k1::new();
-
-    // Generate deterministic keypair from seed
-    let mut seed_bytes = [0u8; 32];
-    seed_bytes[0] = seed;
     
     let secret_key = SecretKey::from_slice(&seed_bytes)
         .map_err(|e| Error::BitcoinError(format!("Invalid secret key: {}", e)))?;

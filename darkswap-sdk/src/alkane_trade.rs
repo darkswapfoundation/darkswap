@@ -3,18 +3,19 @@
 //! This module provides trade execution functionality for Alkanes in DarkSwap,
 //! including PSBT creation, signing, and validation.
 
-use crate::alkanes::{Alkane, AlkaneProtocol, AlkaneTransfer};
-use crate::bitcoin_utils::BitcoinWallet;
+use crate::alkanes::{Alkane, AlkaneProtocol, AlkaneTransfer, AlkaneProperties};
+use crate::bitcoin_utils::{BitcoinWallet, generate_test_address_unchecked};
 use crate::error::{Error, Result};
 use crate::orderbook::{Order, OrderSide};
 use crate::trade::{Trade, TradeStatus};
 use crate::types::{AlkaneId, Asset, OrderId, PeerId, TradeId};
 use bitcoin::{
     address::NetworkUnchecked, psbt::Psbt, Address, Network, OutPoint, ScriptBuf, Transaction, TxIn,
-    TxOut,
+    TxOut, Txid,
 };
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -343,53 +344,67 @@ impl Clone for ThreadSafeAlkaneTradeExecutor {
         }
     }
 }
+// Mock wallet for testing
+#[cfg(test)]
+pub struct MockWallet {
+    network: Network,
+    address: Address<NetworkUnchecked>,
+    utxos: Vec<(OutPoint, TxOut)>,
+}
+
+#[cfg(test)]
+impl MockWallet {
+    pub fn new(network: Network, address: Address<NetworkUnchecked>) -> Self {
+        Self {
+            network,
+            address,
+            utxos: Vec::new(),
+        }
+    }
+
+    pub fn add_utxo(&mut self, value: u64) {
+        let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), self.utxos.len() as u32);
+        let txout = TxOut {
+            value,
+            script_pubkey: self.address.payload.script_pubkey(),
+        };
+        self.utxos.push((outpoint, txout));
+    }
+}
+
+#[cfg(test)]
+impl BitcoinWallet for MockWallet {
+    fn network(&self) -> Network {
+        self.network
+    }
+    
+    fn get_address(&self, _index: u32) -> Result<Address> {
+        let address_checked = Address::new(self.address.network, self.address.payload.clone());
+        Ok(address_checked)
+    }
+    
+    fn get_addresses(&self) -> Result<Vec<Address>> {
+        let address_checked = Address::new(self.address.network, self.address.payload.clone());
+        Ok(vec![address_checked])
+    }
+
+    fn get_utxos(&self) -> Result<Vec<(OutPoint, TxOut)>> {
+        Ok(self.utxos.clone())
+    }
+
+    fn sign_psbt(&self, _psbt: &mut Psbt) -> Result<()> {
+        Ok(())
+    }
+    
+    fn broadcast_transaction(&self, tx: &Transaction) -> Result<Txid> {
+        // Mock implementation
+        Ok(tx.txid())
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alkanes::AlkaneProperties;
-    use crate::bitcoin_utils::{generate_test_address, generate_test_address_unchecked};
-    use crate::orderbook::OrderBook;
-    use std::collections::HashMap;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct MockWallet {
-        network: Network,
-        address: Address<NetworkUnchecked>,
-        utxos: Vec<(OutPoint, TxOut)>,
-    }
-
-    impl MockWallet {
-        fn new(network: Network, address: Address<NetworkUnchecked>) -> Self {
-            Self {
-                network,
-                address,
-                utxos: Vec::new(),
-            }
-        }
-
-        fn add_utxo(&mut self, value: u64) {
-            let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), self.utxos.len() as u32);
-            let txout = TxOut {
-                value,
-                script_pubkey: self.address.payload.script_pubkey(),
-            };
-            self.utxos.push((outpoint, txout));
-        }
-    }
-
-    impl BitcoinWallet for MockWallet {
-        fn get_address(&self, _index: u32) -> Result<Address<NetworkUnchecked>> {
-            Ok(self.address.clone())
-        }
-
-        fn get_utxos(&self) -> Result<Vec<(OutPoint, TxOut)>> {
-            Ok(self.utxos.clone())
-        }
-
-        fn sign_psbt(&self, _psbt: &mut Psbt) -> Result<()> {
-            Ok(())
-        }
     }
 
     #[test]
@@ -485,4 +500,3 @@ mod tests {
         
         Ok(())
     }
-}

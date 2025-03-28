@@ -4,39 +4,70 @@ This document describes the system architecture, key technical decisions, design
 
 ## System Architecture
 
-DarkSwap follows a modular architecture with clear separation of concerns. The system is divided into several key components:
+DarkSwap follows a modular architecture with clear separation of concerns. The system is divided into several key components with shared code between Rust and TypeScript implementations:
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│   darkswap-sdk  │◄────┤  darkswap-cli   │     │  darkswap-daemon│
-│                 │     │                 │     │                 │
-└────────┬────────┘     └─────────────────┘     └────────┬────────┘
-         │                                               │
-         │                                               │
-         │                                               │
-         │                                               │
-         ▼                                               ▼
-┌─────────────────┐                           ┌─────────────────┐
-│                 │                           │                 │
-│  Web Interface  │                           │   P2P Network   │
-│                 │                           │                 │
-└─────────────────┘                           └─────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│                             P2P Network                                   │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+                 ▲                    ▲                     ▲
+                 │                    │                     │
+                 │                    │                     │
+┌────────────────┴─────┐   ┌──────────┴───────┐   ┌─────────┴─────────┐
+│                      │   │                  │   │                   │
+│    darkswap-relay    │   │  darkswap-daemon │   │   darkswap-app    │
+│                      │   │                  │   │                   │
+└──────────────────────┘   └──────────────────┘   └───────────┬───────┘
+                                                              │
+                                                              │
+                                                              ▼
+┌───────────────────────────────────────────────┐   ┌─────────────────────┐
+│                                               │   │                     │
+│              darkswap-sdk (Rust)              │   │  darkswap-lib (TS)  │
+│                                               │   │                     │
+└───────────────┬───────────────────────────────┘   └──────────┬──────────┘
+                │                                              │
+                │                                              │
+                ▼                                              ▼
+┌───────────────────────────────────────────────┐   ┌─────────────────────┐
+│                                               │   │                     │
+│              darkswap-p2p (Rust)              │   │  darkswap-web-sys   │
+│                                               │   │      (WASM)         │
+└───────────────┬───────────────────────────────┘   └──────────┬──────────┘
+                │                                              │
+                │                                              │
+                ▼                                              ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│                          darkswap-support                                 │
+│                      (Protobuf & Shared Code)                             │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Core Components
 
-1. **darkswap-sdk**: The core library that provides all the functionality needed for P2P trading.
-2. **darkswap-cli**: A command-line interface for interacting with the SDK.
-3. **darkswap-daemon**: A background service that hosts an orderbook and facilitates trades.
-4. **Web Interface**: A web-based user interface for interacting with the SDK.
+1. **darkswap-support**: Contains all the protobuf definitions and shared code that is not specific to wasm or x86_64 builds.
+2. **darkswap-p2p**: Core P2P networking library that can be used by both server and browser builds.
+3. **darkswap-sdk**: The core Rust library that provides all the functionality needed for P2P trading.
+4. **darkswap-web-sys**: WebAssembly bindings for the P2P protocol that can be used in browsers.
+5. **darkswap-lib**: TypeScript/JavaScript library that provides the same functionality as darkswap-sdk but for web environments.
+6. **darkswap-relay**: A server that provides DTLS/ICE connectivity and circuit relay v2 support for NAT traversal.
+7. **darkswap-daemon**: A background service that hosts an orderbook and facilitates trades.
+8. **darkswap-app**: A web-based user interface that uses darkswap-lib to interact with the P2P network.
+9. **darkswap-cli**: A command-line interface for interacting with the SDK.
 
 ### Component Interactions
 
-- **SDK and CLI**: The CLI uses the SDK to perform operations such as creating orders, taking orders, and getting market data.
-- **SDK and Daemon**: The daemon uses the SDK to participate in the P2P network, manage the orderbook, and execute trades.
-- **SDK and Web Interface**: The web interface uses the SDK through its WASM bindings to interact with the P2P network, manage orders, and execute trades.
-- **P2P Network**: The P2P network connects all nodes running the SDK, enabling them to exchange orderbook updates and execute trades.
+- **darkswap-support and darkswap-p2p**: These form the foundation of the P2P protocol, with darkswap-support providing protobuf definitions and shared code, and darkswap-p2p implementing the core P2P networking functionality.
+- **darkswap-sdk and darkswap-lib**: These provide parallel implementations of the trading architecture in Rust and TypeScript respectively, both using the same P2P protocol.
+- **darkswap-web-sys**: Provides WebAssembly bindings for the Rust P2P code, allowing darkswap-lib to use the browser's native WebRTC support to connect to the network.
+- **darkswap-relay**: Acts as a circuit relay for NAT traversal, allowing peers behind NATs to connect to each other.
+- **darkswap-daemon**: Uses darkswap-sdk to participate in the P2P network, manage the orderbook, and execute trades.
+- **darkswap-app**: Uses darkswap-lib to interact with the P2P network, manage orders, and execute trades.
+- **darkswap-cli**: Uses darkswap-sdk to perform operations such as creating orders, taking orders, and getting market data.
 
 ## Key Technical Decisions
 
@@ -131,33 +162,99 @@ DarkSwap uses the observer pattern to notify components of events:
 
 ## Component Relationships
 
-### SDK Components
+### Architecture Components
 
-The SDK consists of several modules that work together to provide the core functionality:
+The DarkSwap architecture consists of several components that work together to provide a modular and flexible system. The architecture is designed to maximize code sharing between different platforms while providing a consistent API across Rust and TypeScript implementations.
+
+#### Component Diagram
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│     Network     │◄────┤    Orderbook    │◄────┤      Trade      │
-│                 │     │                 │     │                 │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Bitcoin Utils  │     │      Types      │     │      Config     │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                            darkswap-support                             │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │  Protobuf Defs  │  │  Shared Types   │  │  Common Functionality   │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                             darkswap-p2p                                │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │  WebRTC Support │  │  Circuit Relay  │  │  P2P Protocol Handlers  │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                             darkswap-sdk                                │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │     Network     │  │    Orderbook    │  │         Trade           │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │  Bitcoin Utils  │  │      Types      │  │         Config          │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                            darkswap-lib                                 │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │     Network     │  │    Orderbook    │  │         Trade           │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
+│  │                 │  │                 │  │                         │  │
+│  │  Bitcoin Utils  │  │      Types      │  │         Config          │  │
+│  │                 │  │                 │  │                         │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Network Module**: Handles P2P networking using libp2p.
-2. **Orderbook Module**: Manages orders and matches trades.
-3. **Trade Module**: Handles trade execution using PSBTs.
-4. **Bitcoin Utils Module**: Provides utilities for working with Bitcoin.
-5. **Types Module**: Defines common data structures.
-6. **Config Module**: Handles configuration.
+1. **darkswap-support**:
+   - Protobuf Definitions: Shared protocol buffer definitions for P2P communication
+   - Shared Types: Common data structures used across all components
+   - Common Functionality: Shared utility functions and algorithms
+
+2. **darkswap-p2p**:
+   - WebRTC Support: Implementation of WebRTC transport for libp2p
+   - Circuit Relay: Implementation of circuit relay v2 protocol for NAT traversal
+   - P2P Protocol Handlers: Handlers for P2P protocol messages
+
+3. **darkswap-sdk** (Rust implementation):
+   - Network Module: Handles P2P networking using libp2p
+   - Orderbook Module: Manages orders and matches trades
+   - Trade Module: Handles trade execution using PSBTs
+   - Bitcoin Utils Module: Provides utilities for working with Bitcoin
+   - Types Module: Defines common data structures
+   - Config Module: Handles configuration
+
+4. **darkswap-lib** (TypeScript implementation):
+   - Network Module: Handles P2P networking using darkswap-web-sys
+   - Orderbook Module: Manages orders and matches trades
+   - Trade Module: Handles trade execution using PSBTs
+   - Bitcoin Utils Module: Provides utilities for working with Bitcoin
+   - Types Module: Defines common data structures
+   - Config Module: Handles configuration
 
 ### CLI Components
 

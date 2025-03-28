@@ -31,7 +31,7 @@ impl MockWallet {
         
         let txout = TxOut {
             value: 100_000_000, // 1 BTC
-            script_pubkey: address.script_pubkey(),
+            script_pubkey: address.payload.script_pubkey(),
         };
         
         Self {
@@ -272,17 +272,20 @@ fn test_rune_transfer() -> Result<()> {
     );
     
     // Create a transfer
-    let transfer = RuneTransfer::new(
+    let from_address = generate_test_address_unchecked(Network::Regtest, 0)?;
+    let to_address = generate_test_address_unchecked(Network::Regtest, 1)?;
+    
+    let transfer = RuneTransfer {
         rune,
-        1000000000,
-        generate_test_address_unchecked(Network::Regtest, 0)?,
-        generate_test_address_unchecked(Network::Regtest, 1)?,
-    );
+        amount: 1000000000,
+        from: from_address,
+        to: to_address,
+    };
     
     // Create a transaction for the transfer
     let txout = TxOut {
         value: 546,
-        script_pubkey: transfer.to.script_pubkey(),
+        script_pubkey: transfer.to.payload.script_pubkey(),
     };
     
     let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
@@ -384,7 +387,7 @@ fn test_rune_balance() -> Result<()> {
         output: vec![
             TxOut {
                 value: 546,
-                script_pubkey: address.script_pubkey(),
+                script_pubkey: address.payload.script_pubkey(),
             },
             TxOut {
                 value: 0,
@@ -455,7 +458,7 @@ fn test_validate_transfer() -> Result<()> {
         output: vec![
             TxOut {
                 value: 546,
-                script_pubkey: to_address.script_pubkey(),
+                script_pubkey: to_address.payload.script_pubkey(),
             },
             TxOut {
                 value: 0,
