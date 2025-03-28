@@ -32,6 +32,13 @@ This document tracks the progress of the DarkSwap project, including what works,
   - [x] PSBT handling
   - [x] Transaction broadcasting
 
+### Daemon
+
+- [x] Basic structure
+- [x] REST API
+- [x] WebSocket event handling
+- [x] Configuration system
+
 ### Documentation
 
 - [x] Project brief
@@ -71,10 +78,10 @@ This document tracks the progress of the DarkSwap project, including what works,
 ### Daemon
 
 - [ ] Background service
-  - [ ] REST API
-  - [ ] Event system
+  - [x] REST API
+  - [x] WebSocket event handling
   - [ ] Wallet integration
-  - [ ] Configuration system
+  - [x] Configuration system
 
 ### Web Interface
 
@@ -122,13 +129,15 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ### Phase 1: Core P2P Infrastructure (In Progress)
 
-- **Status**: 10% complete
+- **Status**: 15% complete
 - **Focus**: Porting subfrost-relay and subfrost-node, creating modular P2P architecture
 - **Timeline**: 1-2 weeks
 
 #### Milestones:
 - [x] Analysis of subfrost-relay and subfrost-node crates
 - [x] Research on WebRTC integration with rust-libp2p
+- [x] Fixed WebSocket event handling in handlers.rs
+- [x] Verified OrderId import from orderbook module in api.rs
 - [ ] Port subfrost-relay and subfrost-node P2P functionality
 - [ ] Create darkswap-support crate for shared code
 - [ ] Implement darkswap-p2p crate with WebRTC support
@@ -183,17 +192,23 @@ This document tracks the progress of the DarkSwap project, including what works,
    - Implemented PSBT-based trade execution for secure atomic swaps
    - Added Bitcoin wallet integration
 
-2. **Subfrost Analysis**:
+2. **Daemon Implementation**:
+   - Fixed WebSocket event handling in handlers.rs
+   - Verified OrderId import from orderbook module in api.rs
+   - Implemented REST API for interacting with the P2P network
+   - Added WebSocket support for real-time updates
+
+3. **Subfrost Analysis**:
    - Conducted in-depth analysis of Subfrost's P2P networking implementation
    - Identified key components for porting to WebRTC
    - Documented circuit relay implementation
 
-3. **PintSwap Analysis**:
+4. **PintSwap Analysis**:
    - Analyzed PintSwap's architecture and functionality
    - Identified key components for adaptation to DarkSwap
    - Documented orderbook and trade execution
 
-4. **Implementation Plan**:
+5. **Implementation Plan**:
    - Created comprehensive implementation plan for DarkSwap
    - Defined phases, tasks, and dependencies
    - Established timeline and milestones
@@ -236,25 +251,31 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ## Next Steps
 
-1. **Port Subfrost P2P Stack**:
+1. **Complete Runes and Alkanes Support**:
+   - Implement rune protocol in darkswap-sdk
+   - Implement alkane protocol in darkswap-sdk
+   - Add tests for runes and alkanes functionality
+   - Update API to support runes and alkanes trading
+
+2. **Port Subfrost P2P Stack**:
    - Extract P2P networking code from subfrost-node/src/network.rs and subfrost-node/src/circuit_relay.rs
    - Port the subfrost-relay crate for relay functionality
    - Adapt the code to use WebRTC instead of QUIC
    - Implement WebRTC transport for rust-libp2p
 
-2. **Create Modular Architecture**:
+3. **Create Modular Architecture**:
    - Create darkswap-support crate for shared protobuf definitions and common code
    - Create darkswap-p2p crate for core P2P networking functionality
    - Ensure code can be compiled for both native and WASM targets
    - Implement feature flags for conditional compilation
 
-3. **Implement WebAssembly Bindings**:
+4. **Implement WebAssembly Bindings**:
    - Create darkswap-web-sys crate for WebAssembly bindings
    - Implement browser-native WebRTC support
    - Create TypeScript bindings for the WebAssembly module
    - Set up wasm-bindgen and wasm-pack
 
-4. **Develop TypeScript Library**:
+5. **Develop TypeScript Library**:
    - Create darkswap-lib package
    - Implement the same functionality as darkswap-sdk
    - Ensure parity between Rust and TypeScript implementations
@@ -262,8 +283,6 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ## Conclusion
 
-The DarkSwap project is undergoing a significant architecture redesign to create a more modular and cross-platform P2P trading system. We've completed the analysis of the subfrost-relay and subfrost-node crates and have developed a comprehensive implementation plan for porting these components to create a WebRTC-based P2P architecture.
+The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent fixes to the WebSocket event handling in the daemon and verification of the OrderId import have improved the stability of the system. The next steps are to complete the runes and alkanes support, port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
 
-The new architecture will be more modular, with clear separation between shared code (darkswap-support), P2P networking (darkswap-p2p), core functionality (darkswap-sdk), WebAssembly bindings (darkswap-web-sys), and TypeScript implementation (darkswap-lib). This will enable a consistent experience across all platforms while maximizing code reuse.
-
-The next steps are to port the subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library. With this redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
+With the redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.

@@ -16,9 +16,14 @@ DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, an
 
 DarkSwap consists of the following components:
 
+- **DarkSwap Support**: Shared code and protobuf definitions
+- **DarkSwap P2P**: Core P2P networking library with WebRTC support
 - **DarkSwap SDK**: Core library for building decentralized trading applications
-- **DarkSwap CLI**: Command-line interface for interacting with the SDK
+- **DarkSwap Web-Sys**: WebAssembly bindings for browser integration
+- **DarkSwap Lib**: TypeScript library for web applications
+- **DarkSwap Relay**: Circuit relay server for NAT traversal
 - **DarkSwap Daemon**: Background service for hosting an orderbook
+- **DarkSwap CLI**: Command-line interface for interacting with the SDK
 - **DarkSwap Web**: Web interface for trading
 
 ## Getting Started
@@ -38,26 +43,16 @@ git clone https://github.com/darkswap/darkswap.git
 cd darkswap
 ```
 
-2. Build the SDK:
+2. Build all components:
 
 ```bash
-cd darkswap-sdk
-cargo build --release
+./build.sh --all
 ```
 
-3. Build the CLI:
+3. Build specific components:
 
 ```bash
-cd ../darkswap-cli
-cargo build --release
-```
-
-4. Build the web interface:
-
-```bash
-cd ../web
-yarn install
-yarn build
+./build.sh --sdk --daemon --web
 ```
 
 ### Running the CLI
@@ -70,8 +65,8 @@ cargo run -- --help
 ### Starting the Daemon
 
 ```bash
-cd darkswap-cli
-cargo run -- daemon
+cd darkswap-daemon
+cargo run
 ```
 
 ### Running the Web Interface
@@ -113,11 +108,50 @@ darkswap-cli market --base-asset BTC --quote-asset "RUNE:test_rune"
 
 ```
 darkswap/
-├── darkswap-sdk/       # Core SDK
-├── darkswap-cli/       # Command-line interface
-├── web/                # Web interface
-├── reference/          # Reference documentation
-└── memory-bank/        # Project documentation
+├── darkswap-support/    # Shared code and protobuf definitions
+├── darkswap-p2p/        # Core P2P networking library
+├── darkswap-sdk/        # Core SDK
+├── darkswap-web-sys/    # WebAssembly bindings
+├── darkswap-lib/        # TypeScript library
+├── darkswap-relay/      # Circuit relay server
+├── darkswap-daemon/     # Background service
+├── darkswap-cli/        # Command-line interface
+├── web/                 # Web interface
+├── reference/           # Reference documentation
+└── memory-bank/         # Project documentation
+```
+
+### Component Relationships
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                          darkswap-support                                 │
+│                      (Protobuf & Shared Code)                             │
+└───────────────────────────────────────────────────────────────────────────┘
+                 ▲                                      ▲
+                 │                                      │
+                 │                                      │
+┌────────────────┴─────────────────┐      ┌─────────────┴─────────────────┐
+│                                  │      │                               │
+│           darkswap-p2p           │      │         darkswap-web-sys      │
+│      (Rust P2P Networking)       │      │        (WASM Bindings)        │
+└────────────────┬─────────────────┘      └─────────────┬─────────────────┘
+                 ▲                                      ▲
+                 │                                      │
+                 │                                      │
+┌────────────────┴─────────────────┐      ┌─────────────┴─────────────────┐
+│                                  │      │                               │
+│           darkswap-sdk           │      │          darkswap-lib         │
+│        (Rust Trading SDK)        │      │      (TypeScript Library)     │
+└────────────────┬─────────────────┘      └─────────────┬─────────────────┘
+                 ▲                                      ▲
+                 │                                      │
+                 │                                      │
+┌────────────────┴─────────┐  ┌───────────┐  ┌─────────┴─────────────────┐
+│                          │  │           │  │                           │
+│      darkswap-relay      │  │darkswap-  │  │       darkswap-app        │
+│    (Circuit Relay)       │  │ daemon    │  │     (Web Interface)       │
+└──────────────────────────┘  └───────────┘  └───────────────────────────┘
 ```
 
 ### Running Tests
@@ -133,6 +167,24 @@ cargo test
 cd darkswap-sdk
 cargo doc --open
 ```
+
+## Current Status
+
+The project is currently in Phase 1 of development, focusing on the core P2P infrastructure. Recent achievements include:
+
+1. Fixed WebSocket event handling in handlers.rs
+2. Verified OrderId import from orderbook module in api.rs
+3. Implemented core SDK with P2P networking, orderbook management, and trade execution
+4. Added WebRTC transport for browser compatibility
+5. Implemented PSBT-based trade execution for secure atomic swaps
+6. Added Bitcoin wallet integration
+
+Next steps include:
+
+1. Completing the runes and alkanes support
+2. Implementing the WebAssembly bindings
+3. Developing the TypeScript library
+4. Setting up the relay server
 
 ## Contributing
 

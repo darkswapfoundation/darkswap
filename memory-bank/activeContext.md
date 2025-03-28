@@ -11,35 +11,53 @@ The current focus of the DarkSwap project is implementing a modular P2P architec
 3. **Cross-Platform Support**: Ensuring the codebase can be built for both wasm and x86_64-unknown-linux-gnu targets.
 4. **TypeScript Integration**: Creating a TypeScript library (darkswap-lib) that provides the same functionality as the Rust SDK.
 5. **Core SDK Implementation**: Completing the core SDK with runes and alkanes support, comprehensive unit tests, and performance optimizations.
+6. **Daemon Stability**: Fixing issues in the daemon to ensure stable operation, such as the recent WebSocket event handling fix.
 
 ### Specific Implementation Tasks
 
-1. **Port Subfrost Crates**:
+1. **Complete Runes and Alkanes Support**:
+   - Implement rune protocol in darkswap-sdk
+   - Implement alkane protocol in darkswap-sdk
+   - Add tests for runes and alkanes functionality
+   - Update API to support runes and alkanes trading
+
+2. **Port Subfrost Crates**:
    - Extract P2P networking code from subfrost-node/src/network.rs and subfrost-node/src/circuit_relay.rs
    - Port the subfrost-relay crate for relay functionality
    - Adapt the code to use WebRTC instead of QUIC
 
-2. **Create Modular Architecture**:
+3. **Create Modular Architecture**:
    - Implement darkswap-support for shared protobuf definitions and common code
    - Implement darkswap-p2p for core P2P networking functionality
    - Ensure code can be compiled for both native and WASM targets
 
-3. **Implement WebRTC Support**:
+4. **Implement WebRTC Support**:
    - Use rust-libp2p with WebRTC transport
    - Implement DTLS/ICE connectivity in the relay
    - Ensure browser compatibility with native RTC support
 
-4. **Develop TypeScript Integration**:
+5. **Develop TypeScript Integration**:
    - Create darkswap-web-sys as WASM bindings for browser
    - Develop darkswap-lib as a TypeScript wrapper around darkswap-web-sys
    - Ensure parity between Rust and TypeScript implementations
 
-5. **Set Up Relay Infrastructure**:
+6. **Set Up Relay Infrastructure**:
    - Deploy darkswap-relay at p2p.darkswap.xyz
    - Configure for circuit relay v2 support
    - Implement bootstrap mechanism for web clients
 
 ## Recent Changes
+
+### Daemon Improvements
+
+1. **WebSocket Event Handling Fix**:
+   - Fixed an issue in darkswap-daemon/src/handlers.rs where there was a problem with nested tokio::spawn calls
+   - The code had an extra closing brace and parenthesis that was causing a mismatched delimiter error
+   - This fix ensures that WebSocket events are properly handled and forwarded to clients
+
+2. **OrderId Import Verification**:
+   - Verified that the OrderId import in darkswap-daemon/src/api.rs is correctly coming from the orderbook module
+   - This ensures that the API correctly references the OrderId type from the SDK
 
 ### Core SDK Implementation
 
@@ -271,22 +289,28 @@ The new architecture is designed to maximize code sharing between different plat
 
 ### Short-Term (1 Week)
 
-1. **Port Subfrost P2P Stack**:
+1. **Complete Runes and Alkanes Support**:
+   - Implement rune protocol in darkswap-sdk
+   - Implement alkane protocol in darkswap-sdk
+   - Add tests for runes and alkanes functionality
+   - Update API to support runes and alkanes trading
+
+2. **Port Subfrost P2P Stack**:
    - Port subfrost-relay and subfrost-p2p crates
    - Adapt for WebRTC support
    - Implement circuit relay v2 protocol
 
-2. **Create Modular Architecture**:
+3. **Create Modular Architecture**:
    - Create darkswap-support crate for shared code
    - Create darkswap-p2p crate for P2P networking
    - Ensure compatibility with both wasm and x86_64-unknown-linux-gnu targets
 
-3. **Implement WebAssembly Bindings**:
+4. **Implement WebAssembly Bindings**:
    - Create darkswap-web-sys crate for WebAssembly bindings
    - Implement browser-native WebRTC support
    - Create TypeScript bindings for the WebAssembly module
 
-4. **Develop TypeScript Library**:
+5. **Develop TypeScript Library**:
    - Create darkswap-lib package
    - Implement the same functionality as darkswap-sdk
    - Ensure parity between Rust and TypeScript implementations
@@ -398,6 +422,11 @@ The new architecture is designed to maximize code sharing between different plat
    - Approach: Optimize critical paths and implement efficient data structures
    - Status: In progress
 
+5. **WebSocket Event Handling**:
+   - Challenge: Ensuring reliable WebSocket event handling in the daemon
+   - Approach: Fixed nested tokio::spawn calls in handlers.rs
+   - Status: Fixed
+
 ## Integration Points
 
 1. **Bitcoin Wallet Integration**:
@@ -427,292 +456,12 @@ We've made significant progress on the core SDK implementation and are now focus
 6. **Trade Module**: Implemented trade execution with PSBT creation and signing.
 7. **Bitcoin Utilities**: Implemented wallet integration and PSBT handling.
 8. **WASM Bindings**: Implemented WebAssembly bindings for browser integration.
+9. **Daemon Improvements**: Fixed WebSocket event handling in handlers.rs and verified OrderId import in api.rs.
 
-The next steps are to port the subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
-
-## Detailed Implementation Plan
-
-The DarkSwap project is undergoing a significant architecture redesign to create a more modular and cross-platform P2P trading system. The new architecture will leverage the subfrost-relay and subfrost-node crates, adapted for WebRTC support, to create a robust P2P network that works across browsers and native applications.
-
-### Phase 1: Core P2P Infrastructure (1-2 weeks)
-
-#### 1.1 Port Subfrost Crates (3-4 days)
-- **Analyze subfrost-relay and subfrost-node**: Thoroughly examine the code in `subfrost/crates/subfrost-relay` and `subfrost/crates/subfrost-node/src/network.rs`, `subfrost/crates/subfrost-node/src/circuit_relay.rs`
-- **Extract Core P2P Functionality**: Identify and extract the core P2P networking code, focusing on:
-  - Connection establishment
-  - Peer discovery
-  - Message handling
-  - Circuit relay protocol
-- **Adapt for WebRTC**: Modify the code to use WebRTC instead of QUIC:
-  - Replace QUIC connection establishment with WebRTC's offer/answer mechanism
-  - Implement ICE for NAT traversal
-  - Use WebRTC data channels instead of QUIC streams
-  - Implement signaling for WebRTC connection establishment
-
-#### 1.2 Create darkswap-support Crate (2-3 days)
-- **Define Protocol Buffer Schemas**: Create protobuf definitions for:
-  - P2P messages
-  - Orderbook entries
-  - Trade messages
-  - Relay protocol messages
-- **Implement Shared Types**: Create common data structures:
-  - PeerId
-  - Address types
-  - Order types
-  - Trade types
-  - Error types
-- **Create Utility Functions**: Implement shared functionality:
-  - Serialization/deserialization helpers
-  - Cryptographic utilities
-  - Logging infrastructure
-  - Configuration handling
-
-#### 1.3 Implement darkswap-p2p Crate (4-5 days)
-- **Create WebRTC Transport**: Implement a WebRTC transport for rust-libp2p:
-  - Create WebRtcTransport struct implementing the Transport trait
-  - Implement connection establishment using WebRTC
-  - Handle ICE candidate exchange
-  - Manage data channels
-- **Implement Circuit Relay**: Port the circuit relay implementation:
-  - Create CircuitRelay struct
-  - Implement relay discovery
-  - Implement relay reservation
-  - Implement relayed connections
-- **Create P2P Protocol Handlers**: Implement handlers for:
-  - Peer discovery
-  - Message broadcasting
-  - Connection management
-  - NAT traversal
-
-#### 1.4 Set Up Cross-Compilation (1-2 days)
-- **Configure Cargo.toml**: Set up feature flags for conditional compilation:
-  - `wasm` feature for WebAssembly targets
-  - `native` feature for native targets
-  - Shared features for common functionality
-- **Create Build Scripts**: Set up build scripts for:
-  - Native builds
-  - WebAssembly builds
-  - Protocol buffer code generation
-- **Test Cross-Compilation**: Verify that the code compiles for:
-  - x86_64-unknown-linux-gnu
-  - wasm32-unknown-unknown
-
-### Phase 2: SDK and Web Integration (2-3 weeks)
-
-#### 2.1 Implement darkswap-sdk (5-7 days)
-- **Create Network Module**: Implement P2P networking using darkswap-p2p:
-  - Create Network struct as the main entry point
-  - Implement connection management
-  - Implement message handling
-  - Implement event system
-- **Implement Orderbook Module**: Create orderbook functionality:
-  - Create Orderbook struct for managing orders
-  - Implement order matching algorithm
-  - Implement order broadcasting
-  - Implement order validation
-- **Create Trade Module**: Implement trade execution:
-  - Create Trade struct for managing trades
-  - Implement PSBT creation and signing
-  - Implement trade protocol
-  - Implement transaction validation
-- **Implement Bitcoin Utilities**: Create Bitcoin-related functionality:
-  - Wallet integration
-  - Transaction handling
-  - PSBT utilities
-  - Runes and alkanes support
-
-#### 2.2 Create darkswap-web-sys (4-5 days)
-- **Set Up WASM Compilation**: Configure wasm-bindgen:
-  - Set up Cargo.toml for wasm-bindgen
-  - Configure wasm-pack
-  - Set up TypeScript definitions generation
-- **Create JavaScript Bindings**: Implement bindings for:
-  - Network functionality
-  - Orderbook management
-  - Trade execution
-  - Bitcoin utilities
-- **Implement Browser Integration**: Create browser-specific code:
-  - WebRTC adapter for browsers
-  - LocalStorage for persistence
-  - Browser wallet integration
-  - UI event handling
-
-#### 2.3 Develop darkswap-lib (5-7 days)
-- **Create TypeScript Wrapper**: Implement TypeScript wrapper around darkswap-web-sys:
-  - Create DarkSwap class as the main entry point
-  - Implement async/await wrapper for WASM functions
-  - Create type definitions
-  - Implement error handling
-- **Implement Core Functionality**: Create TypeScript implementations of:
-  - Network module
-  - Orderbook module
-  - Trade module
-  - Bitcoin utilities
-- **Create Browser Utilities**: Implement browser-specific utilities:
-  - Wallet connectors
-  - Storage adapters
-  - UI helpers
-  - Event system
-
-#### 2.4 Ensure Parity Between Implementations (2-3 days)
-- **Create Test Suite**: Implement tests that verify:
-  - API consistency between Rust and TypeScript
-  - Behavior consistency
-  - Error handling consistency
-  - Performance benchmarks
-- **Document APIs**: Create comprehensive documentation:
-  - API reference
-  - Usage examples
-  - Integration guides
-  - Migration guides
-
-### Phase 3: Applications and Services (3-4 weeks)
-
-#### 3.1 Implement darkswap-relay (7-10 days)
-- **Create Relay Server**: Implement the relay server:
-  - Create main server application
-  - Implement configuration handling
-  - Set up logging and monitoring
-  - Implement health checks
-- **Implement DTLS/ICE Support**: Add WebRTC-specific functionality:
-  - Configure DTLS certificates
-  - Implement ICE servers (STUN/TURN)
-  - Handle ICE candidate exchange
-  - Manage WebRTC connections
-- **Implement Circuit Relay Protocol**: Port the circuit relay protocol:
-  - Implement relay reservation
-  - Handle relay connections
-  - Implement relay discovery
-  - Optimize relay performance
-- **Create Deployment Infrastructure**: Set up deployment:
-  - Create Docker container
-  - Set up Kubernetes configuration
-  - Implement auto-scaling
-  - Configure monitoring and alerting
-
-#### 3.2 Deploy Relay Nodes (2-3 days)
-- **Set Up Infrastructure**: Prepare the infrastructure:
-  - Provision servers
-  - Configure networking
-  - Set up DNS (p2p.darkswap.xyz)
-  - Configure firewalls
-- **Deploy Relay Nodes**: Deploy the relay nodes:
-  - Deploy to multiple regions
-  - Configure load balancing
-  - Set up monitoring
-  - Implement backup and recovery
-
-#### 3.3 Update darkswap-daemon (5-7 days)
-- **Integrate New Architecture**: Update the daemon to use the new components:
-  - Replace existing P2P code with darkswap-p2p
-  - Update to use the new darkswap-sdk
-  - Implement new configuration options
-  - Update event handling
-- **Implement API Server**: Create or update the API server:
-  - Implement REST API
-  - Create WebSocket endpoints
-  - Implement authentication
-  - Create documentation
-- **Add Monitoring and Management**: Implement operational features:
-  - Metrics collection
-  - Health checks
-  - Management API
-  - Logging enhancements
-
-#### 3.4 Develop darkswap-app (7-10 days)
-- **Create React Application**: Implement the web interface:
-  - Set up React application
-  - Configure build system
-  - Implement routing
-  - Create component library
-- **Integrate darkswap-lib**: Connect to the P2P network:
-  - Initialize darkswap-lib
-  - Connect to bootstrap nodes
-  - Implement error handling
-  - Create reconnection logic
-- **Implement UI Components**: Create user interface:
-  - Order creation form
-  - Orderbook display
-  - Trade execution flow
-  - Wallet integration
-  - Settings management
-
-### Phase 4: Testing and Optimization (2-3 weeks)
-
-#### 4.1 Comprehensive Testing (5-7 days)
-- **Unit Testing**: Create comprehensive unit tests:
-  - Test individual components
-  - Test edge cases
-  - Test error handling
-  - Test performance
-- **Integration Testing**: Create integration tests:
-  - Test component interactions
-  - Test end-to-end workflows
-  - Test cross-platform compatibility
-  - Test network conditions
-- **Browser Testing**: Test in different browsers:
-  - Chrome, Firefox, Safari
-  - Mobile browsers
-  - Different versions
-  - Different platforms
-
-#### 4.2 Performance Optimization (4-5 days)
-- **Profiling**: Identify performance bottlenecks:
-  - CPU profiling
-  - Memory profiling
-  - Network profiling
-  - Rendering profiling
-- **Optimization**: Implement optimizations:
-  - Algorithmic improvements
-  - Memory usage optimization
-  - Network efficiency
-  - UI rendering optimization
-- **Benchmarking**: Create benchmarks:
-  - Connection establishment
-  - Message throughput
-  - Order matching
-  - Trade execution
-
-#### 4.3 Security Auditing (3-4 days)
-- **Code Review**: Perform security-focused code review:
-  - Cryptographic implementations
-  - Input validation
-  - Error handling
-  - Access control
-- **Vulnerability Assessment**: Identify potential vulnerabilities:
-  - Network protocol vulnerabilities
-  - WebRTC security issues
-  - Browser security concerns
-  - Dependency vulnerabilities
-- **Penetration Testing**: Test for security issues:
-  - Network attacks
-  - Protocol attacks
-  - Browser attacks
-  - Denial of service
-
-#### 4.4 Documentation and Developer Guides (3-4 days)
-- **API Documentation**: Create comprehensive API documentation:
-  - Rust API docs
-  - TypeScript API docs
-  - Examples
-  - Tutorials
-- **Developer Guides**: Create guides for:
-  - Getting started
-  - Architecture overview
-  - Integration guides
-  - Troubleshooting
-- **Operational Documentation**: Create operational docs:
-  - Deployment guides
-  - Monitoring guides
-  - Backup and recovery
-  - Scaling guidelines
+The next steps are to complete the runes and alkanes support, port the subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
 
 ## Conclusion
 
-This detailed implementation plan provides a clear roadmap for creating a modular P2P architecture for DarkSwap with WebRTC support. The plan is divided into four phases, each with specific tasks and deliverables, ensuring a systematic approach to the development process.
+The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent fixes to the WebSocket event handling in the daemon and verification of the OrderId import have improved the stability of the system. The next steps are to complete the runes and alkanes support, port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
 
-The modular component structure, with shared code between Rust and TypeScript implementations, will enable a consistent experience across all platforms while maximizing code reuse. The darkswap-relay server will provide DTLS/ICE connectivity and circuit relay v2 support for NAT traversal, allowing peers behind NATs to connect to each other.
-
-With this redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
-
-With this redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
+With the redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
