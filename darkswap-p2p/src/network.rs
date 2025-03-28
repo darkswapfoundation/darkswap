@@ -2,13 +2,14 @@
 //!
 //! This module provides the main network implementation for darkswap-p2p,
 //! including the Network struct and related functionality.
-
 use crate::{
     behaviour::{new_behaviour, DarkSwapBehaviour, DarkSwapEvent},
     circuit_relay::CircuitRelayEvent,
     error::Error,
     transport::build_transport,
 };
+use std::str::FromStr;
+use void::Void;
 use darkswap_support::types::PeerId;
 use futures::{
     channel::mpsc,
@@ -112,9 +113,12 @@ impl Network {
         
         // Create the transport
         let transport = build_transport();
-        
         // Create the behaviour
-        let behaviour = new_behaviour(&local_peer_id, &keypair)?;
+        let behaviour = match new_behaviour(&local_peer_id, &keypair) {
+            Ok(b) => b,
+            Err(e) => return Err(Error::Other(format!("Failed to create behaviour: {}", e))),
+        };
+        
         
         // Create the swarm
         let swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, keypair.public().to_peer_id())
@@ -134,13 +138,17 @@ impl Network {
             config,
         };
         
+        // Create a clone of the topics and relay peers
+        let topics = network.config.topics.clone();
+        let relay_peers = network.config.relay_peers.clone();
+        
         // Subscribe to topics
-        for topic in &network.config.topics {
-            network.subscribe(topic)?;
+        for topic in topics {
+            network.subscribe(&topic)?;
         }
         
         // Add relay peers
-        for (peer_id, addr) in &network.config.relay_peers {
+        for (peer_id, addr) in relay_peers {
             network.swarm.behaviour_mut().circuit_relay.add_relay_peer(peer_id.clone());
             network.dial_peer_with_addr(peer_id, addr).await?;
         }
@@ -157,46 +165,61 @@ impl Network {
     pub fn connected_peers(&self) -> &HashSet<PeerId> {
         &self.connected_peers
     }
-    
     /// Subscribe to a topic
     pub fn subscribe(&mut self, topic: &str) -> Result<(), Error> {
-        let topic_hash = IdentTopic::new(topic).hash();
-        self.swarm.behaviour_mut().gossipsub.subscribe(&topic_hash)?;
-        self.topics.insert(topic.to_string(), topic_hash);
-        Ok(())
+        let topic_obj = IdentTopic::new(topic);
+        let topic_hash = topic_obj.hash();
+        match self.swarm.behaviour_mut().gossipsub.subscribe(&topic_obj) {
+            Ok(_) => {
+                self.topics.insert(topic.to_string(), topic_hash);
+                Ok(())
+            },
+            Err(e) => Err(Error::Other(format!("Failed to subscribe to topic: {}", e))),
+        }
     }
     
     /// Unsubscribe from a topic
     pub fn unsubscribe(&mut self, topic: &str) -> Result<(), Error> {
         if let Some(topic_hash) = self.topics.remove(topic) {
-            self.swarm.behaviour_mut().gossipsub.unsubscribe(&topic_hash)?;
+            let topic_obj = IdentTopic::new(topic);
+            match self.swarm.behaviour_mut().gossipsub.unsubscribe(&topic_obj) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(Error::Other(format!("Failed to unsubscribe from topic: {}", e))),
+            }
+        } else {
+            Ok(()) // Not subscribed, so nothing to do
         }
-        Ok(())
     }
     
     /// Publish a message to a topic
     pub async fn publish(&mut self, topic: &str, message: Vec<u8>) -> Result<(), Error> {
-        let topic_hash = if let Some(hash) = self.topics.get(topic) {
-            hash.clone()
-        } else {
+        // Check if we're subscribed to the topic
+        if !self.topics.contains_key(topic) {
             return Err(Error::Other(format!("Not subscribed to topic: {}", topic)));
-        };
+        }
         
-        self.swarm.behaviour_mut().gossipsub.publish(topic_hash, message)?;
-        Ok(())
+        // Create a topic object
+        let topic_obj = IdentTopic::new(topic);
+        
+        // Publish the message
+        match self.swarm.behaviour_mut().gossipsub.publish(topic_obj, message) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Error::Other(format!("Failed to publish message: {}", e))),
+        }
     }
     
     /// Dial a peer with a multiaddress
     pub async fn dial_peer_with_addr(&mut self, peer_id: &PeerId, addr: &Multiaddr) -> Result<(), Error> {
-        let libp2p_peer_id = Libp2pPeerId::from_str(&peer_id.0)?;
+        let libp2p_peer_id = parse_peer_id(&peer_id.0)?;
         let peer_addr = addr.clone().with(libp2p::multiaddr::Protocol::P2p(libp2p_peer_id.into()));
+        // Dial the peer
+        let dial_result = self.swarm.dial(peer_addr.clone());
+        if let Err(e) = dial_result {
+            return Err(Error::from(e));
+        }
         
-        timeout(
-            self.config.connection_timeout,
-            self.swarm.dial(peer_addr.clone()),
-        )
-        .await
-        .map_err(|_| Error::Timeout(format!("Timeout dialing peer: {}", peer_id)))?
+        // Wait for the connection to be established
+        tokio::time::sleep(self.config.connection_timeout).await;
         .map_err(|e| Error::from(e))?;
         
         Ok(())
@@ -223,9 +246,15 @@ impl Network {
     
     /// Listen on the given address
     pub async fn listen_on(&mut self, addr: &str) -> Result<(), Error> {
-        let multiaddr: Multiaddr = addr.parse()?;
-        self.swarm.listen_on(multiaddr)?;
-        Ok(())
+        let multiaddr = match addr.parse::<Multiaddr>() {
+            Ok(addr) => addr,
+            Err(e) => return Err(Error::Other(format!("Invalid multiaddr: {}", e))),
+        };
+        
+        match self.swarm.listen_on(multiaddr) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Error::Other(format!("Failed to listen on address: {}", e))),
+        }
     }
     
     /// Get the next event
@@ -250,7 +279,7 @@ impl Network {
     }
     
     /// Handle a swarm event
-    async fn handle_swarm_event(&mut self, event: SwarmEvent<DarkSwapEvent, Error>) -> Result<(), Error> {
+    async fn handle_swarm_event(&mut self, event: SwarmEvent<DarkSwapEvent, void::Void>) -> Result<(), Error> {
         match event {
             SwarmEvent::Behaviour(DarkSwapEvent::Gossipsub(GossipsubEvent::Message {
                 propagation_source,
@@ -318,12 +347,8 @@ impl Network {
     }
 }
 
-// Helper function to convert a libp2p::PeerId to a PeerId
-impl std::str::FromStr for Libp2pPeerId {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse()
-            .map_err(|e| Error::Other(format!("Invalid peer ID: {}", e)))
-    }
+// Helper function to parse a PeerId string
+fn parse_peer_id(s: &str) -> Result<Libp2pPeerId, Error> {
+    s.parse()
+        .map_err(|e| Error::Other(format!("Invalid peer ID: {}", e)))
 }

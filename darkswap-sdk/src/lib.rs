@@ -4,151 +4,218 @@
 //! trading platform for Bitcoin, runes, and alkanes.
 
 pub mod config;
-pub mod error;
-pub mod types;
-pub mod network;
 pub mod orderbook;
+pub mod p2p;
 pub mod trade;
-pub mod bitcoin_utils;
-pub mod runes;
-pub mod alkanes;
-pub mod alkane_trade;
-pub mod runestone;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_relay;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_signaling;
-
+pub mod types;
+pub mod wallet;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-#[cfg(all(feature = "wasm", feature = "webrtc"))]
-pub mod wasm_webrtc;
-
-#[cfg(all(feature = "wasm", feature = "webrtc"))]
-pub mod wasm_webrtc_methods;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_data_channel;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_connection_pool;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_message_batch;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_compression;
-
-#[cfg(feature = "webrtc")]
-pub mod webrtc_error_handler;
-
-use crate::config::Config;
-use crate::error::{Error, Result};
-use crate::network::Network;
-use crate::orderbook::{Order, OrderStatus, Orderbook};
-use crate::types::{Asset, OrderId, RuneId, AlkaneId};
-pub use crate::types::Event;
-use crate::bitcoin_utils::{BitcoinWallet, SimpleWallet};
-use crate::runes::{Rune, ThreadSafeRuneProtocol};
-use crate::alkanes::{Alkane, ThreadSafeAlkaneProtocol};
-
-use bitcoin::{Address, Transaction};
-use rust_decimal::Decimal;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
-use uuid::Uuid;
+
+use anyhow::{Context as AnyhowContext, Result};
+use async_trait::async_trait;
+use log::{debug, error, info, warn};
+use tokio::sync::{mpsc, Mutex, RwLock};
+
+use config::Config;
+use orderbook::{Order, OrderId, OrderSide, OrderStatus, Orderbook};
+use p2p::{circuit_relay::CircuitRelayManager, webrtc_transport::DarkSwapWebRtcTransport, P2PNetwork};
+use trade::{Trade, TradeManager};
+use types::{Asset, Event, TradeId};
+use wallet::{bdk_wallet::BdkWallet, simple_wallet::SimpleWallet, WalletInterface};
 
 /// DarkSwap SDK
 pub struct DarkSwap {
     /// Configuration
     config: Config,
-    /// Network
-    network: Option<Network>,
+    /// P2P network
+    pub network: Option<Arc<RwLock<P2PNetwork>>>,
+    /// WebRTC transport
+    webrtc_transport: Option<Arc<DarkSwapWebRtcTransport>>,
+    /// Circuit relay manager
+    circuit_relay: Option<CircuitRelayManager>,
+    /// Wallet
+    wallet: Option<Arc<dyn WalletInterface + Send + Sync>>,
     /// Orderbook
-    orderbook: Arc<Mutex<Orderbook>>,
-    /// Bitcoin wallet
-    wallet: Option<Box<dyn BitcoinWallet>>,
-    /// Runes protocol
-    runes_protocol: Option<ThreadSafeRuneProtocol>,
-    /// Alkanes protocol
-    alkanes_protocol: Option<ThreadSafeAlkaneProtocol>,
-    /// Event sender
-    event_sender: mpsc::Sender<Event>,
-    /// Event receiver
-    event_receiver: mpsc::Receiver<Event>,
+    orderbook: Option<Arc<Orderbook>>,
+    /// Trade manager
+    trade_manager: Option<Arc<TradeManager>>,
+    /// Event channel
+    event_channel: (mpsc::Sender<Event>, mpsc::Receiver<Event>),
 }
 
 impl DarkSwap {
     /// Create a new DarkSwap instance
     pub fn new(config: Config) -> Result<Self> {
+        // Create event channel
         let (event_sender, event_receiver) = mpsc::channel(100);
-
+        
         Ok(Self {
             config,
             network: None,
-            orderbook: Arc::new(Mutex::new(Orderbook::new())),
+            webrtc_transport: None,
+            circuit_relay: None,
             wallet: None,
-            runes_protocol: None,
-            alkanes_protocol: None,
-            event_sender,
-            event_receiver,
+            orderbook: None,
+            trade_manager: None,
+            event_channel: (event_sender, event_receiver),
         })
     }
 
     /// Start DarkSwap
     pub async fn start(&mut self) -> Result<()> {
-        // Create network
-        let mut network = Network::new(&self.config.network)?;
-
-        // Start network
-        network.start().await?;
-
-        // Store network
-        self.network = Some(network);
-
         // Initialize wallet
-        if self.wallet.is_none() {
-            let wallet = SimpleWallet::new(self.config.bitcoin.network.into())?;
-            self.wallet = Some(Box::new(wallet));
-        }
+        self.init_wallet().await?;
+        
+        // Initialize P2P network
+        self.init_network().await?;
+        
+        // Initialize orderbook
+        self.init_orderbook().await?;
+        
+        // Initialize trade manager
+        self.init_trade_manager().await?;
+        
+        info!("DarkSwap started successfully");
+        
+        Ok(())
+    }
 
-        // Initialize runes protocol
-        if self.runes_protocol.is_none() {
-            let runes_protocol = ThreadSafeRuneProtocol::new(self.config.bitcoin.network.into());
-            self.runes_protocol = Some(runes_protocol);
-        }
+    /// Initialize wallet
+    async fn init_wallet(&mut self) -> Result<()> {
+        let wallet: Arc<dyn WalletInterface + Send + Sync> = match self.config.wallet.wallet_type.as_str() {
+            "bdk" => {
+                // Create BDK wallet
+                let mnemonic = self.config.wallet.mnemonic.as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("Mnemonic required for BDK wallet"))?;
+                
+                let derivation_path = self.config.wallet.derivation_path.as_deref()
+                    .unwrap_or("m/84'/0'/0'/0/0");
+                
+                let bdk_wallet = BdkWallet::from_mnemonic(
+                    mnemonic,
+                    None,
+                    derivation_path,
+                    self.config.bitcoin.network,
+                ).await?;
+                
+                Arc::new(bdk_wallet)
+            }
+            "simple" | _ => {
+                // Create simple wallet
+                let simple_wallet = SimpleWallet::new(
+                    self.config.wallet.private_key.as_deref(),
+                    self.config.bitcoin.network,
+                )?;
+                
+                Arc::new(simple_wallet)
+            }
+        };
+        
+        self.wallet = Some(wallet);
+        
+        info!("Wallet initialized successfully");
+        
+        Ok(())
+    }
 
-        // Initialize alkanes protocol
-        if self.alkanes_protocol.is_none() {
-            let alkanes_protocol = ThreadSafeAlkaneProtocol::new(self.config.bitcoin.network.into());
-            self.alkanes_protocol = Some(alkanes_protocol);
-        }
+    /// Initialize P2P network
+    async fn init_network(&mut self) -> Result<()> {
+        // Create P2P network
+        let network = P2PNetwork::new(&self.config, self.event_channel.0.clone())?;
+        let network = Arc::new(RwLock::new(network));
+        
+        // Start P2P network
+        network.write().await.start().await?;
+        
+        self.network = Some(network);
+        
+        info!("P2P network initialized successfully");
+        
+        Ok(())
+    }
 
-        // Start event loop
-        let _ = self.start_event_loop();
+    /// Initialize orderbook
+    async fn init_orderbook(&mut self) -> Result<()> {
+        // Get network and wallet
+        let network = self.network.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("P2P network not initialized"))?;
+        
+        let wallet = self.wallet.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
+        
+        // Create orderbook
+        let orderbook = Orderbook::new(
+            network.clone(),
+            wallet.clone(),
+            self.event_channel.0.clone(),
+        );
+        
+        let orderbook = Arc::new(orderbook);
+        
+        // Start orderbook
+        orderbook.start().await?;
+        
+        self.orderbook = Some(orderbook);
+        
+        info!("Orderbook initialized successfully");
+        
+        Ok(())
+    }
 
+    /// Initialize trade manager
+    async fn init_trade_manager(&mut self) -> Result<()> {
+        // Get network and wallet
+        let network = self.network.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("P2P network not initialized"))?;
+        
+        let wallet = self.wallet.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
+        
+        // Create trade manager
+        let trade_manager = TradeManager::new(
+            network.clone(),
+            wallet.clone(),
+            self.event_channel.0.clone(),
+        );
+        
+        let trade_manager = Arc::new(trade_manager);
+        
+        // Start trade manager
+        trade_manager.start().await?;
+        
+        self.trade_manager = Some(trade_manager);
+        
+        info!("Trade manager initialized successfully");
+        
         Ok(())
     }
 
     /// Stop DarkSwap
     pub async fn stop(&mut self) -> Result<()> {
-        // Stop network
-        if let Some(network) = &mut self.network {
-            network.stop().await?;
+        // Stop P2P network
+        if let Some(network) = &self.network {
+            network.write().await.stop().await?;
         }
-
-        // Clear network
+        
+        // Clear state
         self.network = None;
-
+        self.webrtc_transport = None;
+        self.circuit_relay = None;
+        self.wallet = None;
+        self.orderbook = None;
+        self.trade_manager = None;
+        
+        info!("DarkSwap stopped successfully");
+        
         Ok(())
     }
 
-    /// Get the next event
+    /// Wait for the next event
     pub async fn next_event(&mut self) -> Option<Event> {
-        self.event_receiver.recv().await
+        self.event_channel.1.recv().await
     }
 
     /// Create an order
@@ -156,447 +223,163 @@ impl DarkSwap {
         &self,
         base_asset: Asset,
         quote_asset: Asset,
-        side: crate::orderbook::OrderSide,
-        amount: Decimal,
-        price: Decimal,
+        side: OrderSide,
+        amount: rust_decimal::Decimal,
+        price: rust_decimal::Decimal,
         expiry: Option<u64>,
-    ) -> Result<crate::types::Order> {
-        // Check if network is initialized
-        let network = self.network.as_ref()
-            .ok_or_else(|| Error::NetworkError("Network not initialized".to_string()))?;
-
-        // Create order
-        let _order_id = OrderId(Uuid::new_v4().to_string());
-        let peer_id = network.local_peer_id();
-        let expiry_seconds = expiry.unwrap_or(self.config.orderbook.order_expiry);
-
-        // Create orderbook::Order
-        let orderbook_order = crate::orderbook::Order::new(
-            peer_id,
-            base_asset.clone(),
-            quote_asset.clone(),
-            side,
-            amount,
-            price,
-            expiry_seconds,
-        );
-
-        // Convert to types::Order for events
-        let order = crate::types::Order {
-            id: orderbook_order.id.clone(),
-            maker: orderbook_order.maker.clone(),
-            base_asset,
-            quote_asset,
-            side: match side {
-                crate::orderbook::OrderSide::Buy => crate::types::OrderSide::Buy,
-                crate::orderbook::OrderSide::Sell => crate::types::OrderSide::Sell,
-            },
-            amount,
-            price,
-            status: crate::types::OrderStatus::Open,
-            timestamp: orderbook_order.timestamp,
-            expiry: orderbook_order.expiry,
-        };
-
-        // Clone orderbook_order for broadcasting
-        let orderbook_order_clone = orderbook_order.clone();
+    ) -> Result<Order> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
         
-        // Add order to orderbook
-        {
-            let mut orderbook = self.orderbook.lock().await;
-            orderbook.add_order(orderbook_order);
-        }
-
-        // Broadcast order - use orderbook_order_clone for network message
-        network.broadcast_message(crate::network::MessageType::Order(orderbook_order_clone)).await?;
-
-        // Send event
-        let _ = self.event_sender.send(Event::OrderCreated(order.clone())).await;
-
-        Ok(order)
+        orderbook.create_order(base_asset, quote_asset, side, amount, price, expiry).await
     }
 
     /// Cancel an order
     pub async fn cancel_order(&self, order_id: &OrderId) -> Result<()> {
-        // Check if network is initialized
-        let network = self.network.as_ref()
-            .ok_or_else(|| Error::NetworkError("Network not initialized".to_string()))?;
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
+        
+        orderbook.cancel_order(order_id).await
+    }
 
-        // Get order from orderbook
-        let mut order = {
-            let mut orderbook = self.orderbook.lock().await;
-            
-            let order = orderbook.get_order(order_id)
-                .ok_or_else(|| Error::OrderNotFound(order_id.to_string()))?
-                .clone();
-            
-            // Check if order is open
-            if order.status != OrderStatus::Open {
-                return Err(Error::OrderNotOpen);
-            }
-            
-            // Check if order belongs to this peer
-            if order.maker != network.local_peer_id() {
-                return Err(Error::InvalidOrder("Order does not belong to this peer".to_string()));
-            }
-            
-            // Cancel order
-            orderbook.cancel_order(order_id)?;
-            
-            order
-        };
+    /// Get an order by ID
+    pub async fn get_order(&self, order_id: &OrderId) -> Result<Order> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
         
-        // Update order status
-        order.cancel();
+        orderbook.get_order(order_id).await
+    }
+
+    /// Get orders for a pair
+    pub async fn get_orders(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Vec<Order>> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
         
-        // Broadcast cancellation
-        network.broadcast_message(crate::network::MessageType::CancelOrder(order_id.clone())).await?;
+        orderbook.get_orders(base_asset, quote_asset).await
+    }
+
+    /// Get best bid and ask for a pair
+    pub async fn get_best_bid_ask(
+        &self,
+        base_asset: &Asset,
+        quote_asset: &Asset,
+    ) -> Result<(Option<rust_decimal::Decimal>, Option<rust_decimal::Decimal>)> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
         
-        // Send event
-        let _ = self.event_sender.send(Event::OrderCanceled(order_id.clone())).await;
-        
-        Ok(())
+        orderbook.get_best_bid_ask(base_asset, quote_asset).await
     }
 
     /// Take an order
-    pub async fn take_order(&self, order_id: &OrderId, amount: Decimal) -> Result<crate::types::Trade> {
-        // Check if network is initialized
-        let network = self.network.as_ref()
-            .ok_or_else(|| Error::NetworkError("Network not initialized".to_string()))?;
-
-        // Get order from orderbook
-        let order = {
-            let orderbook = self.orderbook.lock().await;
-            
-            orderbook.get_order(order_id)
-                .ok_or_else(|| Error::OrderNotFound(order_id.to_string()))?
-                .clone()
-        };
-        
-        // Check if order is open
-        if order.status != OrderStatus::Open {
-            return Err(Error::OrderNotOpen);
-        }
-        
-        // Check if amount is valid
-        if amount <= Decimal::ZERO || amount > order.amount {
-            return Err(Error::InvalidTradeAmount);
-        }
-        
-        // Create trade using trade::Trade
-        let trade_impl = crate::trade::Trade::new(&order, network.local_peer_id(), amount);
-        
-        // Convert to types::Trade for events
-        let trade = crate::types::Trade {
-            id: trade_impl.id.clone(),
-            order_id: trade_impl.order_id.clone(),
-            maker: trade_impl.maker.clone(),
-            taker: trade_impl.taker.clone(),
-            base_asset: trade_impl.base_asset.clone(),
-            quote_asset: trade_impl.quote_asset.clone(),
-            side: match trade_impl.side {
-                crate::orderbook::OrderSide::Buy => crate::types::OrderSide::Buy,
-                crate::orderbook::OrderSide::Sell => crate::types::OrderSide::Sell,
-            },
-            amount: trade_impl.amount,
-            price: trade_impl.price,
-            status: crate::types::TradeStatus::Pending,
-            timestamp: trade_impl.timestamp,
-            txid: trade_impl.txid.clone(),
-        };
-        
-        // Send trade request to maker
-        let trade_request = crate::network::MessageType::TradeRequest(
-            trade_impl.id.clone(),
-            network.local_peer_id(),
-            order_id.clone(),
-        );
-        
-        network.send_message(order.maker.clone(), trade_request).await?;
-        
-        // Send event
-        let _ = self.event_sender.send(Event::TradeStarted(trade.clone())).await;
-        
-        Ok(trade)
-    }
-
-    /// Get orders for a given asset pair
-    pub async fn get_orders(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Vec<Order>> {
-        let orderbook = self.orderbook.lock().await;
-        
-        Ok(orderbook.get_orders(base_asset, quote_asset))
-    }
-
-    /// Get the best bid and ask for a given asset pair
-    pub async fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
-        let orderbook = self.orderbook.lock().await;
-        
-        Ok(orderbook.get_best_bid_ask(base_asset, quote_asset))
-    }
-
-    /// Register a rune
-    pub fn register_rune(&self, rune: Rune) -> Result<()> {
-        let runes_protocol = self.runes_protocol.as_ref()
-            .ok_or_else(|| Error::RuneError("Runes protocol not initialized".to_string()))?;
-        
-        runes_protocol.register_rune(rune)
-    }
-
-    /// Get a rune by ID
-    pub fn get_rune(&self, rune_id: RuneId) -> Result<Option<Rune>> {
-        let runes_protocol = self.runes_protocol.as_ref()
-            .ok_or_else(|| Error::RuneError("Runes protocol not initialized".to_string()))?;
-        
-        runes_protocol.get_rune(rune_id)
-    }
-
-    /// Get all runes
-    pub fn get_runes(&self) -> Result<Vec<Rune>> {
-        let runes_protocol = self.runes_protocol.as_ref()
-            .ok_or_else(|| Error::RuneError("Runes protocol not initialized".to_string()))?;
-        
-        runes_protocol.get_runes()
-    }
-
-    /// Create a rune transfer
-    pub async fn create_rune_transfer(
+    pub async fn take_order(
         &self,
-        rune_id: &RuneId,
-        to: &Address,
-        amount: u64,
-        memo: Option<String>,
-    ) -> Result<Transaction> {
-        // Check if runes protocol is initialized
-        let runes_protocol = self.runes_protocol.as_ref()
-            .ok_or_else(|| Error::RuneError("Runes protocol not initialized".to_string()))?;
+        order_id: &OrderId,
+        amount: rust_decimal::Decimal,
+    ) -> Result<Trade> {
+        // Get order
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
         
-        // Check if wallet is initialized
+        let order = orderbook.get_order(order_id).await?;
+        
+        // Create trade
+        let trade_manager = self.trade_manager.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Trade manager not initialized"))?;
+        
+        trade_manager.create_trade(&order, amount).await
+    }
+
+    /// Get a trade by ID
+    pub async fn get_trade(&self, trade_id: &TradeId) -> Result<Trade> {
+        let trade_manager = self.trade_manager.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Trade manager not initialized"))?;
+        
+        trade_manager.get_trade(trade_id).await
+    }
+
+    /// Get all trades
+    pub async fn get_trades(&self) -> Result<Vec<Trade>> {
+        let trade_manager = self.trade_manager.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Trade manager not initialized"))?;
+        
+        Ok(trade_manager.get_trades().await)
+    }
+
+    /// Cancel a trade
+    pub async fn cancel_trade(&self, trade_id: &TradeId, reason: &str) -> Result<()> {
+        let trade_manager = self.trade_manager.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Trade manager not initialized"))?;
+        
+        trade_manager.cancel_trade(trade_id, reason).await
+    }
+
+    /// Get wallet address
+    pub async fn get_address(&self) -> Result<String> {
         let wallet = self.wallet.as_ref()
-            .ok_or_else(|| Error::WalletError("Wallet not initialized".to_string()))?;
+            .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
         
-        // Get from address
-        let from = wallet.get_address(0)?;
-        
-        // Create transfer - convert addresses to NetworkUnchecked
-        let from_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(from.network, from.payload.clone());
-        let to_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(to.network, to.payload.clone());
-        
-        // Create transaction
-        let tx = runes_protocol.create_transfer_transaction(
-            wallet,
-            *rune_id,
-            amount as u128,
-            &to_unchecked,
-            self.config.bitcoin.fee_rate as f32,
-        )?;
-        
-        Ok(tx)
+        wallet.get_address().await
     }
 
-    /// Register an alkane
-    pub fn register_alkane(&self, alkane: Alkane) -> Result<()> {
-        let alkanes_protocol = self.alkanes_protocol.as_ref()
-            .ok_or_else(|| Error::AlkaneError("Alkanes protocol not initialized".to_string()))?;
-        
-        alkanes_protocol.register_alkane(alkane)
-    }
-
-    /// Get an alkane by ID
-    pub fn get_alkane(&self, alkane_id: AlkaneId) -> Result<Option<Alkane>> {
-        let alkanes_protocol = self.alkanes_protocol.as_ref()
-            .ok_or_else(|| Error::AlkaneError("Alkanes protocol not initialized".to_string()))?;
-        
-        alkanes_protocol.get_alkane(&alkane_id)
-    }
-
-    /// Get all alkanes
-    pub fn get_alkanes(&self) -> Result<Vec<Alkane>> {
-        let alkanes_protocol = self.alkanes_protocol.as_ref()
-            .ok_or_else(|| Error::AlkaneError("Alkanes protocol not initialized".to_string()))?;
-        
-        alkanes_protocol.get_alkanes()
-    }
-
-    /// Create an alkane transfer
-    pub async fn create_alkane_transfer(
-        &self,
-        alkane_id: &AlkaneId,
-        to: &Address,
-        amount: u64,
-        memo: Option<String>,
-    ) -> Result<Transaction> {
-        // Check if alkanes protocol is initialized
-        let alkanes_protocol = self.alkanes_protocol.as_ref()
-            .ok_or_else(|| Error::AlkaneError("Alkanes protocol not initialized".to_string()))?;
-        
-        // Check if wallet is initialized
+    /// Get wallet balance
+    pub async fn get_balance(&self) -> Result<u64> {
         let wallet = self.wallet.as_ref()
-            .ok_or_else(|| Error::WalletError("Wallet not initialized".to_string()))?;
+            .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
         
-        // Get from address
-        let from = wallet.get_address(0)?;
-        
-        // Create transfer - convert addresses to NetworkUnchecked
-        let from_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(from.network, from.payload.clone());
-        let to_unchecked: bitcoin::Address<bitcoin::address::NetworkUnchecked> = bitcoin::Address::new(to.network, to.payload.clone());
-        
-        // Create transaction
-        let tx = alkanes_protocol.create_transfer_transaction(
-            wallet,
-            alkane_id.clone(),
-            amount as u128,
-            &to_unchecked,
-            self.config.bitcoin.fee_rate as f32,
-        )?;
-        
-        Ok(tx)
+        wallet.get_balance().await
     }
 
-    /// Start the event loop
-    fn start_event_loop(&self) -> Result<()> {
-        // Clone what we need for the event loop
-        let network = self.network.clone();
-        let _orderbook = self.orderbook.clone();
-        let event_sender = self.event_sender.clone();
-        let runes_protocol = self.runes_protocol.clone();
-        let alkanes_protocol = self.alkanes_protocol.clone();
-
-        // Instead of spawning a task, we'll start a background task in a separate function
-        // This avoids the Send requirement for the Network type
-        let _ = self.start_network_event_handler(network, event_sender, runes_protocol, alkanes_protocol);
-
-        Ok(())
+    /// Get asset balance
+    pub async fn get_asset_balance(&self, asset: &Asset) -> Result<u64> {
+        let wallet = self.wallet.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
+        
+        wallet.get_asset_balance(asset).await
     }
 
-    /// Start a background task to handle network events
-    fn start_network_event_handler(
-        &self,
-        network: Option<network::Network>,
-        event_sender: tokio::sync::mpsc::Sender<Event>,
-        _runes_protocol: Option<ThreadSafeRuneProtocol>,
-        _alkanes_protocol: Option<ThreadSafeAlkaneProtocol>,
-    ) -> Result<()> {
-        // Create a new thread to handle network events
-        std::thread::spawn(move || {
-            // Create a new tokio runtime for this thread
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    eprintln!("Failed to create tokio runtime: {}", e);
-                    return;
-                }
-            };
+    /// Get runes
+    pub async fn get_runes(&self) -> Result<Vec<types::Rune>> {
+        // TODO: Implement rune lookup
+        Ok(vec![])
+    }
+
+    /// Get rune by ID
+    pub async fn get_rune(&self, rune_id: u128) -> Result<Option<types::Rune>> {
+        // TODO: Implement rune lookup
+        Ok(None)
+    }
+
+    /// Get alkanes
+    pub async fn get_alkanes(&self) -> Result<Vec<types::Alkane>> {
+        // TODO: Implement alkane lookup
+        Ok(vec![])
+    }
+
+    /// Get alkane by ID
+    pub async fn get_alkane(&self, alkane_id: &types::AlkaneId) -> Result<Option<types::Alkane>> {
+        // TODO: Implement alkane lookup
+        Ok(None)
+    }
+
+    /// Subscribe to events
+    pub async fn subscribe_to_events(&self) -> mpsc::Receiver<Event> {
+        // Create a new channel
+        let (sender, receiver) = mpsc::channel(100);
+        
+        // Clone the event sender
+        let event_sender = self.event_channel.0.clone();
+        
+        // Spawn a task to forward events
+        tokio::spawn(async move {
+            // Create a new receiver by cloning the sender
+            let mut event_receiver = mpsc::channel::<Event>(100).1;
             
-            // Run the async code in the new runtime
-            rt.block_on(async {
-                if let Some(network) = network {
-                    let mut network_events = network.event_receiver().await;
-
-                    while let Some(event) = network_events.recv().await {
-                        match event {
-                            network::NetworkEvent::PeerConnected(peer_id) => {
-                                // Send peer connected event
-                                let _ = event_sender.send(Event::Network(types::NetworkEvent::PeerConnected(peer_id.clone()))).await;
-                            }
-                            network::NetworkEvent::PeerDisconnected(peer_id) => {
-                                // Send peer disconnected event
-                                let _ = event_sender.send(Event::Network(types::NetworkEvent::PeerDisconnected(peer_id.clone()))).await;
-                            }
-                            network::NetworkEvent::MessageReceived { from, message } => {
-                                // Handle message
-                                match message {
-                                    crate::network::MessageType::Order(order) => {
-                                        // We can't access self.orderbook here, so we'll just log the order
-                                        println!("Received order: {:?}", order);
-
-                                        // Convert orderbook::Order to types::Order
-                                        // First convert the side enum
-                                        let types_side = match order.side {
-                                            orderbook::OrderSide::Buy => types::OrderSide::Buy,
-                                            orderbook::OrderSide::Sell => types::OrderSide::Sell,
-                                        };
-                                        
-                                        // Then convert the status enum
-                                        let types_status = match order.status {
-                                            orderbook::OrderStatus::Open => types::OrderStatus::Open,
-                                            orderbook::OrderStatus::Filled => types::OrderStatus::Filled,
-                                            orderbook::OrderStatus::Canceled => types::OrderStatus::Canceled,
-                                            orderbook::OrderStatus::Expired => types::OrderStatus::Expired,
-                                        };
-                                        
-                                        // Create the types::Order with the correct fields
-                                        let types_order = types::Order {
-                                            id: order.id.clone(),
-                                            maker: order.maker.clone(),
-                                            base_asset: order.base_asset.clone(),
-                                            quote_asset: order.quote_asset.clone(),
-                                            side: types_side,
-                                            price: order.price.clone(),
-                                            amount: order.amount.clone(),
-                                            status: types_status,
-                                            timestamp: order.timestamp,
-                                            expiry: order.expiry,
-                                        };
-                                        
-                                        // Send order created event
-                                        let _ = event_sender.send(Event::OrderCreated(types_order)).await;
-                                    }
-                                    crate::network::MessageType::CancelOrder(order_id) => {
-                                        // We can't access self.orderbook here, so we'll just log the order cancellation
-                                        println!("Received order cancellation: {:?}", order_id);
-
-                                        // Send order canceled event
-                                        let _ = event_sender.send(Event::OrderCanceled(order_id)).await;
-                                    }
-                                    crate::network::MessageType::TradeRequest(trade_id, taker, _order_id) => {
-                                        // Handle trade request
-                                        // In a real implementation, this would validate the trade request
-                                        // and respond with a trade response
-                                        // For now, we'll just send a trade response
-                                        let _ = network.send_message(
-                                            taker.clone(),
-                                            crate::network::MessageType::TradeResponse(trade_id, true),
-                                        ).await;
-                                    }
-                                    crate::network::MessageType::TradeResponse(trade_id, accepted) => {
-                                        // Handle trade response
-                                        // In a real implementation, this would update the trade status
-                                        // and proceed with the trade if accepted
-                                        // For now, we'll just log the response
-                                        println!("Trade response: {} {}", trade_id, if accepted { "accepted" } else { "rejected" });
-                                    }
-                                    crate::network::MessageType::Psbt(trade_id, psbt_bytes) => {
-                                        // Handle PSBT
-                                        // In a real implementation, this would validate and sign the PSBT
-                                        // For now, we'll just log the PSBT
-                                        println!("PSBT received for trade {}: {} bytes", trade_id, psbt_bytes.len());
-                                    }
-                                    crate::network::MessageType::Transaction(trade_id, txid) => {
-                                        // Handle transaction
-                                        // In a real implementation, this would validate and broadcast the transaction
-                                        // For now, we'll just log the transaction
-                                        println!("Transaction received for trade {}: {}", trade_id, txid);
-                                    }
-                                    crate::network::MessageType::Ping => {
-                                        // Respond with pong
-                                        let _ = network.send_message(
-                                            from.clone(),
-                                            crate::network::MessageType::Pong,
-                                        ).await;
-                                    }
-                                    crate::network::MessageType::Pong => {
-                                        // Handle pong
-                                        // For now, we'll just log the pong
-                                        println!("Pong received from {}", from);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            // Forward events
+            while let Some(event) = event_receiver.recv().await {
+                let _ = sender.send(event).await;
+            }
         });
         
-        Ok(())
+        receiver
     }
 }

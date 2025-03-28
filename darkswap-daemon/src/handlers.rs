@@ -1,346 +1,229 @@
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
+//! WebSocket handlers for DarkSwap daemon
+//!
+//! This module provides WebSocket handlers for real-time updates from the DarkSwap daemon.
 
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::sse::{Event, KeepAlive, Sse},
-    Json,
+    extract::{
+        ws::{Message, WebSocket},
+        WebSocketUpgrade,
+        State,
+    },
+    response::IntoResponse,
 };
-use futures_util::stream::Stream;
+use futures_util::{sink::SinkExt, stream::StreamExt};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use crate::types::{
-    AppState, CreateOrderRequest, CreateOrderResponse, CancelOrderResponse, ListOrdersQuery,
-    ListOrdersResponse, MarketQuery, MarketResponse, OrderResponse, TakeOrderRequest,
-    TakeOrderResponse,
-};
-use darkswap_sdk::{
-    types::{Asset, OrderId},
-    orderbook::OrderSide,
-    error::Error,
-};
+use crate::api::ApiState;
 
-/// List orders
-pub async fn list_orders(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<ListOrdersQuery>,
-) -> (StatusCode, Json<ListOrdersResponse>) {
-    // Parse assets
-    let base_asset = match Asset::from_str(&query.base) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ListOrdersResponse {
-                    orders: vec![],
-                    error: Some(format!("Invalid base asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    let quote_asset = match Asset::from_str(&query.quote) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ListOrdersResponse {
-                    orders: vec![],
-                    error: Some(format!("Invalid quote asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    // Get orders
-    let orders = match state.darkswap.lock().await.get_orders(&base_asset, &quote_asset).await {
-        Ok(orders) => orders,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ListOrdersResponse {
-                    orders: vec![],
-                    error: Some(format!("Failed to get orders: {}", e)),
-                }),
-            )
-        }
-    };
-
-    // Convert to response
-    let order_responses = orders
-        .into_iter()
-        .map(|order| OrderResponse {
-            id: order.id.to_string(),
-            base_asset: order.base_asset.to_string(),
-            quote_asset: order.quote_asset.to_string(),
-            side: order.side.to_string(),
-            amount: order.amount,
-            price: order.price,
-            status: order.status.to_string(),
-            created_at: order.created_at,
-            expires_at: order.expires_at,
-        })
-        .collect();
-
-    (
-        StatusCode::OK,
-        Json(ListOrdersResponse {
-            orders: order_responses,
-            error: None,
-        }),
-    )
+/// WebSocket message
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub enum WebSocketMessage {
+    /// Subscribe to events
+    Subscribe {
+        /// Event types to subscribe to
+        events: Vec<String>,
+    },
+    /// Unsubscribe from events
+    Unsubscribe {
+        /// Event types to unsubscribe from
+        events: Vec<String>,
+    },
+    /// Event
+    Event {
+        /// Event type
+        event_type: String,
+        /// Event data
+        data: serde_json::Value,
+    },
+    /// Error
+    Error {
+        /// Error message
+        message: String,
+    },
 }
 
-/// Create order
-pub async fn create_order(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<CreateOrderRequest>,
-) -> (StatusCode, Json<CreateOrderResponse>) {
-    // Parse assets
-    let base_asset = match Asset::from_str(&request.base_asset) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CreateOrderResponse {
-                    order_id: None,
-                    error: Some(format!("Invalid base asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    let quote_asset = match Asset::from_str(&request.quote_asset) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CreateOrderResponse {
-                    order_id: None,
-                    error: Some(format!("Invalid quote asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    // Parse side
-    let side = match request.side.as_str() {
-        "buy" => OrderSide::Buy,
-        "sell" => OrderSide::Sell,
-        _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CreateOrderResponse {
-                    order_id: None,
-                    error: Some("Invalid side, must be 'buy' or 'sell'".to_string()),
-                }),
-            )
-        }
-    };
-
-    // Parse expiry
-    let expiry = match request.expiry {
-        Some(expiry) => expiry,
-        None => chrono::Utc::now().timestamp() + 3600, // Default to 1 hour
-    };
-
-    // Create order
-    match state
-        .darkswap
-        .lock()
-        .await
-        .create_order(base_asset, quote_asset, side, request.amount, request.price, Some(expiry))
-        .await
-    {
-        Ok(order) => (
-            StatusCode::CREATED,
-            Json(CreateOrderResponse {
-                order_id: Some(order.id.to_string()),
-                error: None,
-            }),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CreateOrderResponse {
-                order_id: None,
-                error: Some(format!("Failed to create order: {}", e)),
-            }),
-        ),
-    }
+/// WebSocket handler
+pub async fn ws_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<ApiState>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_socket(socket, state))
 }
 
-/// Cancel order
-pub async fn cancel_order(
-    State(state): State<Arc<AppState>>,
-    Path(order_id): Path<String>,
-) -> (StatusCode, Json<CancelOrderResponse>) {
-    // Parse order ID
-    let order_id = match OrderId::from_str(&order_id) {
-        Ok(order_id) => order_id,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CancelOrderResponse {
-                    success: false,
-                    error: Some(format!("Invalid order ID: {}", e)),
-                }),
-            )
-        }
-    };
+/// Handle WebSocket connection
+async fn handle_socket(socket: WebSocket, state: Arc<ApiState>) {
+    // Split socket into sender and receiver
+    let (mut sender, mut receiver) = socket.split();
 
-    // Cancel order
-    match state.darkswap.lock().await.cancel_order(&order_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(CancelOrderResponse {
-                success: true,
-                error: None,
-            }),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CancelOrderResponse {
-                success: false,
-                error: Some(format!("Failed to cancel order: {}", e)),
-            }),
-        ),
-    }
-}
+    // Create a channel for sending messages to the WebSocket
+    let (tx, mut rx) = mpsc::channel::<Message>(100);
 
-/// Take order
-pub async fn take_order(
-    State(state): State<Arc<AppState>>,
-    Path(order_id): Path<String>,
-    Json(request): Json<TakeOrderRequest>,
-) -> (StatusCode, Json<TakeOrderResponse>) {
-    // Parse order ID
-    let order_id = match OrderId::from_str(&order_id) {
-        Ok(order_id) => order_id,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(TakeOrderResponse {
-                    trade_id: None,
-                    error: Some(format!("Invalid order ID: {}", e)),
-                }),
-            )
-        }
-    };
-
-    // Take order
-    match state
-        .darkswap
-        .lock()
-        .await
-        .take_order(&order_id, request.amount)
-        .await
-    {
-        Ok(trade) => (
-            StatusCode::OK,
-            Json(TakeOrderResponse {
-                trade_id: Some(trade.id.to_string()),
-                error: None,
-            }),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(TakeOrderResponse {
-                trade_id: None,
-                error: Some(format!("Failed to take order: {}", e)),
-            }),
-        ),
-    }
-}
-
-/// Get market data
-pub async fn get_market(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<MarketQuery>,
-) -> (StatusCode, Json<MarketResponse>) {
-    // Parse assets
-    let base_asset = match Asset::from_str(&query.base) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(MarketResponse {
-                    best_bid: None,
-                    best_ask: None,
-                    error: Some(format!("Invalid base asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    let quote_asset = match Asset::from_str(&query.quote) {
-        Ok(asset) => asset,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(MarketResponse {
-                    best_bid: None,
-                    best_ask: None,
-                    error: Some(format!("Invalid quote asset: {}", e)),
-                }),
-            )
-        }
-    };
-
-    // Get best bid/ask
-    match state
-        .darkswap
-        .lock()
-        .await
-        .get_best_bid_ask(&base_asset, &quote_asset)
-        .await
-    {
-        Ok((best_bid, best_ask)) => (
-            StatusCode::OK,
-            Json(MarketResponse {
-                best_bid,
-                best_ask,
-                error: None,
-            }),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(MarketResponse {
-                best_bid: None,
-                best_ask: None,
-                error: Some(format!("Failed to get market data: {}", e)),
-            }),
-        ),
-    }
-}
-
-/// Subscribe to events
-pub async fn subscribe_events(
-    State(state): State<Arc<AppState>>,
-) -> Sse<impl Stream<Item = Result<Event, axum::Error>>> {
-    // Create channel for events
-    let (tx, rx) = mpsc::channel(100);
-    let rx_stream = ReceiverStream::new(rx);
-
-    // Register client
+    // Generate a client ID
     let client_id = Uuid::new_v4().to_string();
-    state.clients.lock().await.insert(client_id.clone(), tx);
 
-    // Create stream
-    let stream = rx_stream.map(|event| {
-        Ok(Event::default()
-            .event("message")
-            .data(event.unwrap_or_else(|| "error".to_string())))
+    // Spawn a task to forward messages from the channel to the WebSocket
+    let mut send_task = tokio::spawn(async move {
+        while let Some(message) = rx.recv().await {
+            if sender.send(message).await.is_err() {
+                break;
+            }
+        }
     });
 
-    // Return SSE response
-    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
+    // Create a channel for DarkSwap events
+    let (event_tx, mut event_rx) = mpsc::channel::<darkswap_sdk::types::Event>(100);
+    
+    // Clone the state and event sender for the background task
+    let state_clone = state.clone();
+    
+    // Spawn a background task to subscribe to events and forward them to our channel
+    tokio::spawn(async move {
+        let darkswap = state_clone.darkswap.lock().await;
+        let receiver = darkswap.subscribe_to_events().await;
+        
+        let mut receiver = receiver;
+        while let Some(event) = receiver.recv().await {
+            if event_tx.send(event).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Spawn a task to forward DarkSwap events to the WebSocket
+    let tx_clone = tx.clone();
+    let mut event_task = tokio::spawn(async move {
+        while let Some(event) = event_rx.recv().await {
+            // Convert event to WebSocket message
+            let event_type = match &event {
+                darkswap_sdk::types::Event::OrderCreated(_) => "order_created",
+                darkswap_sdk::types::Event::OrderCancelled(_) => "order_canceled",
+                darkswap_sdk::types::Event::OrderFilled(_) => "order_filled",
+                darkswap_sdk::types::Event::OrderExpired(_) => "order_expired",
+                darkswap_sdk::types::Event::OrderUpdated(_) => "order_updated",
+                darkswap_sdk::types::Event::TradeStarted(_) => "trade_started",
+                darkswap_sdk::types::Event::TradeCompleted(_) => "trade_completed",
+                darkswap_sdk::types::Event::TradeFailed(_) => "trade_failed",
+                darkswap_sdk::types::Event::TradeCreated(_) => "trade_created",
+                darkswap_sdk::types::Event::TradeUpdated(_) => "trade_updated",
+                darkswap_sdk::types::Event::TradeCancelled(_) => "trade_cancelled",
+                darkswap_sdk::types::Event::TradeExpired(_) => "trade_expired",
+                darkswap_sdk::types::Event::PeerConnected(_) => "peer_connected",
+                darkswap_sdk::types::Event::PeerDisconnected(_) => "peer_disconnected",
+            };
+
+            // Serialize event data
+            let data = match serde_json::to_value(&event) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+
+            // Create WebSocket message
+            let ws_message = WebSocketMessage::Event {
+                event_type: event_type.to_string(),
+                data,
+            };
+
+            // Serialize WebSocket message
+            let message_text = match serde_json::to_string(&ws_message) {
+                Ok(text) => text,
+                Err(_) => continue,
+            };
+
+            // Send WebSocket message
+            if tx_clone.send(Message::Text(message_text)).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Process incoming messages
+    let mut subscribed_events = Vec::new();
+    
+    while let Some(Ok(message)) = receiver.next().await {
+        match message {
+            Message::Text(text) => {
+                // Parse message
+                match serde_json::from_str::<WebSocketMessage>(&text) {
+                    Ok(WebSocketMessage::Subscribe { events }) => {
+                        // Subscribe to events
+                        for event in events {
+                            if !subscribed_events.contains(&event) {
+                                subscribed_events.push(event);
+                            }
+                        }
+                        
+                        // Send confirmation
+                        let response = WebSocketMessage::Event {
+                            event_type: "subscribed".to_string(),
+                            data: serde_json::json!({
+                                "events": subscribed_events,
+                            }),
+                        };
+                        
+                        let response_text = serde_json::to_string(&response).unwrap();
+                        let _ = tx.send(Message::Text(response_text)).await;
+                    }
+                    Ok(WebSocketMessage::Unsubscribe { events }) => {
+                        // Unsubscribe from events
+                        subscribed_events.retain(|e| !events.contains(e));
+                        
+                        // Send confirmation
+                        let response = WebSocketMessage::Event {
+                            event_type: "unsubscribed".to_string(),
+                            data: serde_json::json!({
+                                "events": subscribed_events,
+                            }),
+                        };
+                        
+                        let response_text = serde_json::to_string(&response).unwrap();
+                        let _ = tx.send(Message::Text(response_text)).await;
+                    }
+                    _ => {
+                        // Send error
+                        let response = WebSocketMessage::Error {
+                            message: "Invalid message".to_string(),
+                        };
+                        
+                        let response_text = serde_json::to_string(&response).unwrap();
+                        let _ = tx.send(Message::Text(response_text)).await;
+                    }
+                }
+            }
+            Message::Close(_) => {
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // Cancel the tasks
+    send_task.abort();
+    event_task.abort();
 }
 
-/// Health check
-pub async fn health() -> StatusCode {
-    StatusCode::OK
+/// Send event to WebSocket clients
+pub async fn send_event(
+    clients: &std::collections::HashMap<String, mpsc::Sender<Message>>,
+    event_type: &str,
+    data: serde_json::Value,
+) {
+    // Create event message
+    let event = WebSocketMessage::Event {
+        event_type: event_type.to_string(),
+        data,
+    };
+    
+    let event_text = match serde_json::to_string(&event) {
+        Ok(text) => text,
+        Err(_) => return,
+    };
+    
+    // Send event to all clients
+    for (_, sender) in clients {
+        let _ = sender.send(Message::Text(event_text.clone())).await;
+    }
 }

@@ -3,7 +3,7 @@ use darkswap_sdk::types::RuneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
-    OutPoint, TxOut, Transaction,
+    OutPoint, TxOut, Transaction, Txid,
     address::{Address, NetworkUnchecked},
     hashes::Hash,
 };
@@ -17,20 +17,22 @@ fn test_thread_safe_rune_protocol_creation() -> Result<()> {
     let protocol = ThreadSafeRuneProtocol::new(Network::Regtest);
     
     // Register a rune
-    let rune_id = RuneId("RUNE123".to_string());
+    let rune_id: RuneId = 123456789;
+    let outpoint = OutPoint::new(Txid::all_zeros(), 0);
     let rune = Rune::new(
-        rune_id.clone(),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        rune_id,
+        Some("TEST".to_string()),
         8,
         1_000_000,
-        Some(1_000_000),
+        0,
+        outpoint,
+        0,
     );
     
     protocol.register_rune(rune.clone())?;
     
     // Verify the rune was registered
-    let retrieved_rune = protocol.get_rune(&rune_id)?;
+    let retrieved_rune = protocol.get_rune(rune_id)?;
     assert!(retrieved_rune.is_some());
     let retrieved_rune = retrieved_rune.unwrap();
     assert_eq!(retrieved_rune.id, rune_id);
@@ -44,14 +46,16 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
     let protocol = Arc::new(ThreadSafeRuneProtocol::new(Network::Regtest));
     
     // Register a rune
-    let rune_id = RuneId("RUNE123".to_string());
+    let rune_id: RuneId = 123456789;
+    let outpoint = OutPoint::new(Txid::all_zeros(), 0);
     let rune = Rune::new(
-        rune_id.clone(),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        rune_id,
+        Some("TEST".to_string()),
         8,
         1_000_000,
-        Some(1_000_000),
+        0,
+        outpoint,
+        0,
     );
     
     protocol.register_rune(rune.clone())?;
@@ -62,11 +66,10 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
     
     // Manually set a balance for address1
     let transfer = RuneTransfer::new(
-        rune_id.clone(),
+        rune.clone(),
         address1.clone(),
         address1.clone(),
         5000,
-        None,
     );
     
     // Create a transaction to set the initial balance
@@ -109,10 +112,10 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
     };
     
     // Process the transaction to set the initial balance
-    protocol.process_transaction(&tx)?;
+    protocol.process_transaction(&tx, 0)?;
     
     // Verify the initial balance
-    assert_eq!(protocol.get_balance(&address1, &rune_id)?, 5000);
+    assert_eq!(protocol.get_balance(&address1, rune_id)?, 5000);
     
     // Create multiple threads to transfer runes concurrently
     let mut handles = vec![];
@@ -121,18 +124,17 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
     
     for i in 0..num_threads {
         let protocol_clone = Arc::clone(&protocol);
-        let rune_id_clone = rune_id.clone();
+        let rune_clone = rune.clone();
         let address1_clone = address1.clone();
         let address2_clone = address2.clone();
         
         let handle = thread::spawn(move || -> Result<()> {
             // Create a transfer
             let transfer = RuneTransfer::new(
-                rune_id_clone,
+                rune_clone,
                 address1_clone.clone(),
                 address2_clone,
                 amount_per_thread,
-                Some(format!("Thread {}", i)),
             );
             
             // Create inputs
@@ -144,7 +146,7 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
             let inputs = vec![(outpoint, txout)];
             
             // Create a transaction
-            let tx = protocol_clone.create_transaction(
+            let tx = protocol_clone.create_transfer_transaction(
                 &transfer,
                 inputs,
                 &generate_test_address(Network::Regtest, 1)?,
@@ -152,7 +154,7 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
             )?;
             
             // Process the transaction
-            protocol_clone.process_transaction(&tx)?;
+            protocol_clone.process_transaction(&tx, 0)?;
             
             Ok(())
         });
@@ -166,8 +168,8 @@ fn test_thread_safe_rune_protocol_concurrent_access() -> Result<()> {
     }
     
     // Verify the final balances
-    assert_eq!(protocol.get_balance(&address1, &rune_id)?, 5000 - (num_threads * amount_per_thread));
-    assert_eq!(protocol.get_balance(&address2, &rune_id)?, num_threads * amount_per_thread);
+    assert_eq!(protocol.get_balance(&address1, rune_id)?, 5000 - (num_threads * amount_per_thread));
+    assert_eq!(protocol.get_balance(&address2, rune_id)?, num_threads * amount_per_thread);
     
     Ok(())
 }

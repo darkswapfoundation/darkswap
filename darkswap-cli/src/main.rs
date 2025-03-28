@@ -7,9 +7,9 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
-    types::{Asset, RuneId, AlkaneId},
-    orderbook::{Order, OrderSide, OrderStatus},
-    DarkSwap, Event,
+    types::{Asset, AlkaneId},
+    orderbook::{Order, OrderId, OrderSide, OrderStatus},
+    DarkSwap, types::Event,
 };
 use rust_decimal::Decimal;
 use std::path::PathBuf;
@@ -194,13 +194,45 @@ fn load_or_create_config(config_path: Option<PathBuf>, network: &str) -> Result<
 
 /// Start the daemon
 async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
-    println!("Starting DarkSwap daemon on {}", listen_addr);
+    use colored::*;
+    use indicatif::{ProgressBar, ProgressStyle};
+    use std::time::Duration;
+
+    println!("{}", "Starting DarkSwap daemon...".green().bold());
+    println!("  Listen address: {}", listen_addr.cyan());
+    println!("  Network: {}", config.bitcoin.network.to_string().cyan());
+
+    // Show a spinner while starting
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.blue} {msg}")
+            .unwrap(),
+    );
+    spinner.set_message("Initializing DarkSwap...");
+    spinner.enable_steady_tick(Duration::from_millis(100));
 
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
 
+    spinner.set_message("Connecting to P2P network...");
+
     // Start DarkSwap
     darkswap.start().await?;
+
+    // Stop the spinner and show success message
+    spinner.finish_with_message("DarkSwap daemon started successfully!".green().to_string());
+
+    // Print daemon info
+    println!("\n{}", "Daemon Information:".bold());
+    println!("  Status:       {}", "Running".green());
+    println!("  Listen Addr:  {}", listen_addr);
+    println!("  Peer ID:      {}", darkswap.network.as_ref().map_or("Unknown".to_string(), |n| {
+        let network = n.read().now_or_never().unwrap();
+        network.local_peer_id().to_string()
+    }).cyan());
+    println!("  Press Ctrl+C to stop the daemon");
 
     // Create a channel for shutdown signal
     let (shutdown_sender, mut shutdown_receiver) = mpsc::channel::<()>(1);
@@ -209,49 +241,133 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
     let shutdown_sender_clone = shutdown_sender.clone();
     tokio::spawn(async move {
         signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
-        println!("Received Ctrl+C, shutting down...");
+        println!("\n{}", "Received Ctrl+C, shutting down...".yellow().bold());
         let _ = shutdown_sender_clone.send(()).await;
     });
+
+    // Create a table for events
+    use prettytable::{format, Table, row, cell};
+    let mut event_table = Table::new();
+    event_table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+    event_table.add_row(row![
+        "Time".bold(),
+        "Event Type".bold(),
+        "Details".bold()
+    ]);
+
+    println!("\n{}", "Event Log:".bold());
+    event_table.printstd();
 
     // Process events
     loop {
         tokio::select! {
             event = darkswap.next_event() => {
                 if let Some(event) = event {
+                    // Get current time
+                    let now = chrono::Local::now().format("%H:%M:%S").to_string();
+                    
+                    // Create a new table for this event
+                    let mut table = Table::new();
+                    table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+                    
                     match event {
                         Event::Network(network_event) => {
-                            println!("Network event: {:?}", network_event);
+                            table.add_row(row![
+                                now,
+                                "Network".blue(),
+                                format!("{:?}", network_event)
+                            ]);
                         }
                         Event::OrderCreated(order) => {
-                            println!("Order created: {} ({} {} @ {})", order.id, order.amount, order.base_asset, order.price);
+                            let side_str = match order.side {
+                                OrderSide::Buy => "BUY".green(),
+                                OrderSide::Sell => "SELL".red(),
+                            };
+                            
+                            table.add_row(row![
+                                now,
+                                "Order Created".green(),
+                                format!("{} | {} {} {} @ {}",
+                                    order.id.to_string().cyan(),
+                                    side_str,
+                                    order.amount.to_string(),
+                                    order.base_asset.to_string(),
+                                    order.price.to_string()
+                                )
+                            ]);
                         }
                         Event::OrderCanceled(order_id) => {
-                            println!("Order canceled: {}", order_id);
+                            table.add_row(row![
+                                now,
+                                "Order Canceled".yellow(),
+                                order_id.to_string().cyan()
+                            ]);
                         }
                         Event::OrderFilled(order_id) => {
-                            println!("Order filled: {}", order_id);
+                            table.add_row(row![
+                                now,
+                                "Order Filled".green(),
+                                order_id.to_string().cyan()
+                            ]);
                         }
                         Event::TradeStarted(trade) => {
-                            println!("Trade started: {} (Order: {})", trade.id, trade.order_id);
+                            table.add_row(row![
+                                now,
+                                "Trade Started".blue(),
+                                format!("Trade: {} | Order: {}",
+                                    trade.id.to_string().cyan(),
+                                    trade.order_id.to_string().cyan()
+                                )
+                            ]);
                         }
                         Event::TradeCompleted(trade) => {
-                            println!("Trade completed: {} (Order: {})", trade.id, trade.order_id);
+                            table.add_row(row![
+                                now,
+                                "Trade Completed".green(),
+                                format!("Trade: {} | Order: {} | Amount: {} {}",
+                                    trade.id.to_string().cyan(),
+                                    trade.order_id.to_string().cyan(),
+                                    trade.amount.to_string(),
+                                    trade.base_asset.to_string()
+                                )
+                            ]);
                         }
                         Event::TradeFailed(trade) => {
-                            println!("Trade failed: {} (Order: {})", trade.id, trade.order_id);
+                            table.add_row(row![
+                                now,
+                                "Trade Failed".red(),
+                                format!("Trade: {} | Order: {}",
+                                    trade.id.to_string().cyan(),
+                                    trade.order_id.to_string().cyan()
+                                )
+                            ]);
                         }
                     }
+                    
+                    // Print the table
+                    table.printstd();
                 }
             }
             _ = shutdown_receiver.recv() => {
-                println!("Shutting down DarkSwap daemon...");
+                // Show a spinner while shutting down
+                let spinner = ProgressBar::new_spinner();
+                spinner.set_style(
+                    ProgressStyle::default_spinner()
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                        .template("{spinner:.blue} {msg}")
+                        .unwrap(),
+                );
+                spinner.set_message("Shutting down DarkSwap daemon...");
+                spinner.enable_steady_tick(Duration::from_millis(100));
+                
                 darkswap.stop().await?;
+                
+                spinner.finish_with_message("DarkSwap daemon stopped successfully!".green().to_string());
                 break;
             }
         }
     }
 
-    println!("DarkSwap daemon stopped");
     Ok(())
 }
 
@@ -265,6 +381,9 @@ async fn create_order(
     price_str: &str,
     expiry: Option<u64>,
 ) -> Result<()> {
+    use colored::*;
+    use indicatif::{ProgressBar, ProgressStyle};
+
     // Parse parameters
     let base_asset = parse_asset(base_asset_str)?;
     let quote_asset = parse_asset(quote_asset_str)?;
@@ -272,27 +391,87 @@ async fn create_order(
     let amount = Decimal::from_str(amount_str).context("Invalid amount")?;
     let price = Decimal::from_str(price_str).context("Invalid price")?;
 
+    println!("{}", "Creating order...".green().bold());
+    println!("  {} {} {} at {} {}",
+        match side {
+            OrderSide::Buy => "Buying".green(),
+            OrderSide::Sell => "Selling".red(),
+        },
+        amount.to_string().cyan(),
+        base_asset.to_string().cyan(),
+        price.to_string().cyan(),
+        quote_asset.to_string().cyan()
+    );
+
+    // Show a spinner while connecting
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.blue} {msg}")
+            .unwrap(),
+    );
+    spinner.set_message("Connecting to DarkSwap network...");
+    spinner.enable_steady_tick(std::time::Duration::from_millis(100));
+
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
 
     // Start DarkSwap
     darkswap.start().await?;
 
+    spinner.set_message("Creating order...");
+
     // Create order
     let order = darkswap.create_order(base_asset, quote_asset, side, amount, price, expiry).await?;
 
-    println!("Order created: {} ({} {} @ {})", order.id, order.amount, order.base_asset, order.price);
+    // Stop the spinner
+    spinner.finish_with_message("Order created successfully!".green().to_string());
+
+    // Print order details
+    println!("\n{}", "Order Details:".bold());
+    println!("  ID:     {}", order.id.to_string().green());
+    println!("  Side:   {}", match order.side {
+        OrderSide::Buy => "BUY".green(),
+        OrderSide::Sell => "SELL".red(),
+    });
+    println!("  Amount: {} {}", order.amount.to_string().cyan(), order.base_asset);
+    println!("  Price:  {} {}", order.price.to_string().cyan(), order.quote_asset);
+    println!("  Status: {}", "OPEN".green());
+    
+    // Calculate total value
+    let total_value = order.amount * order.price;
+    println!("  Total:  {} {}", total_value.to_string().cyan(), order.quote_asset);
 
     // Stop DarkSwap
+    spinner.set_message("Disconnecting from DarkSwap network...");
     darkswap.stop().await?;
+    spinner.finish_and_clear();
 
     Ok(())
 }
 
 /// Cancel an order
 async fn cancel_order(config: Config, order_id_str: &str) -> Result<()> {
+    use colored::*;
+    use indicatif::{ProgressBar, ProgressStyle};
+
     // Parse parameters
-    let order_id = darkswap_sdk::types::OrderId(order_id_str.to_string());
+    let order_id = OrderId(order_id_str.to_string());
+
+    println!("{}", "Canceling order...".yellow().bold());
+    println!("  Order ID: {}", order_id.to_string().cyan());
+
+    // Show a spinner while connecting
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.blue} {msg}")
+            .unwrap(),
+    );
+    spinner.set_message("Connecting to DarkSwap network...");
+    spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
@@ -300,22 +479,45 @@ async fn cancel_order(config: Config, order_id_str: &str) -> Result<()> {
     // Start DarkSwap
     darkswap.start().await?;
 
+    spinner.set_message("Canceling order...");
+
     // Cancel order
     darkswap.cancel_order(&order_id).await?;
 
-    println!("Order canceled: {}", order_id);
+    // Stop the spinner
+    spinner.finish_with_message("Order canceled successfully!".green().to_string());
 
     // Stop DarkSwap
+    spinner.set_message("Disconnecting from DarkSwap network...");
     darkswap.stop().await?;
+    spinner.finish_and_clear();
 
     Ok(())
 }
 
 /// Take an order
 async fn take_order(config: Config, order_id_str: &str, amount_str: &str) -> Result<()> {
+    use colored::*;
+    use indicatif::{ProgressBar, ProgressStyle};
+
     // Parse parameters
-    let order_id = darkswap_sdk::types::OrderId(order_id_str.to_string());
+    let order_id = OrderId(order_id_str.to_string());
     let amount = Decimal::from_str(amount_str).context("Invalid amount")?;
+
+    println!("{}", "Taking order...".green().bold());
+    println!("  Order ID: {}", order_id.to_string().cyan());
+    println!("  Amount:   {}", amount.to_string().cyan());
+
+    // Show a spinner while connecting
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.blue} {msg}")
+            .unwrap(),
+    );
+    spinner.set_message("Connecting to DarkSwap network...");
+    spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
@@ -323,13 +525,30 @@ async fn take_order(config: Config, order_id_str: &str, amount_str: &str) -> Res
     // Start DarkSwap
     darkswap.start().await?;
 
+    spinner.set_message("Taking order...");
+
     // Take order
     let trade = darkswap.take_order(&order_id, amount).await?;
 
-    println!("Order taken: {} (Trade ID: {})", order_id, trade.id);
+    // Stop the spinner
+    spinner.finish_with_message("Order taken successfully!".green().to_string());
+
+    // Print trade details
+    println!("\n{}", "Trade Details:".bold());
+    println!("  Trade ID:  {}", trade.id.to_string().green());
+    println!("  Order ID:  {}", trade.order_id.to_string().cyan());
+    println!("  Amount:    {} {}", trade.amount.to_string().cyan(), trade.base_asset);
+    println!("  Price:     {} {}", trade.price.to_string().cyan(), trade.quote_asset);
+    println!("  Status:    {}", "PENDING".yellow());
+    
+    // Calculate total value
+    let total_value = trade.amount * trade.price;
+    println!("  Total:     {} {}", total_value.to_string().cyan(), trade.quote_asset);
 
     // Stop DarkSwap
+    spinner.set_message("Disconnecting from DarkSwap network...");
     darkswap.stop().await?;
+    spinner.finish_and_clear();
 
     Ok(())
 }
@@ -342,6 +561,9 @@ async fn list_orders(
     side_str: &str,
     status_str: &str,
 ) -> Result<()> {
+    use colored::*;
+    use prettytable::{format, Table, row, cell};
+
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
 
@@ -352,8 +574,10 @@ async fn list_orders(
     let orders = if let (Some(base_asset_str), Some(quote_asset_str)) = (base_asset_str, quote_asset_str) {
         let base_asset = parse_asset(base_asset_str)?;
         let quote_asset = parse_asset(quote_asset_str)?;
+        println!("Fetching orders for {}/{} pair...", base_asset.to_string().cyan(), quote_asset.to_string().cyan());
         darkswap.get_orders(&base_asset, &quote_asset).await?
     } else {
+        println!("Fetching all orders...");
         // TODO: Get all orders
         vec![]
     };
@@ -384,26 +608,57 @@ async fn list_orders(
             .collect()
     };
 
-    // Print orders
-    println!("Orders:");
+    // Create a table for orders
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+    
+    // Add header row
+    table.add_row(row![
+        "ID".bold(),
+        "Side".bold(),
+        "Amount".bold(),
+        "Asset".bold(),
+        "Price".bold(),
+        "Status".bold(),
+        "Created".bold()
+    ]);
+
+    // Add order rows
     for order in filtered_orders {
-        println!(
-            "{} | {} | {} {} @ {} | {}",
-            order.id,
-            match order.side {
-                OrderSide::Buy => "BUY",
-                OrderSide::Sell => "SELL",
-            },
-            order.amount,
-            order.base_asset,
-            order.price,
-            match order.status {
-                OrderStatus::Open => "OPEN",
-                OrderStatus::Filled => "FILLED",
-                OrderStatus::Canceled => "CANCELED",
-                OrderStatus::Expired => "EXPIRED",
-            }
-        );
+        let side_str = match order.side {
+            OrderSide::Buy => "BUY".green(),
+            OrderSide::Sell => "SELL".red(),
+        };
+        
+        let status_str = match order.status {
+            OrderStatus::Open => "OPEN".green(),
+            OrderStatus::Filled => "FILLED".blue(),
+            OrderStatus::Canceled => "CANCELED".yellow(),
+            OrderStatus::Expired => "EXPIRED".red(),
+        };
+        
+        // Format timestamp as date/time
+        let timestamp = chrono::NaiveDateTime::from_timestamp_opt(order.timestamp as i64, 0)
+            .unwrap_or_default()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        
+        table.add_row(row![
+            order.id.to_string(),
+            side_str,
+            order.amount.to_string(),
+            order.base_asset.to_string(),
+            format!("{} {}", order.price, order.quote_asset),
+            status_str,
+            timestamp
+        ]);
+    }
+
+    // Print the table
+    if table.len() > 1 {
+        table.printstd();
+    } else {
+        println!("{}", "No orders found matching the criteria.".yellow());
     }
 
     // Stop DarkSwap
@@ -414,9 +669,14 @@ async fn list_orders(
 
 /// Get market data
 async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: &str) -> Result<()> {
+    use colored::*;
+    use prettytable::{format, Table, row, cell};
+
     // Parse parameters
     let base_asset = parse_asset(base_asset_str)?;
     let quote_asset = parse_asset(quote_asset_str)?;
+
+    println!("Fetching market data for {}/{} pair...", base_asset.to_string().cyan(), quote_asset.to_string().cyan());
 
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
@@ -427,14 +687,48 @@ async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: 
     // Get best bid and ask
     let (bid, ask) = darkswap.get_best_bid_ask(&base_asset, &quote_asset).await?;
 
-    // Print market data
-    println!("Market data for {}/{}", base_asset, quote_asset);
-    println!("Best bid: {}", bid.map_or("None".to_string(), |b| b.to_string()));
-    println!("Best ask: {}", ask.map_or("None".to_string(), |a| a.to_string()));
-    println!("Spread: {}", match (bid, ask) {
-        (Some(bid), Some(ask)) => (ask - bid).to_string(),
+    // Create a table for market data
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
+    
+    // Add header
+    table.add_row(row![
+        format!("Market Data for {}/{}", base_asset.to_string().cyan(), quote_asset.to_string().cyan()).bold()
+    ]);
+    
+    // Add bid and ask
+    table.add_row(row![
+        "Best Bid",
+        bid.map_or("None".yellow().to_string(), |b| format!("{}", b.to_string().green()))
+    ]);
+    
+    table.add_row(row![
+        "Best Ask",
+        ask.map_or("None".yellow().to_string(), |a| format!("{}", a.to_string().red()))
+    ]);
+    
+    // Add spread
+    let spread = match (bid, ask) {
+        (Some(bid), Some(ask)) => {
+            let spread = ask - bid;
+            let spread_pct = (spread / bid) * Decimal::from(100);
+            format!("{} ({:.2}%)", spread, spread_pct)
+        },
         _ => "N/A".to_string(),
-    });
+    };
+    
+    table.add_row(row![
+        "Spread",
+        spread.blue()
+    ]);
+    
+    // Print the table
+    table.printstd();
+
+    // Get recent trades (if available)
+    // This is a placeholder for future implementation
+    println!("\n{}", "Recent Trades".bold());
+    println!("{}", "No recent trades available.".yellow());
 
     // Stop DarkSwap
     darkswap.stop().await?;
@@ -444,14 +738,147 @@ async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: 
 
 /// Connect wallet
 async fn connect_wallet(
-    _config: Config,
-    _wallet_type: &str,
-    _private_key: Option<&str>,
-    _mnemonic: Option<&str>,
-    _derivation_path: Option<&str>,
+    mut config: Config,
+    wallet_type: &str,
+    private_key: Option<&str>,
+    mnemonic: Option<&str>,
+    derivation_path: Option<&str>,
 ) -> Result<()> {
-    // TODO: Implement wallet connection
-    println!("Wallet connection not implemented yet");
+    use colored::*;
+    use dialoguer::{Input, Password, Select};
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+
+    println!("{}", "Connecting wallet...".green().bold());
+
+    // Determine wallet type
+    let wallet_type = match wallet_type.to_lowercase().as_str() {
+        "simple" => "simple",
+        "bdk" => "bdk",
+        "external" => "external",
+        _ => {
+            let options = vec!["Simple (in-memory wallet)", "BDK (Bitcoin Development Kit)", "External (hardware wallet)"];
+            let selection = Select::new()
+                .with_prompt("Select wallet type")
+                .items(&options)
+                .default(0)
+                .interact()?;
+            
+            match selection {
+                0 => "simple",
+                1 => "bdk",
+                2 => "external",
+                _ => unreachable!(),
+            }
+        }
+    };
+
+    println!("Selected wallet type: {}", wallet_type.green());
+
+    // Handle wallet connection based on type
+    match wallet_type {
+        "simple" => {
+            // For simple wallet, we need a private key or mnemonic
+            let private_key = if let Some(key) = private_key {
+                key.to_string()
+            } else if let Some(mnemonic) = mnemonic {
+                // Convert mnemonic to private key (simplified for now)
+                format!("derived_from_mnemonic_{}", mnemonic)
+            } else {
+                // Ask for private key or mnemonic
+                let input_type = Select::new()
+                    .with_prompt("Select input type")
+                    .items(&["Private Key", "Mnemonic"])
+                    .default(0)
+                    .interact()?;
+                
+                if input_type == 0 {
+                    // Ask for private key
+                    Password::new()
+                        .with_prompt("Enter private key")
+                        .interact()?
+                } else {
+                    // Ask for mnemonic
+                    let mnemonic = Password::new()
+                        .with_prompt("Enter mnemonic")
+                        .interact()?;
+                    
+                    // Convert mnemonic to private key (simplified for now)
+                    format!("derived_from_mnemonic_{}", mnemonic)
+                }
+            };
+
+            // Update config with wallet information
+            config.wallet.wallet_type = "simple".to_string();
+            config.wallet.private_key = Some(private_key);
+            
+            println!("{}", "Simple wallet connected successfully!".green().bold());
+        }
+        "bdk" => {
+            // For BDK wallet, we need a mnemonic and derivation path
+            let mnemonic = if let Some(m) = mnemonic {
+                m.to_string()
+            } else {
+                // Ask for mnemonic
+                Password::new()
+                    .with_prompt("Enter mnemonic")
+                    .interact()?
+            };
+            
+            let derivation_path = if let Some(path) = derivation_path {
+                path.to_string()
+            } else {
+                // Ask for derivation path or use default
+                Input::<String>::new()
+                    .with_prompt("Enter derivation path")
+                    .default("m/84'/0'/0'/0/0".to_string())
+                    .interact()?
+            };
+            
+            // Update config with wallet information
+            config.wallet.wallet_type = "bdk".to_string();
+            config.wallet.mnemonic = Some(mnemonic);
+            config.wallet.derivation_path = Some(derivation_path);
+            
+            println!("{}", "BDK wallet connected successfully!".green().bold());
+        }
+        "external" => {
+            println!("{}", "External wallet support is not yet implemented.".yellow().bold());
+            println!("This will allow connection to hardware wallets and other external wallet providers.");
+            return Ok(());
+        }
+        _ => {
+            anyhow::bail!("Invalid wallet type: {}", wallet_type);
+        }
+    }
+    
+    // Save the updated configuration
+    if let Some(path) = config.config_path.as_ref() {
+        config.to_file(path)?;
+        println!("Wallet configuration saved to {}", path.display().to_string().blue());
+    } else {
+        // If no config path is set, ask the user if they want to save the configuration
+        let save = dialoguer::Confirm::new()
+            .with_prompt("Do you want to save the wallet configuration?")
+            .default(true)
+            .interact()?;
+        
+        if save {
+            let home_dir = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+            let config_dir = home_dir.join(".darkswap");
+            
+            // Create config directory if it doesn't exist
+            if !config_dir.exists() {
+                std::fs::create_dir_all(&config_dir)?;
+            }
+            
+            let config_path = config_dir.join("config.json");
+            config.to_file(&config_path)?;
+            println!("Wallet configuration saved to {}", config_path.display().to_string().blue());
+        }
+    }
+    
     Ok(())
 }
 

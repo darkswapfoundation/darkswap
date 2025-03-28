@@ -225,6 +225,7 @@ pub enum CircuitRelayHandlerOut {
 }
 
 /// Circuit relay events
+#[derive(Debug)]
 pub enum CircuitRelayEvent {
     /// Reservation successful
     Reserved {

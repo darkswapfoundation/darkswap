@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import WebSocketStatus from './WebSocketStatus';
 
 // Icons
 import {
@@ -76,11 +77,14 @@ const PeerStatus: React.FC<PeerStatusProps> = ({ peerCount, orderCount }) => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="card-glass p-3 flex items-center space-x-4"
     >
+      {/* WebSocket Status */}
+      <WebSocketStatus />
+      
       {/* Connection Quality */}
       <div className="flex items-center">
         <div className="mr-2">

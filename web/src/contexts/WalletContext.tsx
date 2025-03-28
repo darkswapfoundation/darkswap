@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useNotification } from './NotificationContext';
 
 interface WalletContextType {
   isConnected: boolean;
@@ -6,8 +7,8 @@ interface WalletContextType {
   balance: string;
   connect: () => Promise<void>;
   disconnect: () => void;
-  isConnecting: boolean;
-  error: string | null;
+  signMessage: (message: string) => Promise<string>;
+  signTransaction: (txHex: string) => Promise<string>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -20,57 +21,87 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0.00');
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const { addNotification } = useNotification();
 
-  // Check for saved wallet connection on mount
+  // Check if wallet was previously connected
   useEffect(() => {
-    const savedAddress = localStorage.getItem('walletAddress');
-    const autoConnect = localStorage.getItem('autoConnect') === 'true';
-    
-    if (savedAddress && autoConnect) {
-      // Attempt to reconnect
-      connect();
+    const savedWalletState = localStorage.getItem('darkswap-wallet-connected');
+    if (savedWalletState === 'true') {
+      connectWallet();
     }
   }, []);
 
-  // Mock wallet connection
-  const connect = async (): Promise<void> => {
-    setIsConnecting(true);
-    setError(null);
-    
+  // Connect to wallet
+  const connectWallet = async () => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Generate a random address
-      const mockAddress = `bc1q${Math.random().toString(36).substring(2, 15)}`;
-      
-      // Set mock balance
-      const mockBalance = (Math.random() * 2).toFixed(8);
-      
-      setAddress(mockAddress);
-      setBalance(mockBalance);
+      // In a real implementation, this would connect to a Bitcoin wallet
+      // For now, we'll simulate a connection
       setIsConnected(true);
+      setAddress('bc1q84nj8u6c82wz3pj3tvkf73085ej3qtgvzsy8r2');
+      setBalance('0.12345');
       
-      // Save to localStorage
-      localStorage.setItem('walletAddress', mockAddress);
-    } catch (err) {
-      setError('Failed to connect wallet');
-      console.error('Wallet connection error:', err);
-    } finally {
-      setIsConnecting(false);
+      // Save connection state
+      localStorage.setItem('darkswap-wallet-connected', 'true');
+      
+      addNotification('success', 'Wallet connected successfully');
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      addNotification('error', `Failed to connect wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  // Disconnect wallet
-  const disconnect = (): void => {
+  // Disconnect from wallet
+  const disconnectWallet = () => {
     setIsConnected(false);
     setAddress(null);
     setBalance('0.00');
     
-    // Remove from localStorage
-    localStorage.removeItem('walletAddress');
+    // Clear connection state
+    localStorage.removeItem('darkswap-wallet-connected');
+    
+    addNotification('info', 'Wallet disconnected');
+  };
+
+  // Sign message
+  const signMessage = async (message: string): Promise<string> => {
+    if (!isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      // In a real implementation, this would sign a message with the wallet
+      // For now, we'll simulate a signature
+      const signature = `simulated_signature_${Date.now()}`;
+      
+      addNotification('success', 'Message signed successfully');
+      
+      return signature;
+    } catch (error) {
+      console.error('Error signing message:', error);
+      addNotification('error', `Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  };
+
+  // Sign transaction
+  const signTransaction = async (txHex: string): Promise<string> => {
+    if (!isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      // In a real implementation, this would sign a transaction with the wallet
+      // For now, we'll simulate a signature
+      const signedTx = `signed_${txHex}_${Date.now()}`;
+      
+      addNotification('success', 'Transaction signed successfully');
+      
+      return signedTx;
+    } catch (error) {
+      console.error('Error signing transaction:', error);
+      addNotification('error', `Failed to sign transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   };
 
   return (
@@ -79,10 +110,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         isConnected,
         address,
         balance,
-        connect,
-        disconnect,
-        isConnecting,
-        error,
+        connect: connectWallet,
+        disconnect: disconnectWallet,
+        signMessage,
+        signTransaction,
       }}
     >
       {children}
@@ -97,3 +128,5 @@ export const useWallet = (): WalletContextType => {
   }
   return context;
 };
+
+export default WalletProvider;

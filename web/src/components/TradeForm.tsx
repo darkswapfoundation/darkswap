@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ApiClient from '../utils/ApiClient';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Icons
 import {
@@ -13,14 +15,17 @@ export interface TradeFormProps {
   isLoading: boolean;
   isWalletConnected: boolean;
   isSDKInitialized: boolean;
+  apiClient?: ApiClient;
 }
 
 const TradeForm: React.FC<TradeFormProps> = ({
   pair,
   isLoading,
   isWalletConnected,
-  isSDKInitialized
+  isSDKInitialized,
+  apiClient
 }) => {
+  const { addNotification } = useNotification();
   // Parse pair
   const [baseAsset, quoteAsset] = pair.split('/');
   
@@ -72,7 +77,7 @@ const TradeForm: React.FC<TradeFormProps> = ({
   };
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isWalletConnected) {
@@ -109,27 +114,70 @@ const TradeForm: React.FC<TradeFormProps> = ({
     setSuccess(null);
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // Update balances (mock)
-      const newBalances = { ...balances };
-      
-      if (side === 'buy') {
-        newBalances[quoteAsset] -= parseFloat(total);
-        newBalances[baseAsset] = (newBalances[baseAsset] || 0) + parseFloat(amount);
+    try {
+      if (apiClient) {
+        // Create order using API
+        const response = await apiClient.createOrder(
+          baseAsset,
+          quoteAsset,
+          side,
+          amount,
+          price || '0', // Use 0 for market orders
+          undefined // No expiry for now
+        );
+        
+        if (response.error) {
+          setError(`Failed to create order: ${response.error}`);
+          addNotification('error', `Order failed: ${response.error}`);
+        } else {
+          // Update balances (mock)
+          const newBalances = { ...balances };
+          
+          if (side === 'buy') {
+            newBalances[quoteAsset] -= parseFloat(total);
+            newBalances[baseAsset] = (newBalances[baseAsset] || 0) + parseFloat(amount);
+          } else {
+            newBalances[baseAsset] -= parseFloat(amount);
+            newBalances[quoteAsset] = (newBalances[quoteAsset] || 0) + parseFloat(total);
+          }
+          
+          setBalances(newBalances);
+          setSuccess(`Order ${side === 'buy' ? 'bought' : 'sold'} successfully`);
+          addNotification('success', `Order created successfully`);
+          
+          // Reset form after success
+          setAmount('');
+          setTotal('');
+        }
       } else {
-        newBalances[baseAsset] -= parseFloat(amount);
-        newBalances[quoteAsset] = (newBalances[quoteAsset] || 0) + parseFloat(total);
+        // Simulate API call for demo
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Update balances (mock)
+        const newBalances = { ...balances };
+        
+        if (side === 'buy') {
+          newBalances[quoteAsset] -= parseFloat(total);
+          newBalances[baseAsset] = (newBalances[baseAsset] || 0) + parseFloat(amount);
+        } else {
+          newBalances[baseAsset] -= parseFloat(amount);
+          newBalances[quoteAsset] = (newBalances[quoteAsset] || 0) + parseFloat(total);
+        }
+        
+        setBalances(newBalances);
+        setSuccess(`Order ${side === 'buy' ? 'bought' : 'sold'} successfully`);
+        addNotification('success', `Order created successfully`);
+        
+        // Reset form after success
+        setAmount('');
+        setTotal('');
       }
-      
-      setBalances(newBalances);
-      setSuccess(`Order ${side === 'buy' ? 'bought' : 'sold'} successfully`);
+    } catch (error) {
+      setError(`Error creating order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      addNotification('error', `Order failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
       setIsSubmitting(false);
-      
-      // Reset form after success
-      setAmount('');
-      setTotal('');
-    }, 1500);
+    }
   };
 
   // Toggle between buy and sell

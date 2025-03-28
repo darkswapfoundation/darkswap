@@ -1,422 +1,268 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useTheme } from '../contexts/ThemeContext';
+import ApiClient from '../utils/ApiClient';
+import { useNotification } from '../contexts/NotificationContext';
+import { useApi } from '../contexts/ApiContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 // Icons
 import {
-  SunIcon,
-  MoonIcon,
-  ComputerDesktopIcon,
-  ShieldCheckIcon,
-  BellIcon,
-  CogIcon,
+  ExclamationTriangleIcon,
   ArrowPathIcon,
-  CheckIcon,
-  XMarkIcon,
+  Cog6ToothIcon,
+  ServerIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline';
 
-interface SettingsProps {
+export interface SettingsProps {
   isWalletConnected: boolean;
   isSDKInitialized: boolean;
+  apiClient?: ApiClient;
+  isApiLoading: boolean;
 }
 
-interface SettingsOption {
-  id: string;
-  name: string;
-  description: string;
-  options: {
-    value: string;
-    label: string;
-    icon?: JSX.Element;
-  }[];
-  value: string;
-}
-
-interface ToggleOption {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-}
-
-type ThemeMode = 'light' | 'dark' | 'system';
-
-const Settings: React.FC<SettingsProps> = () => {
-  const { mode, toggleMode } = useTheme();
+const Settings: React.FC<SettingsProps> = ({
+  isWalletConnected,
+  isSDKInitialized,
+  apiClient,
+  isApiLoading,
+}) => {
+  const [apiUrl, setApiUrl] = useState<string>('http://localhost:3000');
+  const [wsUrl, setWsUrl] = useState<string>('ws://localhost:3000/ws');
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
-  const [settingsOptions, setSettingsOptions] = useState<SettingsOption[]>([
-    {
-      id: 'theme',
-      name: 'Theme',
-      description: 'Choose your preferred theme for the application',
-      options: [
-        { value: 'light', label: 'Light', icon: <SunIcon className="w-5 h-5" /> },
-        { value: 'dark', label: 'Dark', icon: <MoonIcon className="w-5 h-5" /> },
-        { value: 'system', label: 'System', icon: <ComputerDesktopIcon className="w-5 h-5" /> },
-      ],
-      value: mode || 'dark',
-    },
-    {
-      id: 'currency',
-      name: 'Display Currency',
-      description: 'Choose your preferred currency for displaying values',
-      options: [
-        { value: 'usd', label: 'USD ($)' },
-        { value: 'eur', label: 'EUR (€)' },
-        { value: 'gbp', label: 'GBP (£)' },
-        { value: 'jpy', label: 'JPY (¥)' },
-        { value: 'btc', label: 'BTC (₿)' },
-      ],
-      value: 'usd',
-    },
-    {
-      id: 'network',
-      name: 'Network',
-      description: 'Choose which network to connect to',
-      options: [
-        { value: 'mainnet', label: 'Bitcoin Mainnet' },
-        { value: 'testnet', label: 'Bitcoin Testnet' },
-        { value: 'regtest', label: 'Regtest' },
-      ],
-      value: 'mainnet',
-    },
-  ]);
+  const { addNotification } = useNotification();
+  const { setBaseUrl } = useApi();
+  const { disconnect, connect } = useWebSocket();
 
-  const [toggleOptions, setToggleOptions] = useState<ToggleOption[]>([
-    {
-      id: 'notifications',
-      name: 'Notifications',
-      description: 'Receive notifications for trades, orders, and other important events',
-      enabled: true,
-    },
-    {
-      id: 'sounds',
-      name: 'Sound Effects',
-      description: 'Play sound effects for trades, orders, and other important events',
-      enabled: false,
-    },
-    {
-      id: 'advanced_mode',
-      name: 'Advanced Mode',
-      description: 'Enable advanced trading features and options',
-      enabled: false,
-    },
-    {
-      id: 'auto_connect',
-      name: 'Auto-Connect Wallet',
-      description: 'Automatically connect to your wallet when the application loads',
-      enabled: true,
-    },
-    {
-      id: 'privacy_mode',
-      name: 'Enhanced Privacy Mode',
-      description: 'Hide sensitive information and use additional privacy features',
-      enabled: false,
-    },
-  ]);
+  // Initialize form values
+  useEffect(() => {
+    // Get API URL from localStorage or use default
+    const savedApiUrl = localStorage.getItem('darkswap-api-url');
+    if (savedApiUrl) {
+      setApiUrl(savedApiUrl);
+    }
 
-  // Handle option change
-  const handleOptionChange = (id: string, value: string) => {
-    setSettingsOptions(
-      settingsOptions.map((option) =>
-        option.id === id ? { ...option, value } : option
-      )
-    );
+    // Get WebSocket URL from localStorage or use default
+    const savedWsUrl = localStorage.getItem('darkswap-ws-url');
+    if (savedWsUrl) {
+      setWsUrl(savedWsUrl);
+    }
+  }, []);
 
-    // Special handling for theme
-    if (id === 'theme' && toggleMode) {
-      toggleMode(value as ThemeMode);
+  // Save settings
+  const saveSettings = () => {
+    setIsSaving(true);
+
+    try {
+      // Save API URL to localStorage
+      localStorage.setItem('darkswap-api-url', apiUrl);
+
+      // Save WebSocket URL to localStorage
+      localStorage.setItem('darkswap-ws-url', wsUrl);
+
+      // Update API client base URL
+      setBaseUrl(apiUrl);
+
+      // Reconnect WebSocket
+      disconnect();
+      setTimeout(() => {
+        connect();
+      }, 1000);
+
+      addNotification('success', 'Settings saved successfully');
+    } catch (error) {
+      addNotification('error', `Error saving settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Handle toggle change
-  const handleToggleChange = (id: string) => {
-    setToggleOptions(
-      toggleOptions.map((option) =>
-        option.id === id ? { ...option, enabled: !option.enabled } : option
-      )
-    );
+  // Reset settings to defaults
+  const resetSettings = () => {
+    setApiUrl('http://localhost:3000');
+    setWsUrl('ws://localhost:3000/ws');
+    addNotification('info', 'Settings reset to defaults');
   };
 
-  // Save settings
-  const handleSave = () => {
+  // Test API connection
+  const testApiConnection = async () => {
     setIsSaving(true);
-    setSaveSuccess(null);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      if (apiClient) {
+        const response = await apiClient.getHealth();
+
+        if (response.error) {
+          addNotification('error', `API connection failed: ${response.error}`);
+        } else {
+          addNotification('success', `API connection successful: v${response.data?.version}`);
+        }
+      } else {
+        // Simulate API call for demo
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        addNotification('success', 'API connection successful (simulated)');
+      }
+    } catch (error) {
+      addNotification('error', `API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
       setIsSaving(false);
-      setSaveSuccess(true);
-
-      // Reset success message after 3 seconds
-      setTimeout(() => {
-        setSaveSuccess(null);
-      }, 3000);
-    }, 1000);
-  };
-
-  // Reset settings
-  const handleReset = () => {
-    // Reset to default values
-    setSettingsOptions([
-      {
-        id: 'theme',
-        name: 'Theme',
-        description: 'Choose your preferred theme for the application',
-        options: [
-          { value: 'light', label: 'Light', icon: <SunIcon className="w-5 h-5" /> },
-          { value: 'dark', label: 'Dark', icon: <MoonIcon className="w-5 h-5" /> },
-          { value: 'system', label: 'System', icon: <ComputerDesktopIcon className="w-5 h-5" /> },
-        ],
-        value: 'dark',
-      },
-      {
-        id: 'currency',
-        name: 'Display Currency',
-        description: 'Choose your preferred currency for displaying values',
-        options: [
-          { value: 'usd', label: 'USD ($)' },
-          { value: 'eur', label: 'EUR (€)' },
-          { value: 'gbp', label: 'GBP (£)' },
-          { value: 'jpy', label: 'JPY (¥)' },
-          { value: 'btc', label: 'BTC (₿)' },
-        ],
-        value: 'usd',
-      },
-      {
-        id: 'network',
-        name: 'Network',
-        description: 'Choose which network to connect to',
-        options: [
-          { value: 'mainnet', label: 'Bitcoin Mainnet' },
-          { value: 'testnet', label: 'Bitcoin Testnet' },
-          { value: 'regtest', label: 'Regtest' },
-        ],
-        value: 'mainnet',
-      },
-    ]);
-
-    setToggleOptions([
-      {
-        id: 'notifications',
-        name: 'Notifications',
-        description: 'Receive notifications for trades, orders, and other important events',
-        enabled: true,
-      },
-      {
-        id: 'sounds',
-        name: 'Sound Effects',
-        description: 'Play sound effects for trades, orders, and other important events',
-        enabled: false,
-      },
-      {
-        id: 'advanced_mode',
-        name: 'Advanced Mode',
-        description: 'Enable advanced trading features and options',
-        enabled: false,
-      },
-      {
-        id: 'auto_connect',
-        name: 'Auto-Connect Wallet',
-        description: 'Automatically connect to your wallet when the application loads',
-        enabled: true,
-      },
-      {
-        id: 'privacy_mode',
-        name: 'Enhanced Privacy Mode',
-        description: 'Hide sensitive information and use additional privacy features',
-        enabled: false,
-      },
-    ]);
-
-    // Update theme if needed
-    if (toggleMode && mode !== 'dark') {
-      toggleMode('dark');
     }
   };
 
   return (
-    <div className="space-y-8 py-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-display font-bold">
-          <span className="text-white">Settings</span>
-        </h1>
-        <p className="text-gray-400 mt-1">
-          Customize your DarkSwap experience
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold">
+            <span className="text-white">Settings</span>
+          </h1>
+          <p className="text-gray-400 mt-1">
+            Configure your DarkSwap application
+          </p>
+        </div>
       </div>
 
-      {/* Settings Sections */}
-      <div className="space-y-8">
-        {/* Appearance Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
+      {/* Connection Warning */}
+      {!isWalletConnected && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="card p-6"
+          className="card-glass p-4 border border-ui-warning border-opacity-50"
         >
-          <h2 className="text-xl font-display font-bold mb-6 flex items-center">
-            <CogIcon className="w-6 h-6 text-twilight-neon-blue mr-2" />
-            Appearance & Preferences
-          </h2>
-
-          <div className="space-y-6">
-            {settingsOptions.map((option) => (
-              <div key={option.id} className="border-b border-twilight-dark pb-6 last:border-0 last:pb-0">
-                <div className="mb-2">
-                  <h3 className="font-medium">{option.name}</h3>
-                  <p className="text-sm text-gray-400">{option.description}</p>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {option.options.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleOptionChange(option.id, opt.value)}
-                      className={`flex items-center px-4 py-2 rounded-lg transition-colors duration-200 ${
-                        option.value === opt.value
-                          ? 'bg-twilight-primary text-white'
-                          : 'bg-twilight-darker text-gray-400 hover:bg-twilight-dark hover:text-white'
-                      }`}
-                    >
-                      {opt.icon && <span className="mr-2">{opt.icon}</span>}
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
+            <span className="text-ui-warning">
+              Connect your wallet to access all settings
+            </span>
           </div>
         </motion.div>
+      )}
 
-        {/* Toggle Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
+      {/* SDK Warning */}
+      {isWalletConnected && !isSDKInitialized && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="card p-6"
+          className="card-glass p-4 border border-ui-warning border-opacity-50"
         >
-          <h2 className="text-xl font-display font-bold mb-6 flex items-center">
-            <BellIcon className="w-6 h-6 text-twilight-neon-purple mr-2" />
-            Notifications & Features
-          </h2>
-
-          <div className="space-y-6">
-            {toggleOptions.map((option) => (
-              <div key={option.id} className="flex justify-between items-center border-b border-twilight-dark pb-6 last:border-0 last:pb-0">
-                <div>
-                  <h3 className="font-medium">{option.name}</h3>
-                  <p className="text-sm text-gray-400">{option.description}</p>
-                </div>
-                <button
-                  onClick={() => handleToggleChange(option.id)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                    option.enabled ? 'bg-twilight-neon-green' : 'bg-twilight-dark'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      option.enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            ))}
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
+            <span className="text-ui-warning">
+              Initializing DarkSwap SDK...
+            </span>
           </div>
         </motion.div>
+      )}
 
-        {/* Security Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="card p-6"
-        >
-          <h2 className="text-xl font-display font-bold mb-6 flex items-center">
-            <ShieldCheckIcon className="w-6 h-6 text-twilight-neon-green mr-2" />
-            Security
-          </h2>
-
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-medium">Session Timeout</h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Automatically disconnect your wallet after a period of inactivity
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button className="px-4 py-2 rounded-lg bg-twilight-primary text-white">
-                  15 minutes
-                </button>
-                <button className="px-4 py-2 rounded-lg bg-twilight-darker text-gray-400 hover:bg-twilight-dark hover:text-white">
-                  30 minutes
-                </button>
-                <button className="px-4 py-2 rounded-lg bg-twilight-darker text-gray-400 hover:bg-twilight-dark hover:text-white">
-                  1 hour
-                </button>
-                <button className="px-4 py-2 rounded-lg bg-twilight-darker text-gray-400 hover:bg-twilight-dark hover:text-white">
-                  Never
-                </button>
-              </div>
-            </div>
-
-            <div className="border-t border-twilight-dark pt-6">
-              <h3 className="font-medium">Clear Data</h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Clear all local data including settings, cached orders, and trade history
-              </p>
-              <button className="btn btn-error">
-                Clear All Data
-              </button>
-            </div>
+      {/* API Settings */}
+      <div className="card">
+        <div className="card-header flex items-center">
+          <ServerIcon className="w-5 h-5 mr-2 text-twilight-neon-blue" />
+          <h2 className="text-lg font-display font-medium">API Settings</h2>
+        </div>
+        <div className="card-body">
+          <div className="mb-4">
+            <label className="form-label">API URL</label>
+            <input
+              type="text"
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="http://localhost:3000"
+              className="form-input"
+            />
+            <p className="text-sm text-gray-400 mt-1">
+              The URL of the DarkSwap daemon API
+            </p>
           </div>
-        </motion.div>
-
-        {/* Actions */}
-        <div className="flex justify-between items-center">
-          <button
-            onClick={handleReset}
-            className="btn btn-secondary"
-          >
-            Reset to Defaults
-          </button>
-          <div className="flex items-center space-x-4">
-            {saveSuccess === true && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center text-green-400"
-              >
-                <CheckIcon className="w-5 h-5 mr-1" />
-                <span>Settings saved</span>
-              </motion.div>
-            )}
-            {saveSuccess === false && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center text-red-400"
-              >
-                <XMarkIcon className="w-5 h-5 mr-1" />
-                <span>Failed to save</span>
-              </motion.div>
-            )}
+          <div className="flex justify-end space-x-2">
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="btn btn-primary"
+              onClick={testApiConnection}
+              disabled={isSaving || !apiUrl}
+              className="btn btn-secondary"
             >
               {isSaving ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Settings'
-              )}
+                <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />
+              ) : null}
+              Test Connection
             </button>
           </div>
         </div>
+      </div>
+
+      {/* WebSocket Settings */}
+      <div className="card">
+        <div className="card-header flex items-center">
+          <SignalIcon className="w-5 h-5 mr-2 text-twilight-neon-green" />
+          <h2 className="text-lg font-display font-medium">WebSocket Settings</h2>
+        </div>
+        <div className="card-body">
+          <div className="mb-4">
+            <label className="form-label">WebSocket URL</label>
+            <input
+              type="text"
+              value={wsUrl}
+              onChange={(e) => setWsUrl(e.target.value)}
+              placeholder="ws://localhost:3000/ws"
+              className="form-input"
+            />
+            <p className="text-sm text-gray-400 mt-1">
+              The URL of the DarkSwap daemon WebSocket endpoint
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* General Settings */}
+      <div className="card">
+        <div className="card-header flex items-center">
+          <Cog6ToothIcon className="w-5 h-5 mr-2 text-twilight-neon-purple" />
+          <h2 className="text-lg font-display font-medium">General Settings</h2>
+        </div>
+        <div className="card-body">
+          <div className="mb-4">
+            <label className="form-label">Theme</label>
+            <select className="form-select">
+              <option value="dark">Dark</option>
+              <option value="light" disabled>Light (Coming Soon)</option>
+              <option value="system" disabled>System (Coming Soon)</option>
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="form-label">Notifications</label>
+            <div className="flex items-center space-x-2">
+              <input type="checkbox" className="form-checkbox" defaultChecked />
+              <span>Enable notifications</span>
+            </div>
+          </div>
+          <div className="mb-4">
+            <label className="form-label">Auto-connect Wallet</label>
+            <div className="flex items-center space-x-2">
+              <input type="checkbox" className="form-checkbox" defaultChecked />
+              <span>Automatically connect wallet on startup</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Save Settings */}
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={resetSettings}
+          className="btn btn-secondary"
+        >
+          Reset to Defaults
+        </button>
+        <button
+          onClick={saveSettings}
+          disabled={isSaving}
+          className="btn btn-primary"
+        >
+          {isSaving ? (
+            <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />
+          ) : null}
+          Save Settings
+        </button>
       </div>
     </div>
   );

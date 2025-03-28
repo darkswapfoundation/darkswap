@@ -3,7 +3,7 @@ use darkswap_sdk::types::RuneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
-    OutPoint, TxOut, Transaction,
+    OutPoint, TxOut, Transaction, Txid,
     address::{Address, NetworkUnchecked},
     hashes::Hash,
 };
@@ -20,15 +20,16 @@ fn test_rune_protocol_creation() {
 #[test]
 fn test_rune_registration() -> Result<()> {
     let mut protocol = RuneProtocol::new(Network::Regtest);
-    
-    let rune_id = RuneId("RUNE123".to_string());
+    let rune_id: RuneId = 123456789;
+    let outpoint = OutPoint::new(Txid::all_zeros(), 0);
     let rune = Rune::new(
-        rune_id.clone(),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        rune_id,
+        Some("TEST".to_string()),
         8,
         1_000_000,
-        Some(1_000_000),
+        0,
+        outpoint,
+        0,
     );
     
     // Register the rune
@@ -37,11 +38,9 @@ fn test_rune_registration() -> Result<()> {
     // Verify the rune was registered
     let retrieved_rune = protocol.get_rune(&rune_id).unwrap();
     assert_eq!(retrieved_rune.id, rune_id);
-    assert_eq!(retrieved_rune.symbol, "TEST");
-    assert_eq!(retrieved_rune.name, "Test Rune");
+    assert_eq!(retrieved_rune.symbol, Some("TEST".to_string()));
     assert_eq!(retrieved_rune.decimals, 8);
     assert_eq!(retrieved_rune.supply, 1_000_000);
-    assert_eq!(retrieved_rune.limit, Some(1_000_000));
     
     // Try to register the same rune again (should fail)
     let result = protocol.register_rune(rune.clone());
@@ -54,15 +53,16 @@ fn test_rune_registration() -> Result<()> {
 #[ignore]
 fn test_rune_balances() -> Result<()> {
     let mut protocol = RuneProtocol::new(Network::Regtest);
-    
-    let rune_id = RuneId("RUNE123".to_string());
+    let rune_id: RuneId = 123456789;
+    let outpoint = OutPoint::new(Txid::all_zeros(), 0);
     let rune = Rune::new(
-        rune_id.clone(),
-        "TEST".to_string(),
-        "Test Rune".to_string(),
+        rune_id,
+        Some("TEST".to_string()),
         8,
         1_000_000,
-        Some(1_000_000),
+        0,
+        outpoint,
+        0,
     );
     
     // Register the rune
@@ -73,16 +73,15 @@ fn test_rune_balances() -> Result<()> {
     let address2 = generate_test_address_unchecked(Network::Regtest, 2)?;
     
     // Initial balances should be zero
-    assert_eq!(protocol.get_balance(&address1, &rune_id), 0);
-    assert_eq!(protocol.get_balance(&address2, &rune_id), 0);
+    assert_eq!(protocol.get_balance(&address1, rune_id), 0);
+    assert_eq!(protocol.get_balance(&address2, rune_id), 0);
     
     // Create a transfer
     let transfer = RuneTransfer::new(
-        rune_id.clone(),
+        rune.clone(),
         address1.clone(),
         address2.clone(),
         1000,
-        None,
     );
     
     // Apply the transfer (should fail because address1 has no balance)
@@ -129,21 +128,21 @@ fn test_rune_balances() -> Result<()> {
     };
     
     // Process the transaction to set the initial balance
-    protocol.process_transaction(&tx)?;
+    protocol.process_transaction(&tx, 0)?;
     
     // Now the transfer should succeed
     let result = protocol.apply_transfer(&transfer);
     assert!(result.is_ok());
     
     // Check the updated balances
-    assert_eq!(protocol.get_balance(&address1, &rune_id), 4000); // 5000 - 1000
-    assert_eq!(protocol.get_balance(&address2, &rune_id), 1000);
+    assert_eq!(protocol.get_balance(&address1, rune_id), 4000); // 5000 - 1000
+    assert_eq!(protocol.get_balance(&address2, rune_id), 1000);
     
     // Get all balances for address1
     let balances = protocol.get_balances(&address1);
     assert_eq!(balances.len(), 1);
-    assert_eq!(balances[0].balance, 4000);
-    assert_eq!(balances[0].rune_id, rune_id);
+    assert_eq!(balances[0].amount, 4000);
+    assert_eq!(balances[0].rune.id, rune_id);
     
     Ok(())
 }
@@ -162,22 +161,22 @@ fn test_runestone_creation_and_parsing() -> Result<()> {
     
     let etching = Etching {
         rune: 12345,
-        amount: 1_000_000,
         symbol: Some("TEST".to_string()),
         decimals: Some(8),
         spacers: 0,
+        amount: 1_000_000,
         terms: None,
     };
     
-    let runestone = protocol.create_runestone(
-        vec![edict],
-        Some(etching),
-        Some(1),
-        false,
-    );
+    let runestone = Runestone {
+        edicts: vec![edict],
+        etching: Some(etching),
+        default_output: Some(1),
+        burn: false,
+    };
     
     // Convert runestone to script
-    let script = protocol.runestone_to_script(&runestone).unwrap();
+    let script = runestone.to_script();
     
     // Create a transaction with the runestone script
     let tx = Transaction {
@@ -200,7 +199,7 @@ fn test_runestone_creation_and_parsing() -> Result<()> {
     };
     
     // Parse the runestone from the transaction
-    let parsed_runestone = protocol.parse_runestone(&tx)?;
+    let parsed_runestone = Runestone::parse(&tx);
     
     // Verify that a runestone was parsed
     assert!(parsed_runestone.is_some());
@@ -219,13 +218,23 @@ fn test_rune_transaction_creation() -> Result<()> {
     let change_address = generate_test_address(Network::Regtest, 1)?;
     
     // Create a rune transfer
-    let rune_id = RuneId("RUNE123".to_string());
+    let rune_id: RuneId = 123456789;
+    let outpoint = OutPoint::new(Txid::all_zeros(), 0);
+    let rune = Rune::new(
+        rune_id,
+        Some("TEST".to_string()),
+        8,
+        1_000_000,
+        0,
+        outpoint,
+        0,
+    );
+    
     let transfer = RuneTransfer::new(
-        rune_id.clone(),
+        rune,
         from_address.clone(),
         to_address.clone(),
         1000,
-        None,
     );
     
     // Create inputs
@@ -237,7 +246,12 @@ fn test_rune_transaction_creation() -> Result<()> {
     let inputs = vec![(outpoint, txout)];
     
     // Create a transaction
-    let tx = protocol.create_transaction(&transfer, inputs, &change_address, 1.0)?;
+    let tx = protocol.create_transfer_transaction(
+        &transfer,
+        inputs,
+        &change_address,
+        1.0,
+    )?;
     
     // Verify the transaction
     assert_eq!(tx.version, 2);
@@ -296,12 +310,12 @@ fn test_rune_transaction_validation() -> Result<()> {
     };
     
     // Validate the transaction
-    let transfer = protocol.validate_transaction(&tx)?;
+    let transfer = protocol.validate_transaction(&tx, from_address.clone(), to_address.clone())?;
     
     // Verify that a transfer was detected
     assert!(transfer.is_some());
     let transfer = transfer.unwrap();
-    assert_eq!(transfer.rune_id, RuneId("RUNE123".to_string()));
+    assert_eq!(transfer.rune.id, 123456789);
     assert_eq!(transfer.amount, 1000);
     
     Ok(())
@@ -326,7 +340,7 @@ fn test_rune_etching_transaction() -> Result<()> {
     
     // Create an etching transaction
     let tx = protocol.create_etching_transaction(
-        "TEST".to_string(),
+        Some("TEST".to_string()),
         8,
         1_000_000,
         &address,
