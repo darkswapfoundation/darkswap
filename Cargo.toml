@@ -4,6 +4,9 @@ members = [
     "darkswap-sdk",
     "darkswap-cli",
     "darkswap-daemon",
+    "darkswap-support",
+    "darkswap-p2p",
+    "darkswap-web-sys",
 ]
 
 [workspace.package]
@@ -27,7 +30,14 @@ env_logger = "0.10"
 bitcoin = { version = "0.30", features = ["rand", "serde"] }
 
 # P2P networking dependencies
-libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc", "mdns"] }
+libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc", "mdns", "relay"] }
+prost = "0.11"
+prost-build = "0.11"
+bytes = "1.4"
+futures = "0.3"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 
 # Utilities
 rust_decimal = { version = "1.30", features = ["serde"] }
@@ -36,8 +46,24 @@ rand = "0.8"
 
 # WASM support
 wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = "0.4"
 js-sys = { version = "0.3" }
-web-sys = { version = "0.3" }
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "RtcPeerConnection",
+    "RtcSessionDescription",
+    "RtcIceCandidate",
+    "RtcDataChannel",
+    "MediaStream",
+    "Navigator",
+    "MediaDevices",
+] }
+console_log = "0.2"
+console_error_panic_hook = "0.1"
 
 # CLI dependencies
 clap = { version = "4.4", features = ["derive"] }

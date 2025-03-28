@@ -8,20 +8,24 @@ This document provides information about the technologies used in DarkSwap, deve
 
 #### Rust
 
-Rust is the primary language used for the core components of DarkSwap (SDK, CLI, daemon). Rust was chosen for several reasons:
+Rust is the primary language used for the core components of DarkSwap (SDK, P2P, relay, daemon). Rust was chosen for several reasons:
 
 1. **Memory Safety**: Rust's ownership model prevents common memory-related bugs such as null pointer dereferences, buffer overflows, and data races.
 2. **Performance**: Rust provides performance comparable to C and C++ without sacrificing safety.
 3. **Cross-Platform**: Rust can target multiple platforms, including desktop and web (via WASM).
 4. **Ecosystem**: Rust has a growing ecosystem of libraries for Bitcoin, P2P networking, and cryptography.
+5. **Code Sharing**: Rust code can be compiled to both native binaries and WebAssembly, allowing for code reuse between server and browser environments.
 
 Key Rust libraries used in DarkSwap:
 
 - **rust-bitcoin**: For Bitcoin functionality
 - **rust-libp2p**: For P2P networking
+- **rust-libp2p-webrtc**: For WebRTC transport in libp2p
 - **tokio**: For asynchronous programming
 - **serde**: For serialization and deserialization
 - **wasm-bindgen**: For WASM bindings
+- **prost**: For Protocol Buffers support
+- **tonic**: For gRPC support
 
 #### WebAssembly (WASM)
 
@@ -74,7 +78,57 @@ Key libp2p protocols used in DarkSwap:
 - **GossipSub**: For efficient message broadcasting
 - **Kademlia DHT**: For peer discovery and content addressing
 - **WebRTC**: For browser-to-browser communication
-- **Circuit Relay**: For NAT traversal
+- **Circuit Relay v2**: For NAT traversal
+
+#### WebRTC
+
+WebRTC is used for browser-to-browser communication. WebRTC was chosen for several reasons:
+
+1. **Native Browser Support**: WebRTC is supported by all major browsers without requiring plugins.
+2. **NAT Traversal**: WebRTC includes built-in mechanisms for NAT traversal using ICE, STUN, and TURN.
+3. **Secure Communication**: WebRTC uses DTLS for secure communication.
+4. **Data Channels**: WebRTC data channels provide a reliable and secure way to exchange data between browsers.
+
+Key WebRTC features used in DarkSwap:
+
+- **RTCPeerConnection**: For establishing peer-to-peer connections
+- **RTCDataChannel**: For sending and receiving data between peers
+- **ICE (Interactive Connectivity Establishment)**: For NAT traversal
+- **DTLS (Datagram Transport Layer Security)**: For secure communication
+
+#### Circuit Relay
+
+Circuit relay is used for NAT traversal. Circuit relay was chosen for several reasons:
+
+1. **NAT Traversal**: Circuit relay allows peers behind NATs to connect to each other.
+2. **Fallback Mechanism**: Circuit relay provides a fallback mechanism when direct connections are not possible.
+3. **Standardized Protocol**: Circuit relay v2 is a standardized protocol in the libp2p ecosystem.
+4. **Efficient Relaying**: Circuit relay v2 includes optimizations for efficient relaying of data.
+
+Key circuit relay features used in DarkSwap:
+
+- **Relay Discovery**: Finding available relay nodes
+- **Relay Reservation**: Reserving slots on relay nodes
+- **Relay Connection**: Establishing connections through relay nodes
+- **Relay Handshake**: Protocol for initiating relayed connections
+
+#### WebRTC
+
+WebRTC is used for browser-to-browser communication. WebRTC was chosen for several reasons:
+
+1. **Native Browser Support**: WebRTC is supported by all major browsers without requiring plugins.
+2. **NAT Traversal**: WebRTC includes built-in mechanisms for NAT traversal using ICE, STUN, and TURN.
+3. **Secure Communication**: WebRTC uses DTLS for secure communication.
+4. **Data Channels**: WebRTC data channels provide a reliable and secure way to exchange data between browsers.
+
+#### Circuit Relay
+
+Circuit relay is used for NAT traversal. Circuit relay was chosen for several reasons:
+
+1. **NAT Traversal**: Circuit relay allows peers behind NATs to connect to each other.
+2. **Fallback Mechanism**: Circuit relay provides a fallback mechanism when direct connections are not possible.
+3. **Standardized Protocol**: Circuit relay v2 is a standardized protocol in the libp2p ecosystem.
+4. **Efficient Relaying**: Circuit relay v2 includes optimizations for efficient relaying of data.
 
 ### Bitcoin Technologies
 
@@ -195,6 +249,8 @@ Alkanes are a protocol built on top of runes. DarkSwap supports trading alkanes.
 - **thiserror**: Error handling
 - **log**: Logging
 - **env_logger**: Logging configuration
+- **prost**: Protocol Buffers support
+- **tonic**: gRPC support
 
 #### Bitcoin Dependencies
 
@@ -203,10 +259,27 @@ Alkanes are a protocol built on top of runes. DarkSwap supports trading alkanes.
 
 #### P2P Networking Dependencies
 
-- **libp2p**: P2P networking
+- **libp2p**: Core P2P networking library
 - **libp2p-webrtc**: WebRTC transport for libp2p
-- **libp2p-gossipsub**: GossipSub protocol for libp2p
-- **libp2p-kad**: Kademlia DHT for libp2p
+- **libp2p-gossipsub**: GossipSub protocol for efficient message broadcasting
+- **libp2p-kad**: Kademlia DHT for peer discovery and content addressing
+- **libp2p-relay**: Circuit relay protocol for NAT traversal
+- **libp2p-identify**: Identify protocol for peer information exchange
+- **libp2p-ping**: Ping protocol for connection liveness checking
+- **libp2p-mdns**: mDNS discovery for local network peer discovery
+- **libp2p-noise**: Noise protocol for encrypted communication
+- **libp2p-yamux**: Yamux protocol for stream multiplexing
+- **webrtc**: WebRTC implementation for Rust
+- **ice**: ICE protocol implementation for NAT traversal
+- **dtls**: DTLS protocol implementation for secure communication
+- **stun**: STUN protocol implementation for NAT traversal
+
+#### WebAssembly Dependencies
+
+- **wasm-bindgen**: WebAssembly bindings
+- **js-sys**: JavaScript bindings
+- **web-sys**: Web API bindings
+- **wasm-bindgen-futures**: Future support for WebAssembly
 
 #### CLI Dependencies
 
@@ -225,6 +298,31 @@ Alkanes are a protocol built on top of runes. DarkSwap supports trading alkanes.
 - **react**: UI library
 - **react-dom**: DOM rendering for React
 - **react-router-dom**: Routing for React
+- **darkswap-lib**: DarkSwap TypeScript library (internal)
+- **darkswap-web-sys**: WebAssembly bindings for DarkSwap (internal)
+
+#### P2P Networking Dependencies
+
+- **@libp2p/webrtc**: WebRTC transport for js-libp2p
+- **@libp2p/websockets**: WebSockets transport for js-libp2p
+- **@libp2p/bootstrap**: Bootstrap discovery for js-libp2p
+- **@libp2p/kad-dht**: Kademlia DHT for js-libp2p
+- **@libp2p/gossipsub**: GossipSub protocol for js-libp2p
+- **@libp2p/circuit-relay-v2**: Circuit relay protocol for js-libp2p
+- **@libp2p/noise**: Noise protocol for encrypted communication
+- **@libp2p/mplex**: Stream multiplexing protocol
+- **@libp2p/peer-id**: Peer identity management
+- **@libp2p/peer-store**: Peer information storage
+- **simple-peer**: WebRTC peer connection management
+- **wrtc**: WebRTC implementation for Node.js
+- **webrtc-adapter**: WebRTC browser compatibility layer
+
+#### Bitcoin Dependencies
+
+- **bitcoinjs-lib**: Bitcoin functionality for JavaScript
+- **@scure/bip32**: BIP32 implementation
+- **@scure/bip39**: BIP39 implementation
+- **@noble/secp256k1**: Secp256k1 cryptography
 
 #### Build Dependencies
 
@@ -233,21 +331,30 @@ Alkanes are a protocol built on top of runes. DarkSwap supports trading alkanes.
 - **tailwindcss**: CSS framework
 - **postcss**: CSS processing
 - **autoprefixer**: CSS vendor prefixing
+- **wasm-pack**: WebAssembly packaging tool
+- **protobufjs**: Protocol Buffers for JavaScript
 
 #### Testing Dependencies
 
 - **jest**: Testing framework
 - **@testing-library/react**: Testing utilities for React
+- **@testing-library/user-event**: User event simulation for testing
+- **vitest**: Vite-native test runner
 
 ## Deployment Considerations
 
-### SDK Deployment
+### Component Deployment
 
-The SDK can be deployed in various ways:
+The DarkSwap components can be deployed in various ways:
 
-1. **Native Library**: For desktop applications
-2. **WASM Module**: For browser applications
-3. **NPM Package**: For JavaScript applications
+1. **darkswap-support**: Shared as a Rust crate dependency for other components
+2. **darkswap-p2p**: Shared as a Rust crate dependency for other components
+3. **darkswap-sdk**: Deployed as a native library for desktop applications
+4. **darkswap-web-sys**: Compiled to WebAssembly and deployed as an NPM package
+5. **darkswap-lib**: Deployed as an NPM package for JavaScript/TypeScript applications
+6. **darkswap-relay**: Deployed as a standalone service, potentially with Docker
+7. **darkswap-daemon**: Deployed as a standalone service or desktop application
+8. **darkswap-app**: Deployed as a static website, potentially with IPFS
 
 ### CLI Deployment
 

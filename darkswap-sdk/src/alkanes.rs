@@ -378,6 +378,16 @@ impl AlkaneProtocol {
         
         Ok(())
     }
+    
+    /// Update balance directly (for testing purposes only)
+    #[cfg(test)]
+    pub fn update_balance(&mut self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) {
+        let address_str = format!("{:?}", address);
+        self.balances
+            .entry(address_str)
+            .or_insert_with(HashMap::new)
+            .insert(alkane_id.0.clone(), amount);
+    }
 
     /// Create a transaction
     pub fn create_transaction(
@@ -387,9 +397,26 @@ impl AlkaneProtocol {
         change_address: &Address<NetworkUnchecked>,
         fee_rate: f32,
     ) -> Result<Transaction> {
+        // Debug output
+        println!("Creating transaction for alkane transfer:");
+        println!("  Alkane ID: {}", transfer.alkane_id.0);
+        println!("  From: {:?}", transfer.from);
+        println!("  To: {:?}", transfer.to);
+        println!("  Amount: {}", transfer.amount);
+        println!("  Available alkanes: {:?}", self.alkanes.keys().collect::<Vec<_>>());
+        
         // Check if the alkane exists
         if !self.alkanes.contains_key(&transfer.alkane_id.0) {
+            println!("  Error: Alkane not found: {}", transfer.alkane_id.0);
             return Err(Error::AlkaneNotFound(transfer.alkane_id.0.clone()));
+        }
+        
+        // Check if the sender has enough balance
+        let sender_balance = self.get_balance(&transfer.from, &transfer.alkane_id);
+        println!("  Sender balance: {}", sender_balance);
+        if sender_balance < transfer.amount {
+            println!("  Error: Insufficient balance. Required: {}, Available: {}", transfer.amount, sender_balance);
+            return Err(Error::InsufficientBalance);
         }
         
         // Create a simple transaction with an OP_RETURN output

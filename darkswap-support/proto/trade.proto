@@ -1,0 +1,62 @@
+syntax = "proto3";
+package darkswap.trade;
+
+message TradeIntent {
+  string order_id = 1;
+  string taker_peer_id = 2;
+  string amount = 3;
+  uint64 timestamp = 4;
+  bytes signature = 5;
+}
+
+message TradeAccept {
+  string order_id = 1;
+  string maker_peer_id = 2;
+  string taker_peer_id = 3;
+  string amount = 4;
+  uint64 timestamp = 5;
+  bytes signature = 6;
+}
+
+message TradeReject {
+  string order_id = 1;
+  string maker_peer_id = 2;
+  string taker_peer_id = 3;
+  string reason = 4;
+  uint64 timestamp = 5;
+  bytes signature = 6;
+}
+
+message PartiallySignedTransaction {
+  bytes psbt = 1;
+  uint64 timestamp = 2;
+  bytes signature = 3;
+}
+
+message TradeComplete {
+  string order_id = 1;
+  string maker_peer_id = 2;
+  string taker_peer_id = 3;
+  string txid = 4;
+  uint64 timestamp = 5;
+  bytes signature = 6;
+}
+
+message TradeMessage {
+  enum Type {
+    INTENT = 0;
+    ACCEPT = 1;
+    REJECT = 2;
+    PSBT = 3;
+    COMPLETE = 4;
+  }
+  Type type = 1;
+  
+  oneof message {
+    TradeIntent intent = 2;
+    TradeAccept accept = 3;
+    TradeReject reject = 4;
+    PartiallySignedTransaction psbt = 5;
+    TradeComplete complete = 6;
+  }
+}

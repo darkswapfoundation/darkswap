@@ -1,0 +1,35 @@
+syntax = "proto3";
+package darkswap.orderbook;
+
+message Order {
+  string id = 1;
+  string maker_peer_id = 2;
+  string base_asset = 3;
+  string quote_asset = 4;
+  string side = 5;  // "buy" or "sell"
+  string amount = 6;
+  string price = 7;
+  uint64 timestamp = 8;
+  uint64 expiry = 9;
+  bytes signature = 10;
+}
+
+message OrderbookMessage {
+  enum Type {
+    ADD = 0;
+    REMOVE = 1;
+    UPDATE = 2;
+  }
+  Type type = 1;
+  Order order = 2;
+}
+
+message OrderbookQuery {
+  string base_asset = 1;
+  string quote_asset = 2;
+  uint32 limit = 3;
+}
+
+message OrderbookResponse {
+  repeated Order orders = 1;
+}
