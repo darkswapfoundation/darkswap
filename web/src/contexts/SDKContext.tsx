@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useWallet } from './WalletContext';
+import { useNotification } from './NotificationContext';
 
 interface SDKContextType {
   isInitialized: boolean;
   isInitializing: boolean;
   error: string | null;
-  peerCount: number;
-  orderCount: number;
-  connectionQuality: 'poor' | 'fair' | 'good' | 'excellent';
   initialize: () => Promise<void>;
   shutdown: () => Promise<void>;
 }
@@ -19,110 +17,65 @@ interface SDKProviderProps {
 }
 
 export const SDKProvider: React.FC<SDKProviderProps> = ({ children }) => {
-  const { isConnected } = useWallet();
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [peerCount, setPeerCount] = useState<number>(0);
-  const [orderCount, setOrderCount] = useState<number>(0);
-  const [connectionQuality, setConnectionQuality] = useState<'poor' | 'fair' | 'good' | 'excellent'>('poor');
+  const { isConnected } = useWallet();
+  const { addNotification } = useNotification();
 
-  // Auto-initialize when wallet is connected
+  // Initialize SDK when wallet is connected
   useEffect(() => {
     if (isConnected && !isInitialized && !isInitializing) {
-      initialize();
+      initializeSDK();
     }
-  }, [isConnected]);
+  }, [isConnected, isInitialized, isInitializing]);
 
-  // Mock SDK initialization
-  const initialize = async (): Promise<void> => {
-    if (isInitialized || isInitializing) return;
+  // Initialize SDK
+  const initializeSDK = async () => {
+    if (isInitializing || isInitialized) return;
     
     setIsInitializing(true);
     setError(null);
     
     try {
-      // Simulate API call
+      // In a real implementation, this would initialize the DarkSwap SDK
+      // For now, we'll simulate initialization
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Set mock values
-      setPeerCount(Math.floor(Math.random() * 30) + 5);
-      setOrderCount(Math.floor(Math.random() * 100) + 20);
-      
-      // Start peer count and order count simulation
-      startSimulation();
-      
       setIsInitialized(true);
-    } catch (err) {
-      setError('Failed to initialize SDK');
-      console.error('SDK initialization error:', err);
+      addNotification('success', 'DarkSwap SDK initialized successfully');
+    } catch (error) {
+      console.error('Error initializing SDK:', error);
+      setError(`Failed to initialize SDK: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      addNotification('error', `Failed to initialize SDK: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsInitializing(false);
     }
   };
 
-  // Mock SDK shutdown
-  const shutdown = async (): Promise<void> => {
+  // Shutdown SDK
+  const shutdownSDK = async () => {
     if (!isInitialized) return;
     
     try {
-      // Simulate API call
+      // In a real implementation, this would shutdown the DarkSwap SDK
+      // For now, we'll simulate shutdown
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Reset values
-      setPeerCount(0);
-      setOrderCount(0);
-      setConnectionQuality('poor');
-      
       setIsInitialized(false);
-    } catch (err) {
-      console.error('SDK shutdown error:', err);
+      addNotification('info', 'DarkSwap SDK shutdown successfully');
+    } catch (error) {
+      console.error('Error shutting down SDK:', error);
+      addNotification('error', `Failed to shutdown SDK: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  // Simulate peer count and order count changes
-  const startSimulation = () => {
-    const interval = setInterval(() => {
-      if (!isInitialized) {
-        clearInterval(interval);
-        return;
-      }
-      
-      // Randomly adjust peer count
-      setPeerCount(prev => {
-        const change = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
-        const newCount = Math.max(5, Math.min(50, prev + change));
-        
-        // Update connection quality based on peer count
-        if (newCount < 10) {
-          setConnectionQuality('poor');
-        } else if (newCount < 20) {
-          setConnectionQuality('fair');
-        } else if (newCount < 30) {
-          setConnectionQuality('good');
-        } else {
-          setConnectionQuality('excellent');
-        }
-        
-        return newCount;
-      });
-      
-      // Randomly adjust order count
-      setOrderCount(prev => {
-        const change = Math.floor(Math.random() * 5) - 2; // -2, -1, 0, 1, or 2
-        return Math.max(10, prev + change);
-      });
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  };
-
-  // Clean up when wallet is disconnected
+  // Shutdown SDK when wallet is disconnected
   useEffect(() => {
     if (!isConnected && isInitialized) {
-      shutdown();
+      shutdownSDK();
     }
-  }, [isConnected]);
+  }, [isConnected, isInitialized]);
 
   return (
     <SDKContext.Provider
@@ -130,11 +83,8 @@ export const SDKProvider: React.FC<SDKProviderProps> = ({ children }) => {
         isInitialized,
         isInitializing,
         error,
-        peerCount,
-        orderCount,
-        connectionQuality,
-        initialize,
-        shutdown,
+        initialize: initializeSDK,
+        shutdown: shutdownSDK,
       }}
     >
       {children}
@@ -149,3 +99,5 @@ export const useSDK = (): SDKContextType => {
   }
   return context;
 };
+
+export default SDKProvider;

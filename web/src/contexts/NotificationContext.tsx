@@ -1,54 +1,96 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Icons
 import {
   CheckCircleIcon,
-  ExclamationCircleIcon,
+  ExclamationTriangleIcon,
   InformationCircleIcon,
+  XCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-export type NotificationType = 'success' | 'error' | 'info' | 'warning';
+export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 
-interface Notification {
+export interface Notification {
   id: string;
   type: NotificationType;
   message: string;
-  duration?: number;
+  timestamp: number;
+  duration: number;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   addNotification: (type: NotificationType, message: string, duration?: number) => void;
   removeNotification: (id: string) => void;
+  clearNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 interface NotificationProviderProps {
   children: ReactNode;
+  maxNotifications?: number;
 }
 
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
+export const NotificationProvider: React.FC<NotificationProviderProps> = ({ 
+  children, 
+  maxNotifications = 5 
+}) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = (type: NotificationType, message: string, duration = 5000) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const notification = { id, type, message, duration };
+  // Add a notification
+  const addNotification = (
+    type: NotificationType, 
+    message: string, 
+    duration: number = 5000
+  ) => {
+    const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    setNotifications((prev) => [...prev, notification]);
+    const newNotification: Notification = {
+      id,
+      type,
+      message,
+      timestamp: Date.now(),
+      duration,
+    };
     
-    if (duration > 0) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, duration);
-    }
+    setNotifications(prev => {
+      // Add new notification and limit to maxNotifications
+      const updated = [newNotification, ...prev].slice(0, maxNotifications);
+      return updated;
+    });
   };
 
+  // Remove a notification
   const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
   };
+
+  // Clear all notifications
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  // Auto-remove notifications after their duration
+  useEffect(() => {
+    const timers: NodeJS.Timeout[] = [];
+    
+    notifications.forEach(notification => {
+      if (notification.duration > 0) {
+        const timer = setTimeout(() => {
+          removeNotification(notification.id);
+        }, notification.duration);
+        
+        timers.push(timer);
+      }
+    });
+    
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [notifications]);
 
   return (
     <NotificationContext.Provider
@@ -56,10 +98,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         notifications,
         addNotification,
         removeNotification,
+        clearNotifications,
       }}
     >
       {children}
-      <NotificationContainer 
+      <NotificationDisplay 
         notifications={notifications} 
         removeNotification={removeNotification} 
       />
@@ -67,88 +110,66 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   );
 };
 
-interface NotificationContainerProps {
+interface NotificationDisplayProps {
   notifications: Notification[];
   removeNotification: (id: string) => void;
 }
 
-const NotificationContainer: React.FC<NotificationContainerProps> = ({ 
+const NotificationDisplay: React.FC<NotificationDisplayProps> = ({ 
   notifications, 
   removeNotification 
 }) => {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+    <div className="fixed top-4 right-4 z-50 space-y-2 w-80">
       <AnimatePresence>
-        {notifications.map((notification) => (
-          <NotificationItem
+        {notifications.map(notification => (
+          <motion.div
             key={notification.id}
-            notification={notification}
-            onClose={() => removeNotification(notification.id)}
-          />
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+            className={`
+              rounded-lg shadow-lg p-4 flex items-start
+              ${notification.type === 'success' ? 'bg-ui-success bg-opacity-10 border border-ui-success' : ''}
+              ${notification.type === 'error' ? 'bg-ui-error bg-opacity-10 border border-ui-error' : ''}
+              ${notification.type === 'warning' ? 'bg-ui-warning bg-opacity-10 border border-ui-warning' : ''}
+              ${notification.type === 'info' ? 'bg-ui-info bg-opacity-10 border border-ui-info' : ''}
+            `}
+          >
+            <div className="flex-shrink-0 mr-2">
+              {notification.type === 'success' && (
+                <CheckCircleIcon className="w-5 h-5 text-ui-success" />
+              )}
+              {notification.type === 'error' && (
+                <XCircleIcon className="w-5 h-5 text-ui-error" />
+              )}
+              {notification.type === 'warning' && (
+                <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning" />
+              )}
+              {notification.type === 'info' && (
+                <InformationCircleIcon className="w-5 h-5 text-ui-info" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className={`text-sm font-medium
+                ${notification.type === 'success' ? 'text-ui-success' : ''}
+                ${notification.type === 'error' ? 'text-ui-error' : ''}
+                ${notification.type === 'warning' ? 'text-ui-warning' : ''}
+                ${notification.type === 'info' ? 'text-ui-info' : ''}
+              `}>
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => removeNotification(notification.id)}
+              className="ml-2 flex-shrink-0 text-gray-400 hover:text-white transition-colors duration-200"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </motion.div>
         ))}
       </AnimatePresence>
     </div>
-  );
-};
-
-interface NotificationItemProps {
-  notification: Notification;
-  onClose: () => void;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClose }) => {
-  const { type, message } = notification;
-  
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
-      case 'error':
-        return <ExclamationCircleIcon className="w-5 h-5 text-red-400" />;
-      case 'warning':
-        return <ExclamationCircleIcon className="w-5 h-5 text-yellow-400" />;
-      case 'info':
-      default:
-        return <InformationCircleIcon className="w-5 h-5 text-blue-400" />;
-    }
-  };
-  
-  const getBgColor = () => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-500 bg-opacity-10 border-green-500 border-opacity-20';
-      case 'error':
-        return 'bg-red-500 bg-opacity-10 border-red-500 border-opacity-20';
-      case 'warning':
-        return 'bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-20';
-      case 'info':
-      default:
-        return 'bg-blue-500 bg-opacity-10 border-blue-500 border-opacity-20';
-    }
-  };
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      className={`card-glass p-4 border ${getBgColor()} shadow-lg`}
-    >
-      <div className="flex items-start">
-        <div className="flex-shrink-0 mr-3">
-          {getIcon()}
-        </div>
-        <div className="flex-1">
-          <p className="text-sm text-white">{message}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="ml-4 flex-shrink-0 text-gray-400 hover:text-white transition-colors duration-200"
-        >
-          <XMarkIcon className="w-5 h-5" />
-        </button>
-      </div>
-    </motion.div>
   );
 };
 
@@ -159,3 +180,5 @@ export const useNotification = (): NotificationContextType => {
   }
   return context;
 };
+
+export default NotificationProvider;

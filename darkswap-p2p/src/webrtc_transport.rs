@@ -87,7 +87,6 @@ pub struct WebRtcTransport {
     /// Signaling server URL
     signaling_server_url: Option<String>,
 }
-
 /// WebRTC upgrade
 pub struct WebRtcUpgrade {
     /// Peer ID
@@ -96,6 +95,37 @@ pub struct WebRtcUpgrade {
     offer: Option<String>,
     /// ICE candidates
     ice_candidates: Vec<String>,
+    /// Result sender
+    result_sender: Option<mpsc::Sender<Result<WebRtcConnection, std::io::Error>>>,
+    /// Result receiver
+    result_receiver: Option<mpsc::Receiver<Result<WebRtcConnection, std::io::Error>>>,
+}
+
+impl Future for WebRtcUpgrade {
+    type Output = Result<WebRtcConnection, std::io::Error>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // If we have a result receiver, poll it
+        if let Some(receiver) = &mut self.result_receiver {
+            match ready!(receiver.poll_next_unpin(cx)) {
+                Some(Ok(connection)) => Poll::Ready(Ok(connection)),
+                Some(Err(e)) => Poll::Ready(Err(e)),
+                None => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "Connection closed",
+                ))),
+            }
+        } else {
+            // Create a new connection
+            let data_channel = DataChannel::new("data".to_string(), true);
+            let connection = WebRtcConnection {
+                peer_id: self.peer_id.clone(),
+                data_channels: HashMap::from([("data".to_string(), data_channel)]),
+            };
+            
+            Poll::Ready(Ok(connection))
+        }
+    }
 }
 
 /// WebRTC dial
@@ -115,10 +145,15 @@ pub struct WebRtcDial {
 impl WebRtcTransport {
     /// Create a new WebRTC transport
     pub fn new(local_peer_id: PeerId) -> Self {
+        Self::with_signaling_client(local_peer_id, None)
+    }
+
+    /// Create a new WebRTC transport with a signaling client
+    pub fn with_signaling_client(local_peer_id: PeerId, signaling_client: Option<Arc<WebRtcSignalingClient>>) -> Self {
         WebRtcTransport {
             local_peer_id,
             listeners: HashMap::new(),
-            next_listener_id: ListenerId::new(0),
+            next_listener_id: ListenerId::new(),
             pending_dials: HashMap::new(),
             ice_servers: vec![
                 "stun:stun.l.google.com:19302".to_string(),
@@ -132,6 +167,14 @@ impl WebRtcTransport {
     /// Set the signaling server URL
     pub fn set_signaling_server(&mut self, url: String) {
         self.signaling_server_url = Some(url);
+    }
+
+    /// Check if the address is supported
+    pub fn can_dial(&self, addr: &Multiaddr) -> bool {
+        addr.iter().any(|p| match p {
+            libp2p::multiaddr::Protocol::WebRTC => true,
+            _ => false,
+        })
     }
     
     /// Connect to the signaling server
@@ -186,10 +229,13 @@ impl WebRtcTransport {
         // Find the listener to notify
         if let Some((listener_id, _)) = self.listeners.iter().next() {
             let event = TransportEvent::Incoming {
+                listener_id: *listener_id,
                 upgrade: WebRtcUpgrade {
                     peer_id,
                     offer: None,
                     ice_candidates: Vec::new(),
+                    result_sender: None,
+                    result_receiver: None,
                 },
                 local_addr: "/ip4/127.0.0.1/tcp/0/webrtc".parse().unwrap(),
                 send_back_addr: "/ip4/127.0.0.1/tcp/0/webrtc".parse().unwrap(),
@@ -205,7 +251,6 @@ impl WebRtcTransport {
         Ok(())
     }
 }
-
 impl Transport for WebRtcTransport {
     type Output = WebRtcConnection;
     type Error = std::io::Error;
@@ -213,17 +258,22 @@ impl Transport for WebRtcTransport {
     type ListenerUpgrade = WebRtcUpgrade;
     type Dial = WebRtcDial;
 
+    fn address_translation(&self, server: &Multiaddr, observed: &Multiaddr) -> Option<Multiaddr> {
+        // For WebRTC, we don't do any address translation
+        None
+    }
+
     fn listen_on(&mut self, addr: Multiaddr) -> Result<ListenerId, TransportError<Self::Error>> {
         log::debug!("Listening on {}", addr);
         
         // Check if the address is supported
-        if !Self::can_dial(&addr) {
+        if !self.can_dial(&addr) {
             return Err(TransportError::MultiaddrNotSupported(addr));
         }
         
         let (tx, rx) = mpsc::channel(10);
         let listener_id = self.next_listener_id;
-        self.next_listener_id = ListenerId::new(self.next_listener_id.next_id().unwrap_or(0));
+        self.next_listener_id = ListenerId::new();
         
         self.listeners.insert(listener_id, tx.clone());
         
@@ -245,12 +295,14 @@ impl Transport for WebRtcTransport {
                             
                             // For now, just create a dummy connection
                             let peer_id = PeerId::from_bytes(from.as_bytes()).unwrap_or(PeerId::random());
-                            
                             let event = TransportEvent::Incoming {
+                                listener_id,
                                 upgrade: WebRtcUpgrade {
                                     peer_id: peer_id.clone(),
                                     offer: Some(sdp),
                                     ice_candidates: Vec::new(),
+                                    result_sender: None,
+                                    result_receiver: None,
                                 },
                                 local_addr: format!("/ip4/127.0.0.1/tcp/0/webrtc/p2p/{}", local_peer_id).parse().unwrap(),
                                 send_back_addr: format!("/ip4/127.0.0.1/tcp/0/webrtc/p2p/{}", peer_id).parse().unwrap(),
@@ -275,7 +327,7 @@ impl Transport for WebRtcTransport {
         log::debug!("Dialing {}", addr);
         
         // Check if the address is supported
-        if !Self::can_dial(&addr) {
+        if !self.can_dial(&addr) {
             return Err(TransportError::MultiaddrNotSupported(addr));
         }
         
@@ -306,8 +358,9 @@ impl Transport for WebRtcTransport {
         // If we have a signaling client, use it to establish the WebRTC connection
         if let Some(signaling_client) = &self.signaling_client {
             // Create an offer
-            let offer = match self.create_offer(&peer_id).await {
-                Ok(offer) => offer,
+            let offer_result = self.create_offer(&peer_id).await;
+            let offer: String = match offer_result {
+                Ok(offer_string) => offer_string.to_string(),
                 Err(e) => {
                     log::error!("Failed to create offer: {}", e);
                     return Ok(dial);
@@ -373,12 +426,6 @@ impl Transport for WebRtcTransport {
         Poll::Pending
     }
     
-    fn can_dial(addr: &Multiaddr) -> bool {
-        addr.iter().any(|p| match p {
-            libp2p::multiaddr::Protocol::WebRTC => true,
-            _ => false,
-        })
-    }
 }
 
 // Clone implementation for WebRtcDial
@@ -398,18 +445,14 @@ impl Clone for WebRtcDial {
 
 // Future implementation for WebRtcDial
 impl Future for WebRtcDial {
-    type Output = Result<(WebRtcConnection, ConnectedPoint), std::io::Error>;
+    type Output = Result<WebRtcConnection, std::io::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Poll the result receiver
         match ready!(self.result_receiver.poll_next_unpin(cx)) {
             Some(Ok(connection)) => {
-                let connected_point = ConnectedPoint::Dialer {
-                    address: format!("/ip4/127.0.0.1/tcp/0/webrtc/p2p/{}", self.peer_id).parse().unwrap(),
-                    role_override: libp2p::core::Endpoint::Dialer,
-                };
-                
-                Poll::Ready(Ok((connection, connected_point)))
+                // We no longer need to return the ConnectedPoint
+                Poll::Ready(Ok(connection))
             }
             Some(Err(e)) => Poll::Ready(Err(e)),
             None => Poll::Ready(Err(std::io::Error::new(
@@ -426,10 +469,12 @@ mod tests {
     
     #[test]
     fn test_can_dial() {
+        let transport = WebRtcTransport::new(PeerId::random());
+        
         let addr: Multiaddr = "/ip4/127.0.0.1/tcp/8000/webrtc/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC".parse().unwrap();
-        assert!(WebRtcTransport::can_dial(&addr));
+        assert!(transport.can_dial(&addr));
         
         let addr: Multiaddr = "/ip4/127.0.0.1/tcp/8000/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC".parse().unwrap();
-        assert!(!WebRtcTransport::can_dial(&addr));
+        assert!(!transport.can_dial(&addr));
     }
 }

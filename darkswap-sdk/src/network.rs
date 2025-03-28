@@ -6,7 +6,7 @@
 use crate::error::{Error, Result};
 use crate::config::NetworkConfig;
 use crate::orderbook::Order;
-use crate::types::{OrderId, PeerId, TradeId};
+use crate::types::{OrderId, PeerId, SerializablePeerId, TradeId};
 use libp2p::{
     core::{
         muxing::StreamMuxerBox,
@@ -56,12 +56,12 @@ use crate::webrtc_message_batch::MessageBatcher;
 use crate::webrtc_error_handler::{WebRtcErrorHandler, WebRtcErrorType};
 
 /// Network event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetworkEvent {
     /// New peer connected
-    PeerConnected(PeerId),
+    PeerConnected(SerializablePeerId),
     /// Peer disconnected
-    PeerDisconnected(PeerId),
+    PeerDisconnected(SerializablePeerId),
     /// Message received
     MessageReceived {
         /// Sender peer ID
@@ -79,7 +79,7 @@ pub enum MessageType {
     /// Cancel order message
     CancelOrder(OrderId),
     /// Trade request message
-    TradeRequest(TradeId, PeerId, OrderId),
+    TradeRequest(TradeId, SerializablePeerId, OrderId),
     /// Trade response message
     TradeResponse(TradeId, bool),
     /// PSBT message
@@ -583,7 +583,7 @@ impl Network {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 
                 // Send a dummy event
-                let _ = event_sender.send(NetworkEvent::PeerConnected(PeerId("dummy".to_string()))).await;
+                let _ = event_sender.send(NetworkEvent::PeerConnected(SerializablePeerId(PeerId("dummy".to_string())))).await;
             }
         });
     }
@@ -1000,7 +1000,7 @@ impl Network {
                 
                 // Send notifications outside the lock
                 for peer_id in disconnected_peers {
-                    let _ = event_sender.send(NetworkEvent::PeerDisconnected(peer_id)).await;
+                    let _ = event_sender.send(NetworkEvent::PeerDisconnected(SerializablePeerId(peer_id))).await;
                 }
             }
         });

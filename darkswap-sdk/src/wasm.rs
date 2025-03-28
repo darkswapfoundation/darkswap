@@ -1,680 +1,586 @@
-//! WebAssembly bindings for DarkSwap
+//! WebAssembly bindings for DarkSwap SDK
 //!
-//! This module provides WebAssembly bindings for the DarkSwap SDK, allowing it to be used in browsers.
+//! This module provides WebAssembly bindings for the DarkSwap SDK, allowing it to be used
+//! in web applications.
 
-#![cfg(feature = "wasm")]
+#[cfg(feature = "wasm")]
+mod wasm_impl {
+    use std::str::FromStr;
+    use std::sync::Arc;
 
-use crate::config::{BitcoinNetwork, Config};
-use crate::error::{Error, Result};
-use crate::orderbook::{Order, OrderSide, OrderStatus};
-use crate::trade::{Trade, TradeStatus};
-use crate::types::{Asset, OrderId, PeerId, RuneId, AlkaneId};
-use crate::DarkSwap;
-use rust_decimal::Decimal;
-use std::str::FromStr;
-use std::sync::Arc;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::future_to_promise;
-use web_sys::{console, Window};
+    use anyhow::{Context as AnyhowContext, Result};
+    use js_sys::{Array, Function, Object, Promise, Reflect};
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Serialize};
+    use wasm_bindgen::prelude::*;
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::future_to_promise;
+    use web_sys::{console, window};
 
-#[cfg(feature = "webrtc")]
-use crate::wasm_webrtc::{JsSessionDescription, JsIceCandidate, WebRtcConnection, JsRelayReservation};
+    use crate::config::{BitcoinNetwork, Config};
+    use crate::orderbook::{Order, OrderId, OrderSide, OrderStatus};
+    use crate::trade::{Trade, TradeId};
+    use crate::types::{Asset, AlkaneId, Event, SerializablePeerId};
+    use crate::DarkSwap;
 
-#[cfg(feature = "webrtc")]
-use crate::webrtc_signaling::{SessionDescription, IceCandidate};
-
-#[cfg(feature = "webrtc")]
-use crate::webrtc_relay::RelayReservation;
-
-/// Initialize panic hook for better error messages in the browser
-#[wasm_bindgen(start)]
-pub fn start() {
-    console_error_panic_hook::set_once();
-}
-
-/// Parse asset from string
-fn parse_asset(asset_str: &str) -> Result<Asset> {
-    if asset_str == "BTC" {
-        Ok(Asset::Bitcoin)
-    } else if asset_str.starts_with("RUNE:") {
-        let id = asset_str.strip_prefix("RUNE:").unwrap();
-        Ok(Asset::Rune(RuneId(id.to_string())))
-    } else if asset_str.starts_with("ALKANE:") {
-        let id = asset_str.strip_prefix("ALKANE:").unwrap();
-        Ok(Asset::Alkane(AlkaneId(id.to_string())))
-    } else {
-        Err(Error::InvalidAsset(format!("Invalid asset: {}", asset_str)))
-    }
-}
-
-/// Parse order side from string
-fn parse_order_side(side_str: &str) -> Result<OrderSide> {
-    match side_str.to_lowercase().as_str() {
-        "buy" => Ok(OrderSide::Buy),
-        "sell" => Ok(OrderSide::Sell),
-        _ => Err(Error::InvalidOrder(format!("Invalid order side: {}", side_str))),
-    }
-}
-
-/// Parse Bitcoin network from string
-fn parse_bitcoin_network(network_str: &str) -> Result<BitcoinNetwork> {
-    match network_str.to_lowercase().as_str() {
-        "mainnet" => Ok(BitcoinNetwork::Mainnet),
-        "testnet" => Ok(BitcoinNetwork::Testnet),
-        "regtest" => Ok(BitcoinNetwork::Regtest),
-        "signet" => Ok(BitcoinNetwork::Signet),
-        _ => Err(Error::ConfigError(format!("Invalid Bitcoin network: {}", network_str))),
-    }
-}
-
-/// Convert error to JsValue
-fn error_to_js_value(error: Error) -> JsValue {
-    JsValue::from_str(&error.to_string())
-}
-
-/// Convert result to JsValue
-fn result_to_js_value<T: Into<JsValue>>(result: Result<T>) -> Result<JsValue, JsValue> {
-    result.map(|value| value.into()).map_err(error_to_js_value)
-}
-
-/// Order summary for JavaScript
-#[wasm_bindgen]
-#[derive(Clone)]
-pub struct OrderSummary {
-    /// Order ID
-    pub id: String,
-    /// Maker
-    pub maker: String,
-    /// Base asset
-    pub base_asset: String,
-    /// Quote asset
-    pub quote_asset: String,
-    /// Side
-    pub side: String,
-    /// Amount
-    pub amount: String,
-    /// Price
-    pub price: String,
-    /// Status
-    pub status: String,
-    /// Timestamp
-    pub timestamp: u64,
-    /// Expiry
-    pub expiry: u64,
-}
-
-#[wasm_bindgen]
-impl OrderSummary {
-    /// Create a new order summary
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        id: String,
-        maker: String,
-        base_asset: String,
-        quote_asset: String,
-        side: String,
-        amount: String,
-        price: String,
-        status: String,
-        timestamp: u64,
-        expiry: u64,
-    ) -> Self {
-        Self {
-            id,
-            maker,
-            base_asset,
-            quote_asset,
-            side,
-            amount,
-            price,
-            status,
-            timestamp,
-            expiry,
-        }
-    }
-}
-
-/// Trade summary for JavaScript
-#[wasm_bindgen]
-#[derive(Clone)]
-pub struct TradeSummary {
-    /// Trade ID
-    pub id: String,
-    /// Order ID
-    pub order_id: String,
-    /// Maker
-    pub maker: String,
-    /// Taker
-    pub taker: String,
-    /// Base asset
-    pub base_asset: String,
-    /// Quote asset
-    pub quote_asset: String,
-    /// Side
-    pub side: String,
-    /// Amount
-    pub amount: String,
-    /// Price
-    pub price: String,
-    /// Status
-    pub status: String,
-    /// Timestamp
-    pub timestamp: u64,
-    /// Transaction ID
-    pub txid: Option<String>,
-}
-
-#[wasm_bindgen]
-impl TradeSummary {
-    /// Create a new trade summary
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        id: String,
-        order_id: String,
-        maker: String,
-        taker: String,
-        base_asset: String,
-        quote_asset: String,
-        side: String,
-        amount: String,
-        price: String,
-        status: String,
-        timestamp: u64,
-        txid: Option<String>,
-    ) -> Self {
-        Self {
-            id,
-            order_id,
-            maker,
-            taker,
-            base_asset,
-            quote_asset,
-            side,
-            amount,
-            price,
-            status,
-            timestamp,
-            txid,
-        }
-    }
-}
-
-/// DarkSwap WebAssembly bindings
-#[wasm_bindgen]
-pub struct DarkSwapWasm {
-    /// DarkSwap instance
-    darkswap: Arc<DarkSwap>,
-    /// Order created callback
-    order_created_callback: Option<js_sys::Function>,
-    /// Order canceled callback
-    order_canceled_callback: Option<js_sys::Function>,
-    /// Order filled callback
-    order_filled_callback: Option<js_sys::Function>,
-    /// Trade started callback
-    trade_started_callback: Option<js_sys::Function>,
-    /// Trade completed callback
-    trade_completed_callback: Option<js_sys::Function>,
-    /// Trade failed callback
-    trade_failed_callback: Option<js_sys::Function>,
-    /// WebRTC offer received callback
-    #[cfg(feature = "webrtc")]
-    webrtc_offer_callback: Option<js_sys::Function>,
-    /// WebRTC answer received callback
-    #[cfg(feature = "webrtc")]
-    webrtc_answer_callback: Option<js_sys::Function>,
-    /// WebRTC ICE candidate received callback
-    #[cfg(feature = "webrtc")]
-    webrtc_ice_candidate_callback: Option<js_sys::Function>,
-    /// WebRTC connections
-    #[cfg(feature = "webrtc")]
-    webrtc_connections: std::collections::HashMap<String, WebRtcConnection>,
-}
-
-#[wasm_bindgen]
-impl DarkSwapWasm {
-    /// Create a new DarkSwap instance
-    #[wasm_bindgen(constructor)]
-    pub fn new(config_json: &str) -> Result<DarkSwapWasm, JsValue> {
-        // Parse configuration
-        let config: Config = serde_json::from_str(config_json)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse configuration: {}", e)))?;
-
-        // Create DarkSwap instance
-        let darkswap = DarkSwap::new(config)
-            .map_err(|e| JsValue::from_str(&format!("Failed to create DarkSwap: {}", e)))?;
-
-        Ok(Self {
-            darkswap: Arc::new(darkswap),
-            order_created_callback: None,
-            order_canceled_callback: None,
-            order_filled_callback: None,
-            trade_started_callback: None,
-            trade_completed_callback: None,
-            trade_failed_callback: None,
-        })
-    }
-
-    /// Create a new DarkSwap instance with default configuration
+    /// JavaScript error
     #[wasm_bindgen]
-    pub fn new_with_defaults(network: &str) -> Result<DarkSwapWasm, JsValue> {
-        // Parse Bitcoin network
-        let bitcoin_network = parse_bitcoin_network(network)
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse Bitcoin network: {}", e)))?;
+    extern "C" {
+        #[wasm_bindgen(js_namespace = console)]
+        fn log(s: &str);
 
-        // Create default configuration
+        #[wasm_bindgen(js_namespace = console, js_name = log)]
+        fn log_obj(obj: &JsValue);
+    }
+
+    /// Asset type for JavaScript
+    #[wasm_bindgen]
+    pub enum JsAssetType {
+        Bitcoin = 0,
+        Rune = 1,
+        Alkane = 2,
+    }
+
+    /// Order side for JavaScript
+    #[wasm_bindgen]
+    pub enum JsOrderSide {
+        Buy = 0,
+        Sell = 1,
+    }
+
+    /// Order status for JavaScript
+    #[wasm_bindgen]
+    pub enum JsOrderStatus {
+        Open = 0,
+        Filled = 1,
+        Canceled = 2,
+        Expired = 3,
+    }
+
+    /// Bitcoin network for JavaScript
+    #[wasm_bindgen]
+    pub enum JsBitcoinNetwork {
+        Mainnet = 0,
+        Testnet = 1,
+        Regtest = 2,
+        Signet = 3,
+    }
+
+    /// DarkSwap configuration for JavaScript
+    #[wasm_bindgen]
+    pub struct JsConfig {
+        /// Bitcoin network
+        pub network: JsBitcoinNetwork,
+        /// Wallet type
+        pub wallet_type: String,
+        /// Private key
+        pub private_key: Option<String>,
+        /// Mnemonic
+        pub mnemonic: Option<String>,
+        /// Derivation path
+        pub derivation_path: Option<String>,
+        /// Enable WebRTC
+        pub enable_webrtc: bool,
+        /// WebRTC ICE servers
+        pub ice_servers: Vec<String>,
+        /// Signaling server URL
+        pub signaling_server_url: Option<String>,
+    }
+
+    /// DarkSwap SDK for JavaScript
+    #[wasm_bindgen]
+    pub struct JsDarkSwap {
+        /// Inner DarkSwap instance
+        darkswap: Arc<tokio::sync::Mutex<DarkSwap>>,
+        /// Event callback
+        event_callback: Option<Function>,
+    }
+
+    /// Convert JsAssetType to Asset
+    fn js_asset_type_to_asset(asset_type: JsAssetType, id: &str) -> Result<Asset> {
+        match asset_type {
+            JsAssetType::Bitcoin => Ok(Asset::Bitcoin),
+            JsAssetType::Rune => {
+                let rune_id = u128::from_str(id).context("Invalid rune ID")?;
+                Ok(Asset::Rune(rune_id))
+            }
+            JsAssetType::Alkane => {
+                let alkane_id = AlkaneId(id.to_string());
+                Ok(Asset::Alkane(alkane_id))
+            }
+        }
+    }
+
+    /// Convert JsOrderSide to OrderSide
+    fn js_order_side_to_order_side(side: JsOrderSide) -> OrderSide {
+        match side {
+            JsOrderSide::Buy => OrderSide::Buy,
+            JsOrderSide::Sell => OrderSide::Sell,
+        }
+    }
+
+    /// Convert OrderSide to JsOrderSide
+    fn order_side_to_js_order_side(side: OrderSide) -> JsOrderSide {
+        match side {
+            OrderSide::Buy => JsOrderSide::Buy,
+            OrderSide::Sell => JsOrderSide::Sell,
+        }
+    }
+
+    /// Convert OrderStatus to JsOrderStatus
+    fn order_status_to_js_order_status(status: OrderStatus) -> JsOrderStatus {
+        match status {
+            OrderStatus::Open => JsOrderStatus::Open,
+            OrderStatus::Filled => JsOrderStatus::Filled,
+            OrderStatus::Canceled => JsOrderStatus::Canceled,
+            OrderStatus::Expired => JsOrderStatus::Expired,
+        }
+    }
+
+    /// Convert JsBitcoinNetwork to BitcoinNetwork
+    fn js_bitcoin_network_to_bitcoin_network(network: JsBitcoinNetwork) -> BitcoinNetwork {
+        match network {
+            JsBitcoinNetwork::Mainnet => BitcoinNetwork::Mainnet,
+            JsBitcoinNetwork::Testnet => BitcoinNetwork::Testnet,
+            JsBitcoinNetwork::Regtest => BitcoinNetwork::Regtest,
+            JsBitcoinNetwork::Signet => BitcoinNetwork::Signet,
+        }
+    }
+
+    /// Convert JsConfig to Config
+    fn js_config_to_config(js_config: &JsConfig) -> Config {
         let mut config = Config::default();
-        config.bitcoin.network = bitcoin_network;
-
-        // Create DarkSwap instance
-        let darkswap = DarkSwap::new(config)
-            .map_err(|e| JsValue::from_str(&format!("Failed to create DarkSwap: {}", e)))?;
-
-        #[cfg(feature = "webrtc")]
-        let instance = Self {
-            darkswap: Arc::new(darkswap),
-            order_created_callback: None,
-            order_canceled_callback: None,
-            order_filled_callback: None,
-            trade_started_callback: None,
-            trade_completed_callback: None,
-            trade_failed_callback: None,
-            webrtc_offer_callback: None,
-            webrtc_answer_callback: None,
-            webrtc_ice_candidate_callback: None,
-            webrtc_connections: std::collections::HashMap::new(),
-        };
-
-        #[cfg(not(feature = "webrtc"))]
-        let instance = Self {
-            darkswap: Arc::new(darkswap),
-            order_created_callback: None,
-            order_canceled_callback: None,
-            order_filled_callback: None,
-            trade_started_callback: None,
-            trade_completed_callback: None,
-            trade_failed_callback: None,
-        };
-
-        Ok(instance)
+        
+        // Set Bitcoin network
+        config.bitcoin.network = js_bitcoin_network_to_bitcoin_network(js_config.network);
+        
+        // Set wallet configuration
+        config.wallet.wallet_type = js_config.wallet_type.clone();
+        config.wallet.private_key = js_config.private_key.clone();
+        config.wallet.mnemonic = js_config.mnemonic.clone();
+        config.wallet.derivation_path = js_config.derivation_path.clone();
+        
+        // Set P2P configuration
+        config.p2p.enable_webrtc = js_config.enable_webrtc;
+        config.p2p.ice_servers = js_config.ice_servers.clone();
+        config.p2p.signaling_server_url = js_config.signaling_server_url.clone();
+        
+        config
     }
 
-    /// Start DarkSwap
-    #[wasm_bindgen]
-    pub fn start(&self) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-
-        future_to_promise(async move {
-            darkswap.start().await.map_err(error_to_js_value)?;
-            Ok(JsValue::UNDEFINED)
-        })
+    /// Convert Order to JsValue
+    fn order_to_js_value(order: &Order) -> Result<JsValue> {
+        let obj = Object::new();
+        
+        Reflect::set(&obj, &JsValue::from_str("id"), &JsValue::from_str(&order.id.0))?;
+        Reflect::set(&obj, &JsValue::from_str("maker"), &JsValue::from_str(&order.maker))?;
+        Reflect::set(&obj, &JsValue::from_str("baseAsset"), &JsValue::from_str(&order.base_asset.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("quoteAsset"), &JsValue::from_str(&order.quote_asset.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("side"), &JsValue::from_f64(order_side_to_js_order_side(order.side) as u8 as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("amount"), &JsValue::from_str(&order.amount.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("price"), &JsValue::from_str(&order.price.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("status"), &JsValue::from_f64(order_status_to_js_order_status(order.status) as u8 as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("timestamp"), &JsValue::from_f64(order.timestamp as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("expiry"), &JsValue::from_f64(order.expiry as f64))?;
+        
+        Ok(obj.into())
     }
 
-    /// Stop DarkSwap
-    #[wasm_bindgen]
-    pub fn stop(&self) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-
-        future_to_promise(async move {
-            darkswap.stop().await.map_err(error_to_js_value)?;
-            Ok(JsValue::UNDEFINED)
-        })
+    /// Convert Trade to JsValue
+    fn trade_to_js_value(trade: &Trade) -> Result<JsValue> {
+        let obj = Object::new();
+        
+        Reflect::set(&obj, &JsValue::from_str("id"), &JsValue::from_str(&trade.id.0))?;
+        Reflect::set(&obj, &JsValue::from_str("orderId"), &JsValue::from_str(&trade.order_id.0))?;
+        Reflect::set(&obj, &JsValue::from_str("makerPeerId"), &JsValue::from_str(&trade.maker_peer_id))?;
+        Reflect::set(&obj, &JsValue::from_str("takerPeerId"), &JsValue::from_str(&trade.taker_peer_id))?;
+        Reflect::set(&obj, &JsValue::from_str("baseAsset"), &JsValue::from_str(&trade.base_asset.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("quoteAsset"), &JsValue::from_str(&trade.quote_asset.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("amount"), &JsValue::from_str(&trade.amount.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("price"), &JsValue::from_str(&trade.price.to_string()))?;
+        Reflect::set(&obj, &JsValue::from_str("state"), &JsValue::from_f64(trade.state as u8 as f64))?;
+        
+        if let Some(maker_psbt) = &trade.maker_psbt {
+            Reflect::set(&obj, &JsValue::from_str("makerPsbt"), &JsValue::from_str(maker_psbt))?;
+        }
+        
+        if let Some(taker_psbt) = &trade.taker_psbt {
+            Reflect::set(&obj, &JsValue::from_str("takerPsbt"), &JsValue::from_str(taker_psbt))?;
+        }
+        
+        if let Some(final_psbt) = &trade.final_psbt {
+            Reflect::set(&obj, &JsValue::from_str("finalPsbt"), &JsValue::from_str(final_psbt))?;
+        }
+        
+        if let Some(txid) = &trade.txid {
+            Reflect::set(&obj, &JsValue::from_str("txid"), &JsValue::from_str(txid))?;
+        }
+        
+        Reflect::set(&obj, &JsValue::from_str("createdAt"), &JsValue::from_f64(trade.created_at as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("updatedAt"), &JsValue::from_f64(trade.updated_at as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("expiresAt"), &JsValue::from_f64(trade.expires_at as f64))?;
+        
+        Ok(obj.into())
     }
 
-    /// Create an order
+    /// Convert Event to JsValue
+    fn event_to_js_value(event: &Event) -> Result<JsValue> {
+        let obj = Object::new();
+        
+        match event {
+            Event::OrderCreated(order) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("orderCreated"))?;
+                Reflect::set(&obj, &JsValue::from_str("order"), &order_to_js_value(order)?)?;
+            }
+            Event::OrderCanceled(order_id) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("orderCanceled"))?;
+                Reflect::set(&obj, &JsValue::from_str("orderId"), &JsValue::from_str(&order_id.0))?;
+            }
+            Event::OrderFilled(order_id) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("orderFilled"))?;
+                Reflect::set(&obj, &JsValue::from_str("orderId"), &JsValue::from_str(&order_id.0))?;
+            }
+            Event::OrderExpired(order_id) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("orderExpired"))?;
+                Reflect::set(&obj, &JsValue::from_str("orderId"), &JsValue::from_str(&order_id.0))?;
+            }
+            Event::TradeStarted(trade) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("tradeStarted"))?;
+                Reflect::set(&obj, &JsValue::from_str("trade"), &trade_to_js_value(trade)?)?;
+            }
+            Event::TradeCompleted(trade) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("tradeCompleted"))?;
+                Reflect::set(&obj, &JsValue::from_str("trade"), &trade_to_js_value(trade)?)?;
+            }
+            Event::TradeFailed(trade) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("tradeFailed"))?;
+                Reflect::set(&obj, &JsValue::from_str("trade"), &trade_to_js_value(trade)?)?;
+            }
+            Event::PeerConnected(peer_id) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("peerConnected"))?;
+                Reflect::set(&obj, &JsValue::from_str("peerId"), &JsValue::from_str(&peer_id.to_string()))?;
+            }
+            Event::PeerDisconnected(peer_id) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("peerDisconnected"))?;
+                Reflect::set(&obj, &JsValue::from_str("peerId"), &JsValue::from_str(&peer_id.to_string()))?;
+            }
+            Event::Error(error) => {
+                Reflect::set(&obj, &JsValue::from_str("type"), &JsValue::from_str("error"))?;
+                Reflect::set(&obj, &JsValue::from_str("error"), &JsValue::from_str(error))?;
+            }
+        }
+        
+        Ok(obj.into())
+    }
+
     #[wasm_bindgen]
-    pub fn create_order(
-        &self,
-        base_asset: &str,
-        quote_asset: &str,
-        side: &str,
-        amount: &str,
-        price: &str,
-        expiry: Option<u64>,
-    ) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let base_asset = base_asset.to_string();
-        let quote_asset = quote_asset.to_string();
-        let side = side.to_string();
-        let amount = amount.to_string();
-        let price = price.to_string();
-
-        future_to_promise(async move {
-            // Parse parameters
-            let base_asset = parse_asset(&base_asset).map_err(error_to_js_value)?;
-            let quote_asset = parse_asset(&quote_asset).map_err(error_to_js_value)?;
-            let side = parse_order_side(&side).map_err(error_to_js_value)?;
-            let amount = Decimal::from_str(&amount)
-                .map_err(|e| JsValue::from_str(&format!("Invalid amount: {}", e)))?;
-            let price = Decimal::from_str(&price)
-                .map_err(|e| JsValue::from_str(&format!("Invalid price: {}", e)))?;
-
-            // Create order
-            let order = darkswap
-                .create_order(base_asset, quote_asset, side, amount, price, expiry)
-                .await
-                .map_err(error_to_js_value)?;
-
-            // Convert to OrderSummary
-            let summary = OrderSummary {
-                id: order.id.0.clone(),
-                maker: order.maker.0.clone(),
-                base_asset: order.base_asset.to_string(),
-                quote_asset: order.quote_asset.to_string(),
-                side: match order.side {
-                    OrderSide::Buy => "buy".to_string(),
-                    OrderSide::Sell => "sell".to_string(),
-                },
-                amount: order.amount.to_string(),
-                price: order.price.to_string(),
-                status: match order.status {
-                    OrderStatus::Open => "open".to_string(),
-                    OrderStatus::Filled => "filled".to_string(),
-                    OrderStatus::Canceled => "canceled".to_string(),
-                    OrderStatus::Expired => "expired".to_string(),
-                },
-                timestamp: order.timestamp,
-                expiry: order.expiry,
+    impl JsDarkSwap {
+        /// Create a new DarkSwap instance
+        #[wasm_bindgen(constructor)]
+        pub fn new(js_config: JsConfig) -> Result<JsDarkSwap, JsValue> {
+            // Set panic hook
+            console_error_panic_hook::set_once();
+            
+            // Convert JsConfig to Config
+            let config = js_config_to_config(&js_config);
+            
+            // Create DarkSwap instance
+            let darkswap = match DarkSwap::new(config) {
+                Ok(darkswap) => darkswap,
+                Err(e) => return Err(JsValue::from_str(&format!("Failed to create DarkSwap: {}", e))),
             };
+            
+            Ok(JsDarkSwap {
+                darkswap: Arc::new(tokio::sync::Mutex::new(darkswap)),
+                event_callback: None,
+            })
+        }
 
-            Ok(JsValue::from(summary))
-        })
-    }
+        /// Start DarkSwap
+        #[wasm_bindgen]
+        pub fn start(&self) -> Promise {
+            let darkswap = self.darkswap.clone();
+            
+            future_to_promise(async move {
+                let mut darkswap = darkswap.lock().await;
+                
+                match darkswap.start().await {
+                    Ok(_) => Ok(JsValue::from_bool(true)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to start DarkSwap: {}", e))),
+                }
+            })
+        }
 
-    /// Cancel an order
-    #[wasm_bindgen]
-    pub fn cancel_order(&self, order_id: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let order_id = order_id.to_string();
+        /// Stop DarkSwap
+        #[wasm_bindgen]
+        pub fn stop(&self) -> Promise {
+            let darkswap = self.darkswap.clone();
+            
+            future_to_promise(async move {
+                let mut darkswap = darkswap.lock().await;
+                
+                match darkswap.stop().await {
+                    Ok(_) => Ok(JsValue::from_bool(true)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to stop DarkSwap: {}", e))),
+                }
+            })
+        }
 
-        future_to_promise(async move {
-            // Parse parameters
-            let order_id = OrderId(order_id);
-
-            // Cancel order
-            darkswap
-                .cancel_order(&order_id)
-                .await
-                .map_err(error_to_js_value)?;
-
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    /// Take an order
-    #[wasm_bindgen]
-    pub fn take_order(&self, order_id: &str, amount: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let order_id = order_id.to_string();
-        let amount = amount.to_string();
-
-        future_to_promise(async move {
-            // Parse parameters
-            let order_id = OrderId(order_id);
-            let amount = Decimal::from_str(&amount)
-                .map_err(|e| JsValue::from_str(&format!("Invalid amount: {}", e)))?;
-
-            // Take order
-            let trade = darkswap
-                .take_order(&order_id, amount)
-                .await
-                .map_err(error_to_js_value)?;
-
-            // Convert to TradeSummary
-            let summary = TradeSummary {
-                id: trade.id.0.clone(),
-                order_id: trade.order_id.0.clone(),
-                maker: trade.maker.0.clone(),
-                taker: trade.taker.0.clone(),
-                base_asset: trade.base_asset.to_string(),
-                quote_asset: trade.quote_asset.to_string(),
-                side: match trade.side {
-                    OrderSide::Buy => "buy".to_string(),
-                    OrderSide::Sell => "sell".to_string(),
-                },
-                amount: trade.amount.to_string(),
-                price: trade.price.to_string(),
-                status: match trade.status {
-                    TradeStatus::Pending => "pending".to_string(),
-                    TradeStatus::Completed => "completed".to_string(),
-                    TradeStatus::Failed => "failed".to_string(),
-                },
-                timestamp: trade.timestamp,
-                txid: trade.txid.clone(),
-            };
-
-            Ok(JsValue::from(summary))
-        })
-    }
-
-    /// Get all orders for a given asset pair
-    #[wasm_bindgen]
-    pub fn get_orders(&self, base_asset: &str, quote_asset: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let base_asset = base_asset.to_string();
-        let quote_asset = quote_asset.to_string();
-
-        future_to_promise(async move {
-            // Parse parameters
-            let base_asset = parse_asset(&base_asset).map_err(error_to_js_value)?;
-            let quote_asset = parse_asset(&quote_asset).map_err(error_to_js_value)?;
-
-            // Get orders
-            let orders = darkswap
-                .get_orders(&base_asset, &quote_asset)
-                .map_err(error_to_js_value)?;
-
-            // Convert to OrderSummary array
-            let summaries = orders
-                .into_iter()
-                .map(|order| {
-                    OrderSummary {
-                        id: order.id.0.clone(),
-                        maker: order.maker.0.clone(),
-                        base_asset: order.base_asset.to_string(),
-                        quote_asset: order.quote_asset.to_string(),
-                        side: match order.side {
-                            OrderSide::Buy => "buy".to_string(),
-                            OrderSide::Sell => "sell".to_string(),
-                        },
-                        amount: order.amount.to_string(),
-                        price: order.price.to_string(),
-                        status: match order.status {
-                            OrderStatus::Open => "open".to_string(),
-                            OrderStatus::Filled => "filled".to_string(),
-                            OrderStatus::Canceled => "canceled".to_string(),
-                            OrderStatus::Expired => "expired".to_string(),
-                        },
-                        timestamp: order.timestamp,
-                        expiry: order.expiry,
+        /// Set event callback
+        #[wasm_bindgen]
+        pub fn set_event_callback(&mut self, callback: Function) -> Promise {
+            let darkswap = self.darkswap.clone();
+            self.event_callback = Some(callback);
+            let callback = self.event_callback.clone();
+            
+            future_to_promise(async move {
+                let mut darkswap = darkswap.lock().await;
+                
+                // Subscribe to events
+                let mut event_receiver = darkswap.subscribe_to_events().await;
+                
+                // Spawn a task to process events
+                wasm_bindgen_futures::spawn_local(async move {
+                    while let Some(event) = event_receiver.recv().await {
+                        if let Some(callback) = &callback {
+                            match event_to_js_value(&event) {
+                                Ok(js_event) => {
+                                    let _ = callback.call1(&JsValue::NULL, &js_event);
+                                }
+                                Err(e) => {
+                                    console::error_1(&JsValue::from_str(&format!("Failed to convert event to JS value: {}", e)));
+                                }
+                            }
+                        }
                     }
-                })
-                .collect::<Vec<_>>();
+                });
+                
+                Ok(JsValue::from_bool(true))
+            })
+        }
 
-            Ok(js_sys::Array::from_iter(summaries.into_iter().map(JsValue::from)).into())
-        })
-    }
-
-    /// Get the best bid and ask for a given asset pair
-    #[wasm_bindgen]
-    pub fn get_best_bid_ask(&self, base_asset: &str, quote_asset: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let base_asset = base_asset.to_string();
-        let quote_asset = quote_asset.to_string();
-
-        future_to_promise(async move {
-            // Parse parameters
-            let base_asset = parse_asset(&base_asset).map_err(error_to_js_value)?;
-            let quote_asset = parse_asset(&quote_asset).map_err(error_to_js_value)?;
-
-            // Get best bid and ask
-            let (bid, ask) = darkswap
-                .get_best_bid_ask(&base_asset, &quote_asset)
-                .map_err(error_to_js_value)?;
-
-            // Create result object
-            let result = js_sys::Object::new();
-            js_sys::Reflect::set(
-                &result,
-                &JsValue::from_str("bid"),
-                &JsValue::from_str(&bid.map_or("null".to_string(), |b| b.to_string())),
-            )
-            .unwrap();
-            js_sys::Reflect::set(
-                &result,
-                &JsValue::from_str("ask"),
-                &JsValue::from_str(&ask.map_or("null".to_string(), |a| a.to_string())),
-            )
-            .unwrap();
-
-            Ok(result.into())
-        })
-    }
-
-    /// Set order created callback
-    #[wasm_bindgen]
-    pub fn on_order_created(&mut self, callback: js_sys::Function) {
-        self.order_created_callback = Some(callback);
-    }
-
-    /// Set order canceled callback
-    #[wasm_bindgen]
-    pub fn on_order_canceled(&mut self, callback: js_sys::Function) {
-        self.order_canceled_callback = Some(callback);
-    }
-
-    /// Set order filled callback
-    #[wasm_bindgen]
-    pub fn on_order_filled(&mut self, callback: js_sys::Function) {
-        self.order_filled_callback = Some(callback);
-    }
-
-    /// Set trade started callback
-    #[wasm_bindgen]
-    pub fn on_trade_started(&mut self, callback: js_sys::Function) {
-        self.trade_started_callback = Some(callback);
-    }
-
-    /// Set trade completed callback
-    #[wasm_bindgen]
-    pub fn on_trade_completed(&mut self, callback: js_sys::Function) {
-        self.trade_completed_callback = Some(callback);
-    }
-
-    /// Set trade failed callback
-    #[wasm_bindgen]
-    pub fn on_trade_failed(&mut self, callback: js_sys::Function) {
-        self.trade_failed_callback = Some(callback);
-    }
-
-    /// Make a WebRTC relay reservation
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn make_webrtc_relay_reservation(&self, relay_peer_id: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let relay_peer_id = relay_peer_id.to_string();
-        
-        future_to_promise(async move {
-            // Make reservation
-            let reservation = darkswap.make_relay_reservation(PeerId(relay_peer_id)).await.map_err(error_to_js_value)?;
+        /// Get wallet address
+        #[wasm_bindgen]
+        pub fn get_address(&self) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            // Convert to JsRelayReservation
-            let js_reservation = JsRelayReservation::new(
-                reservation.relay_peer_id.0.clone(),
-                reservation.reservation_id.clone(),
-                reservation.expires_at,
-            );
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                match darkswap.get_address().await {
+                    Ok(address) => Ok(JsValue::from_str(&address)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to get address: {}", e))),
+                }
+            })
+        }
+
+        /// Get wallet balance
+        #[wasm_bindgen]
+        pub fn get_balance(&self) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            Ok(JsValue::from(js_reservation))
-        })
-    }
-    
-    /// Connect through a WebRTC relay
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn connect_through_webrtc_relay(&self, relay_peer_id: &str, target_peer_id: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let relay_peer_id = relay_peer_id.to_string();
-        let target_peer_id = target_peer_id.to_string();
-        
-        future_to_promise(async move {
-            // Connect through relay
-            darkswap.connect_through_relay(PeerId(relay_peer_id), PeerId(target_peer_id)).await.map_err(error_to_js_value)?;
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                match darkswap.get_balance().await {
+                    Ok(balance) => Ok(JsValue::from_f64(balance as f64)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to get balance: {}", e))),
+                }
+            })
+        }
+
+        /// Get asset balance
+        #[wasm_bindgen]
+        pub fn get_asset_balance(&self, asset_type: JsAssetType, id: String) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-    
-    /// Disconnect from a WebRTC relay
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn disconnect_from_webrtc_relay(&self, peer_id: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let peer_id = peer_id.to_string();
-        
-        future_to_promise(async move {
-            // Disconnect from relay
-            darkswap.disconnect_from_webrtc_relay(PeerId(peer_id)).await.map_err(error_to_js_value)?;
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Convert JsAssetType to Asset
+                let asset = match js_asset_type_to_asset(asset_type, &id) {
+                    Ok(asset) => asset,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid asset: {}", e))),
+                };
+                
+                match darkswap.get_asset_balance(&asset).await {
+                    Ok(balance) => Ok(JsValue::from_f64(balance as f64)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to get asset balance: {}", e))),
+                }
+            })
+        }
+
+        /// Create an order
+        #[wasm_bindgen]
+        pub fn create_order(
+            &self,
+            base_asset_type: JsAssetType,
+            base_asset_id: String,
+            quote_asset_type: JsAssetType,
+            quote_asset_id: String,
+            side: JsOrderSide,
+            amount: String,
+            price: String,
+            expiry: Option<u64>,
+        ) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-    
-    /// Get WebRTC relay metrics
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn get_webrtc_relay_metrics(&self) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        
-        future_to_promise(async move {
-            // Get metrics
-            let metrics = darkswap.get_webrtc_relay_metrics().map_err(error_to_js_value)?;
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Convert JsAssetType to Asset
+                let base_asset = match js_asset_type_to_asset(base_asset_type, &base_asset_id) {
+                    Ok(asset) => asset,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid base asset: {}", e))),
+                };
+                
+                let quote_asset = match js_asset_type_to_asset(quote_asset_type, &quote_asset_id) {
+                    Ok(asset) => asset,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid quote asset: {}", e))),
+                };
+                
+                // Convert JsOrderSide to OrderSide
+                let order_side = js_order_side_to_order_side(side);
+                
+                // Parse amount and price
+                let amount_decimal = match Decimal::from_str(&amount) {
+                    Ok(amount) => amount,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid amount: {}", e))),
+                };
+                
+                let price_decimal = match Decimal::from_str(&price) {
+                    Ok(price) => price,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid price: {}", e))),
+                };
+                
+                // Create order
+                match darkswap.create_order(base_asset, quote_asset, order_side, amount_decimal, price_decimal, expiry).await {
+                    Ok(order) => {
+                        match order_to_js_value(&order) {
+                            Ok(js_order) => Ok(js_order),
+                            Err(e) => Err(JsValue::from_str(&format!("Failed to convert order to JS value: {}", e))),
+                        }
+                    }
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to create order: {}", e))),
+                }
+            })
+        }
+
+        /// Cancel an order
+        #[wasm_bindgen]
+        pub fn cancel_order(&self, order_id: String) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            // Convert to JS object
-            let result = js_sys::Object::new();
-            js_sys::Reflect::set(&result, &JsValue::from_str("successful_connections"), &JsValue::from_f64(metrics.successful_connections as f64)).unwrap();
-            js_sys::Reflect::set(&result, &JsValue::from_str("failed_connections"), &JsValue::from_f64(metrics.failed_connections as f64)).unwrap();
-            js_sys::Reflect::set(&result, &JsValue::from_str("active_connections"), &JsValue::from_f64(metrics.active_connections as f64)).unwrap();
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Create OrderId
+                let order_id = OrderId(order_id);
+                
+                match darkswap.cancel_order(&order_id).await {
+                    Ok(_) => Ok(JsValue::from_bool(true)),
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to cancel order: {}", e))),
+                }
+            })
+        }
+
+        /// Get an order by ID
+        #[wasm_bindgen]
+        pub fn get_order(&self, order_id: String) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            Ok(result.into())
-        })
-    }
-    
-    /// Check if a WebRTC relay reservation is valid
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn is_webrtc_relay_reservation_valid(&self, relay_peer_id: &str) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        let relay_peer_id = relay_peer_id.to_string();
-        
-        future_to_promise(async move {
-            // Check if reservation is valid
-            let is_valid = darkswap.is_webrtc_relay_reservation_valid(&PeerId(relay_peer_id)).map_err(error_to_js_value)?;
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Create OrderId
+                let order_id = OrderId(order_id);
+                
+                match darkswap.get_order(&order_id).await {
+                    Ok(order) => {
+                        match order_to_js_value(&order) {
+                            Ok(js_order) => Ok(js_order),
+                            Err(e) => Err(JsValue::from_str(&format!("Failed to convert order to JS value: {}", e))),
+                        }
+                    }
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to get order: {}", e))),
+                }
+            })
+        }
+
+        /// Get orders for a pair
+        #[wasm_bindgen]
+        pub fn get_orders(
+            &self,
+            base_asset_type: JsAssetType,
+            base_asset_id: String,
+            quote_asset_type: JsAssetType,
+            quote_asset_id: String,
+        ) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            Ok(JsValue::from_bool(is_valid))
-        })
-    }
-    
-    /// Get active WebRTC relay reservations
-    #[cfg(feature = "webrtc")]
-    #[wasm_bindgen]
-    pub fn get_active_webrtc_relay_reservations(&self) -> js_sys::Promise {
-        let darkswap = self.darkswap.clone();
-        
-        future_to_promise(async move {
-            // Get active reservations
-            let reservations = darkswap.get_active_webrtc_relay_reservations().map_err(error_to_js_value)?;
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Convert JsAssetType to Asset
+                let base_asset = match js_asset_type_to_asset(base_asset_type, &base_asset_id) {
+                    Ok(asset) => asset,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid base asset: {}", e))),
+                };
+                
+                let quote_asset = match js_asset_type_to_asset(quote_asset_type, &quote_asset_id) {
+                    Ok(asset) => asset,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid quote asset: {}", e))),
+                };
+                
+                match darkswap.get_orders(&base_asset, &quote_asset).await {
+                    Ok(orders) => {
+                        let js_orders = Array::new();
+                        
+                        for (i, order) in orders.iter().enumerate() {
+                            match order_to_js_value(order) {
+                                Ok(js_order) => {
+                                    js_orders.set(i as u32, js_order);
+                                }
+                                Err(e) => {
+                                    return Err(JsValue::from_str(&format!("Failed to convert order to JS value: {}", e)));
+                                }
+                            }
+                        }
+                        
+                        Ok(js_orders.into())
+                    }
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to get orders: {}", e))),
+                }
+            })
+        }
+
+        /// Take an order
+        #[wasm_bindgen]
+        pub fn take_order(&self, order_id: String, amount: String) -> Promise {
+            let darkswap = self.darkswap.clone();
             
-            // Convert to JsRelayReservation array
-            let js_reservations = reservations.into_iter().map(|reservation| {
-                JsRelayReservation::new(
-                    reservation.relay_peer_id.0.clone(),
-                    reservation.reservation_id.clone(),
-                    reservation.expires_at,
-                )
-            }).collect::<Vec<_>>();
-            
-            Ok(js_sys::Array::from_iter(js_reservations.into_iter().map(JsValue::from)).into())
-        })
+            future_to_promise(async move {
+                let darkswap = darkswap.lock().await;
+                
+                // Create OrderId
+                let order_id = OrderId(order_id);
+                
+                // Parse amount
+                let amount_decimal = match Decimal::from_str(&amount) {
+                    Ok(amount) => amount,
+                    Err(e) => return Err(JsValue::from_str(&format!("Invalid amount: {}", e))),
+                };
+                
+                match darkswap.take_order(&order_id, amount_decimal).await {
+                    Ok(trade) => {
+                        match trade_to_js_value(&trade) {
+                            Ok(js_trade) => Ok(js_trade),
+                            Err(e) => Err(JsValue::from_str(&format!("Failed to convert trade to JS value: {}", e))),
+                        }
+                    }
+                    Err(e) => Err(JsValue::from_str(&format!("Failed to take order: {}", e))),
+                }
+            })
+        }
     }
 }

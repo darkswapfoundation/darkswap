@@ -39,7 +39,7 @@ pub fn build_transport() -> libp2p::core::transport::Boxed<(libp2p::PeerId, libp
 /// This function builds a transport for the WebAssembly platform,
 /// using the WebSockets transport for browser compatibility.
 #[cfg(feature = "wasm")]
-pub fn build_transport() -> libp2p::core::transport::Boxed<(libp2p::PeerId, libp2p::core::muxing::StreamMuxerBox)> {
+pub fn build_wasm_transport() -> libp2p::core::transport::Boxed<(libp2p::PeerId, libp2p::core::muxing::StreamMuxerBox)> {
     let keypair = libp2p::identity::Keypair::generate_ed25519();
     let peer_id = libp2p::PeerId::from(keypair.public());
     

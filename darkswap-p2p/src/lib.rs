@@ -15,4 +15,3 @@ pub mod webrtc_transport;
 pub use network::Network;
 pub use error::Error;
 pub use webrtc_transport::WebRtcTransport;
-pub use webrtc_transport::WebRtcTransport;

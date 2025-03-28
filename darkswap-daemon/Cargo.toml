@@ -18,7 +18,7 @@ clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 
 # HTTP server
-axum = { version = "0.6", features = ["macros"] }
+axum = { version = "0.6", features = ["macros", "ws"] }
 tower = "0.4"
 tower-http = { version = "0.4", features = ["cors", "trace"] }
 hyper = "0.14"

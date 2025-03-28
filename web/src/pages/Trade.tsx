@@ -13,12 +13,16 @@ import {
   InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 
+import ApiClient from '../utils/ApiClient';
+
 export interface TradeProps {
   isWalletConnected: boolean;
   isSDKInitialized: boolean;
+  apiClient: ApiClient;
+  isApiLoading: boolean;
 }
 
-const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized }) => {
+const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiClient, isApiLoading }) => {
   const [selectedPair, setSelectedPair] = useState<string>('BTC/RUNE:0x123');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [peerCount, setPeerCount] = useState<number>(0);
@@ -33,33 +37,65 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized }) =>
     { id: 'BTC/RUNE:0x789', name: 'BTC/RUNE:0x789', volume: '320K', change: '+2.1%', changeType: 'positive' },
   ];
 
-  // Simulate loading data
+  // Fetch market data from API
   useEffect(() => {
-    if (isSDKInitialized) {
+    if (isSDKInitialized && !isApiLoading) {
       setIsLoading(true);
-      // Simulate API call
-      const timer = setTimeout(() => {
-        setPeerCount(Math.floor(Math.random() * 50) + 20);
-        setOrderCount(Math.floor(Math.random() * 100) + 50);
-        setIsLoading(false);
-        
-        // Show notification when data is loaded
-        addNotification('info', 'Market data updated successfully');
-      }, 1500);
       
-      return () => clearTimeout(timer);
+      const fetchMarketData = async () => {
+        try {
+          // Parse the pair to get base and quote assets
+          const [baseAsset, quoteAsset] = selectedPair.split('/');
+          
+          // Fetch market data
+          const marketResponse = await apiClient.getMarketData(baseAsset, quoteAsset);
+          
+          if (marketResponse.error) {
+            addNotification('error', `Failed to fetch market data: ${marketResponse.error}`);
+          } else if (marketResponse.data) {
+            // Update peer and order counts
+            setPeerCount(Math.floor(Math.random() * 50) + 20); // Still random for demo
+            
+            // Fetch orders to get order count
+            const ordersResponse = await apiClient.getOrders(baseAsset, quoteAsset);
+            if (ordersResponse.data) {
+              setOrderCount(ordersResponse.data.length);
+            }
+            
+            addNotification('info', 'Market data updated successfully');
+          }
+        } catch (error) {
+          addNotification('error', `Error fetching market data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchMarketData();
     }
-  }, [isSDKInitialized, selectedPair, addNotification]);
+  }, [isSDKInitialized, selectedPair, apiClient, isApiLoading, addNotification]);
 
-  const handlePairSelect = (pairId: string) => {
+  const handlePairSelect = async (pairId: string) => {
     setSelectedPair(pairId);
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      // Parse the pair to get base and quote assets
+      const [baseAsset, quoteAsset] = pairId.split('/');
+      
+      // Fetch market data for the selected pair
+      const marketResponse = await apiClient.getMarketData(baseAsset, quoteAsset);
+      
+      if (marketResponse.error) {
+        addNotification('error', `Failed to fetch market data: ${marketResponse.error}`);
+      } else {
+        addNotification('success', `Selected trading pair: ${pairId}`);
+      }
+    } catch (error) {
+      addNotification('error', `Error selecting pair: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
       setIsLoading(false);
-      // Show notification when pair is selected
-      addNotification('success', `Selected trading pair: ${pairId}`);
-    }, 1000);
+    }
   };
 
   return (
@@ -157,28 +193,30 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized }) =>
       {/* Price Chart */}
       <div className="bg-twilight-darker p-4 rounded-lg border border-twilight-dark">
         <h2 className="text-lg font-display font-medium mb-4">Price Chart</h2>
-        <PriceChart pair={selectedPair} isLoading={isLoading} />
+        <PriceChart pair={selectedPair} isLoading={isLoading} apiClient={apiClient} />
       </div>
 
       {/* Main Trading Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Orderbook */}
         <div className="lg:col-span-2">
-          <Orderbook 
-            pair={selectedPair} 
-            isLoading={isLoading} 
+          <Orderbook
+            pair={selectedPair}
+            isLoading={isLoading}
             isWalletConnected={isWalletConnected}
             isSDKInitialized={isSDKInitialized}
+            apiClient={apiClient}
           />
         </div>
 
         {/* Trade Form */}
         <div className="lg:col-span-1">
-          <TradeForm 
-            pair={selectedPair} 
-            isLoading={isLoading} 
+          <TradeForm
+            pair={selectedPair}
+            isLoading={isLoading}
             isWalletConnected={isWalletConnected}
             isSDKInitialized={isSDKInitialized}
+            apiClient={apiClient}
           />
         </div>
       </div>

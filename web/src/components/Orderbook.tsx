@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ApiClient, { Order as ApiOrder } from '../utils/ApiClient';
 
 // Icons
 import {
@@ -10,6 +11,7 @@ export interface OrderbookProps {
   isLoading: boolean;
   isWalletConnected: boolean;
   isSDKInitialized: boolean;
+  apiClient?: ApiClient;
 }
 
 interface Order {
@@ -21,11 +23,12 @@ interface Order {
   timestamp: number;
 }
 
-const Orderbook: React.FC<OrderbookProps> = ({ 
-  pair, 
+const Orderbook: React.FC<OrderbookProps> = ({
+  pair,
   isLoading,
   isWalletConnected,
-  isSDKInitialized
+  isSDKInitialized,
+  apiClient
 }) => {
   const [buyOrders, setBuyOrders] = useState<Order[]>([]);
   const [sellOrders, setSellOrders] = useState<Order[]>([]);
@@ -34,13 +37,79 @@ const Orderbook: React.FC<OrderbookProps> = ({
   const [spreadPercentage, setSpreadPercentage] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'both' | 'buys' | 'sells'>('both');
 
-  // Generate mock data when pair changes
+  // Fetch orderbook data when pair changes
   useEffect(() => {
-    if (isSDKInitialized && !isLoading) {
+    if (isSDKInitialized && !isLoading && apiClient) {
+      fetchOrderbookData();
+    } else if (isSDKInitialized && !isLoading) {
+      // Fallback to mock data if no API client
       generateMockData();
     }
-  }, [pair, isSDKInitialized, isLoading]);
+  }, [pair, isSDKInitialized, isLoading, apiClient]);
 
+  // Fetch orderbook data from API
+  const fetchOrderbookData = async () => {
+    if (!apiClient) return;
+    
+    try {
+      // Parse the pair to get base and quote assets
+      const [baseAsset, quoteAsset] = pair.split('/');
+      
+      // Fetch buy orders
+      const buyOrdersResponse = await apiClient.getOrders(baseAsset, quoteAsset, 'buy');
+      
+      // Fetch sell orders
+      const sellOrdersResponse = await apiClient.getOrders(baseAsset, quoteAsset, 'sell');
+      
+      if (buyOrdersResponse.data && sellOrdersResponse.data) {
+        // Convert API orders to our Order format
+        const buys = buyOrdersResponse.data.map(apiOrder => ({
+          id: apiOrder.id,
+          price: parseFloat(apiOrder.price),
+          amount: parseFloat(apiOrder.amount),
+          total: parseFloat(apiOrder.price) * parseFloat(apiOrder.amount),
+          maker: apiOrder.maker_peer_id,
+          timestamp: apiOrder.timestamp
+        }));
+        
+        const sells = sellOrdersResponse.data.map(apiOrder => ({
+          id: apiOrder.id,
+          price: parseFloat(apiOrder.price),
+          amount: parseFloat(apiOrder.amount),
+          total: parseFloat(apiOrder.price) * parseFloat(apiOrder.amount),
+          maker: apiOrder.maker_peer_id,
+          timestamp: apiOrder.timestamp
+        }));
+        
+        // Sort orders by price
+        buys.sort((a, b) => b.price - a.price); // Highest buy first
+        sells.sort((a, b) => a.price - b.price); // Lowest sell first
+        
+        setBuyOrders(buys);
+        setSellOrders(sells);
+        
+        // Set last price and price change
+        if (sells.length > 0 && buys.length > 0) {
+          const lastPrice = (sells[0].price + buys[0].price) / 2;
+          setLastPrice(lastPrice);
+          
+          // Calculate spread
+          const highestBid = buys[0].price;
+          const lowestAsk = sells[0].price;
+          const spread = lowestAsk - highestBid;
+          const spreadPct = (spread / highestBid) * 100;
+          setSpreadPercentage(spreadPct);
+          
+          // Random price change for demo
+          setPriceChange(Math.random() * 5 - 2.5);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching orderbook data:', error);
+    }
+  };
+
+  // Generate mock data for demo
   const generateMockData = () => {
     // Generate mock buy orders
     const mockBuyOrders: Order[] = [];
@@ -109,7 +178,11 @@ const Orderbook: React.FC<OrderbookProps> = ({
 
   const handleRefresh = () => {
     if (isSDKInitialized) {
-      generateMockData();
+      if (apiClient) {
+        fetchOrderbookData();
+      } else {
+        generateMockData();
+      }
     }
   };
 
