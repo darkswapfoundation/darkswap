@@ -1,5 +1,58 @@
 # DarkSwap
 
+## Testing
+
+DarkSwap includes comprehensive tests for all components of the application. This ensures that the code is reliable and functions as expected.
+
+### Running Tests
+
+To run all tests, use the following command:
+
+```bash
+./run-tests.sh
+```
+
+This will run both unit tests and end-to-end tests.
+
+#### Unit Tests
+
+Unit tests are written using Jest and test individual components of the application. To run only the unit tests:
+
+```bash
+npm test
+```
+
+#### End-to-End Tests
+
+End-to-end tests are written using Playwright and test the application as a whole. To run only the end-to-end tests:
+
+```bash
+npm run test:e2e
+```
+
+### Test Coverage
+
+The tests cover all major components of the application:
+
+- Bitcoin transaction functionality
+- Runes protocol integration
+- Alkanes protocol integration
+- P2P orderbook synchronization
+- WebRTC functionality
+- WebRTC wallet integration
+
+### Debugging Tests
+
+If you encounter issues with the tests, you can run them in debug mode:
+
+```bash
+# Debug unit tests
+npx jest --config=jest.config.js --debug
+
+# Debug end-to-end tests
+npx playwright test tests/e2e/trading.test.js --debug
+```
+
 DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It enables trustless trading without requiring a central server or authority.
 
 ## Features

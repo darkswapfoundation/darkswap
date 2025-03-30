@@ -3,10 +3,10 @@
 use anyhow::Result;
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
-    orderbook::{Order, OrderId, OrderSide, OrderStatus, Orderbook},
+    orderbook::{Order, OrderId, OrderSide, OrderStatus},
     p2p::P2PNetwork,
-    trade::{Trade, TradeId, TradeManager, TradeState},
-    types::{Asset, Event},
+    trade::{TradeManager, TradeState},
+    types::{Asset, Event, TradeId},
     wallet::simple_wallet::SimpleWallet,
 };
 use rust_decimal::Decimal;
@@ -99,10 +99,10 @@ async fn test_trade_creation() -> Result<()> {
     assert!(trade.expires_at > now);
     
     // Check that we received a TradeStarted event
-    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     match event {
-        Event::TradeStarted(started_trade) => {
-            assert_eq!(started_trade.id, trade.id);
+        Event::TradeStarted(started_trade_id) => {
+            assert_eq!(started_trade_id.0, trade.id.0);
         }
         _ => panic!("Expected TradeStarted event, got {:?}", event),
     }
@@ -155,16 +155,19 @@ async fn test_trade_cancellation() -> Result<()> {
     let trade = trade_manager.create_trade(&order, Decimal::from_str("0.5")?).await?;
     
     // Consume the TradeStarted event
-    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     
     // Cancel the trade
     trade_manager.cancel_trade(&trade.id, "Test cancellation").await?;
     
     // Check that we received a TradeFailed event
-    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     match event {
-        Event::TradeFailed(failed_trade) => {
-            assert_eq!(failed_trade.id, trade.id);
+        Event::TradeFailed(failed_trade_id) => {
+            assert_eq!(failed_trade_id.0, trade.id.0);
+            
+            // Get the trade to check its state
+            let failed_trade = trade_manager.get_trade(&failed_trade_id).await?;
             assert_eq!(failed_trade.state, TradeState::Canceled);
         }
         _ => panic!("Expected TradeFailed event, got {:?}", event),

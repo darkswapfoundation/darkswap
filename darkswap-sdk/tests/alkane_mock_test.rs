@@ -1,8 +1,8 @@
 use bitcoin::{
-    address::NetworkUnchecked, Address, Network, PubkeyHash,
-    hashes::{Hash, hash160},
+    Address, Network, PublicKey, PrivateKey,
+    secp256k1::Secp256k1,
 };
-use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol, AlkaneTransfer};
+use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneTransfer};
 use darkswap_sdk::error::Result;
 use darkswap_sdk::types::AlkaneId;
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ impl MockAlkaneProtocol {
         Ok(())
     }
 
-    fn get_balance(&self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId) -> u128 {
+    fn get_balance(&self, address: &Address, alkane_id: &AlkaneId) -> u128 {
         let address_str = format!("{:?}", address);
         
         if let Some(address_balances) = self.balances.get(&address_str) {
@@ -40,7 +40,7 @@ impl MockAlkaneProtocol {
         0
     }
 
-    fn set_balance(&mut self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) {
+    fn set_balance(&mut self, address: &Address, alkane_id: &AlkaneId, amount: u128) {
         let address_str = format!("{:?}", address);
         
         self.balances
@@ -91,11 +91,15 @@ fn test_mock_alkane_transfer() -> Result<()> {
     let network = Network::Regtest;
 
     // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    // Create valid public keys for p2pkh addresses
+    let secp = Secp256k1::new();
+    let private_key1 = PrivateKey::from_slice(&[1; 32], Network::Regtest).unwrap();
+    let private_key2 = PrivateKey::from_slice(&[2; 32], Network::Regtest).unwrap();
+    let pubkey1 = PublicKey::from_private_key(&secp, &private_key1);
+    let pubkey2 = PublicKey::from_private_key(&secp, &private_key2);
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&pubkey1, network);
+    let address2 = Address::p2pkh(&pubkey2, network);
 
     // Create a mock AlkaneProtocol
     let mut protocol = MockAlkaneProtocol::new(network);

@@ -217,10 +217,9 @@ impl Network {
         if let Err(e) = dial_result {
             return Err(Error::from(e));
         }
-        
         // Wait for the connection to be established
         tokio::time::sleep(self.config.connection_timeout).await;
-        .map_err(|e| Error::from(e))?;
+        
         
         Ok(())
     }

@@ -3,10 +3,10 @@ use darkswap_sdk::runes::{Rune, RuneProtocol};
 use darkswap_sdk::runestone::{Runestone, Edict, Etching, Terms};
 use darkswap_sdk::error::{Error, Result};
 use bitcoin::{
-    address::{NetworkUnchecked, NetworkChecked},
-    Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
+    Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness, LockTime,
     hashes::Hash,
     psbt::Psbt,
+    blockdata::opcodes::all,
 };
 use darkswap_sdk::bitcoin_utils::{BitcoinWallet, SimpleWallet, generate_test_address_unchecked};
 use std::str::FromStr;
@@ -15,7 +15,7 @@ use std::collections::HashMap;
 // Mock wallet for testing
 struct MockWallet {
     network: Network,
-    address: bitcoin::Address<NetworkUnchecked>,
+    address: bitcoin::Address,
     utxos: Vec<(OutPoint, TxOut)>,
 }
 
@@ -25,7 +25,7 @@ impl MockWallet {
             .unwrap()
             .require_network(network)
             .unwrap();
-        let address = bitcoin::Address::<NetworkUnchecked>::new(address_checked.network, address_checked.payload.clone());
+        let address = address_checked;
         
         let outpoint = OutPoint {
             txid: bitcoin::Txid::from_str("0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
@@ -34,7 +34,7 @@ impl MockWallet {
         
         let txout = TxOut {
             value: 100_000_000, // 1 BTC
-            script_pubkey: address.payload.script_pubkey(),
+            script_pubkey: address.script_pubkey(),
         };
         
         Self {
@@ -296,7 +296,7 @@ fn test_alkane_transfer() -> Result<()> {
     let to_address = generate_test_address_unchecked(Network::Regtest, 1)?;
     
     // Create a transfer
-    let from_address_unchecked = bitcoin::Address::<NetworkUnchecked>::new(from_address.network, from_address.payload.clone());
+    let from_address_unchecked = from_address;
     let transfer = AlkaneTransfer {
         alkane_id: alkane_id.clone(),
         from: from_address_unchecked,
@@ -308,7 +308,7 @@ fn test_alkane_transfer() -> Result<()> {
     // Create a transaction for the transfer
     let txout = TxOut {
         value: 546,
-        script_pubkey: to_address.payload.script_pubkey(),
+        script_pubkey: to_address.script_pubkey(),
     };
     
     let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
@@ -353,7 +353,8 @@ fn test_alkane_etching() -> Result<()> {
     
     // Create an OP_RETURN script with the metadata
     let mut metadata_script = ScriptBuf::new();
-    metadata_script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut metadata_script = ScriptBuf::new();
+    metadata_script.push_opcode(all::OP_RETURN);
     
     // Add the data in chunks
     let metadata_bytes = metadata_json.as_bytes();
@@ -377,7 +378,7 @@ fn test_alkane_etching() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -471,7 +472,7 @@ fn test_alkane_balance() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -480,7 +481,7 @@ fn test_alkane_balance() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: address.payload.script_pubkey(),
+                script_pubkey: address.script_pubkey(),
             },
         ],
     };
@@ -490,7 +491,7 @@ fn test_alkane_balance() -> Result<()> {
     
     // For now, we'll skip these assertions since we're having issues with the test
     // Check the balance
-    let address_unchecked = bitcoin::Address::<NetworkUnchecked>::new(address.network, address.payload.clone());
+    let address_unchecked = address;
     let balance = protocol.get_balance(&address_unchecked, &alkane_id);
     // assert_eq!(balance, 1000000000);
     

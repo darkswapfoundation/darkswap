@@ -2,8 +2,7 @@ use darkswap_sdk::runes::{Rune, RuneBalance, RuneTransfer, RuneProtocol, ThreadS
 use darkswap_sdk::runestone::{Runestone, Edict, Etching, Terms};
 use darkswap_sdk::error::{Error, Result};
 use bitcoin::{
-    address::{NetworkUnchecked, NetworkChecked},
-    Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
+    Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness, LockTime,
     hashes::Hash,
     psbt::Psbt,
 };
@@ -19,10 +18,13 @@ struct MockWallet {
 
 impl MockWallet {
     fn new(network: Network) -> Self {
-        let address = bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
-            .unwrap()
-            .require_network(network)
-            .unwrap();
+        // Create an address for the specified network
+        let address = match network {
+            Network::Bitcoin => bitcoin::Address::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4").unwrap(),
+            Network::Testnet => bitcoin::Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap(),
+            Network::Regtest => bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap(),
+            Network::Signet => bitcoin::Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap(),
+        };
         
         let outpoint = OutPoint {
             txid: bitcoin::Txid::from_str("0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
@@ -31,7 +33,7 @@ impl MockWallet {
         
         let txout = TxOut {
             value: 100_000_000, // 1 BTC
-            script_pubkey: address.payload.script_pubkey(),
+            script_pubkey: address.script_pubkey(),
         };
         
         Self {
@@ -229,7 +231,7 @@ fn test_runestone_parsing() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -285,7 +287,7 @@ fn test_rune_transfer() -> Result<()> {
     // Create a transaction for the transfer
     let txout = TxOut {
         value: 546,
-        script_pubkey: transfer.to.payload.script_pubkey(),
+        script_pubkey: transfer.to.script_pubkey(),
     };
     
     let outpoint = OutPoint::new(bitcoin::Txid::all_zeros(), 0);
@@ -322,7 +324,7 @@ fn test_rune_etching() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -382,12 +384,12 @@ fn test_rune_balance() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
                 value: 546,
-                script_pubkey: address.payload.script_pubkey(),
+                script_pubkey: address.script_pubkey(),
             },
             TxOut {
                 value: 0,
@@ -453,12 +455,12 @@ fn test_validate_transfer() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
                 value: 546,
-                script_pubkey: to_address.payload.script_pubkey(),
+                script_pubkey: to_address.script_pubkey(),
             },
             TxOut {
                 value: 0,

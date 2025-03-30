@@ -6,6 +6,8 @@ import { SDKProvider } from './contexts/SDKContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ApiProvider } from './contexts/ApiContext';
+import { WebRtcProvider } from './contexts/WebRtcContext';
+import { OrderbookProvider } from './contexts/OrderbookContext';
 import Layout from './components/Layout';
 import { useWallet } from './contexts/WalletContext';
 import { useSDK } from './contexts/SDKContext';
@@ -20,6 +22,11 @@ import Vault from './pages/Vault';
 import About from './pages/About';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
+import WebRtc from './pages/WebRtc';
+import P2PTrade from './pages/P2PTrade';
+import Runes from './pages/Runes';
+import Alkanes from './pages/Alkanes';
+import P2POrderbookPage from './pages/P2POrderbookPage';
 
 // Wrapper component to provide context values to pages
 const PageWrapper: React.FC = () => {
@@ -64,6 +71,31 @@ const PageWrapper: React.FC = () => {
         }
       />
       <Route path="/about" element={<About />} />
+      <Route path="/webrtc" element={<WebRtc />} />
+      <Route path="/p2p-orderbook" element={<P2POrderbookPage />} />
+      <Route path="/p2p-trade" element={<P2PTrade />} />
+      <Route
+        path="/runes"
+        element={
+          <Runes
+            isWalletConnected={isConnected}
+            isSDKInitialized={isInitialized}
+            apiClient={client}
+            isApiLoading={isApiLoading}
+          />
+        }
+      />
+      <Route
+        path="/alkanes"
+        element={
+          <Alkanes
+            isWalletConnected={isConnected}
+            isSDKInitialized={isInitialized}
+            apiClient={client}
+            isApiLoading={isApiLoading}
+          />
+        }
+      />
       <Route
         path="/settings"
         element={
@@ -88,13 +120,17 @@ const App: React.FC = () => {
           <WalletProvider>
             <SDKProvider>
               <WebSocketProvider url="ws://localhost:3000/ws">
-                <WebSocketManager>
-                  <Router>
-                    <Layout>
-                      <PageWrapper />
-                    </Layout>
-                  </Router>
-                </WebSocketManager>
+                <WebRtcProvider signalingServerUrl="ws://localhost:9001/signaling">
+                  <OrderbookProvider>
+                    <WebSocketManager>
+                    <Router>
+                      <Layout>
+                        <PageWrapper />
+                      </Layout>
+                    </Router>
+                    </WebSocketManager>
+                  </OrderbookProvider>
+                </WebRtcProvider>
               </WebSocketProvider>
             </SDKProvider>
           </WalletProvider>

@@ -1,162 +1,206 @@
 #!/bin/bash
 
-# DarkSwap Build Script
-# This script builds the DarkSwap project components
+# Build script for DarkSwap
+echo "Building DarkSwap..."
 
-set -e
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+  echo "Error: Node.js is not installed. Please install Node.js and try again."
+  exit 1
+fi
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Check if npm is installed
+if ! command -v npm &> /dev/null; then
+  echo "Error: npm is not installed. Please install npm and try again."
+  exit 1
+fi
 
-# Print header
-echo -e "${BLUE}=======================================${NC}"
-echo -e "${BLUE}       DarkSwap Build Script          ${NC}"
-echo -e "${BLUE}=======================================${NC}"
-
-# Parse arguments
+# Parse command line arguments
+BUILD_ALL=false
 BUILD_SDK=false
 BUILD_CLI=false
 BUILD_DAEMON=false
 BUILD_WEB=false
-BUILD_ALL=false
 RELEASE=false
 
-for arg in "$@"
-do
-    case $arg in
-        --sdk)
-        BUILD_SDK=true
-        shift
-        ;;
-        --cli)
-        BUILD_CLI=true
-        shift
-        ;;
-        --daemon)
-        BUILD_DAEMON=true
-        shift
-        ;;
-        --web)
-        BUILD_WEB=true
-        shift
-        ;;
-        --all)
-        BUILD_ALL=true
-        shift
-        ;;
-        --release)
-        RELEASE=true
-        shift
-        ;;
-        *)
-        # Unknown option
-        ;;
-    esac
+for arg in "$@"; do
+  case $arg in
+    --all)
+      BUILD_ALL=true
+      ;;
+    --sdk)
+      BUILD_SDK=true
+      ;;
+    --cli)
+      BUILD_CLI=true
+      ;;
+    --daemon)
+      BUILD_DAEMON=true
+      ;;
+    --web)
+      BUILD_WEB=true
+      ;;
+    --release)
+      RELEASE=true
+      ;;
+    *)
+      echo "Unknown argument: $arg"
+      echo "Usage: ./build.sh [--all] [--sdk] [--cli] [--daemon] [--web] [--release]"
+      exit 1
+      ;;
+  esac
 done
 
-# If no specific component is selected, build all
-if [ "$BUILD_SDK" = false ] && [ "$BUILD_CLI" = false ] && [ "$BUILD_DAEMON" = false ] && [ "$BUILD_WEB" = false ] && [ "$BUILD_ALL" = false ]; then
-    BUILD_ALL=true
+# If no specific component is specified, build all
+if [ "$BUILD_ALL" = false ] && [ "$BUILD_SDK" = false ] && [ "$BUILD_CLI" = false ] && [ "$BUILD_DAEMON" = false ] && [ "$BUILD_WEB" = false ]; then
+  BUILD_ALL=true
 fi
 
-# If build all is selected, set all components to true
-if [ "$BUILD_ALL" = true ]; then
-    BUILD_SDK=true
-    BUILD_CLI=true
-    BUILD_DAEMON=true
-    BUILD_WEB=true
-fi
-
-# Set build mode
+# Build mode
 BUILD_MODE="debug"
-CARGO_FLAGS=""
 if [ "$RELEASE" = true ]; then
-    BUILD_MODE="release"
-    CARGO_FLAGS="--release"
+  BUILD_MODE="release"
+  echo "Building in release mode..."
+else
+  echo "Building in debug mode..."
 fi
-
-echo -e "${YELLOW}Build mode: ${BUILD_MODE}${NC}"
 
 # Build SDK
-if [ "$BUILD_SDK" = true ]; then
-    echo -e "${YELLOW}Building DarkSwap SDK...${NC}"
-    
-    # Build Rust SDK
-    cd darkswap-sdk
-    cargo build $CARGO_FLAGS
-    
-    # Build WASM bindings if in release mode
-    if [ "$RELEASE" = true ]; then
-        echo -e "${YELLOW}Building WASM bindings...${NC}"
-        wasm-pack build --target web --out-dir ../web/node_modules/@darkswap/sdk --release
-    fi
-    
-    cd ..
-    echo -e "${GREEN}DarkSwap SDK built successfully!${NC}"
+if [ "$BUILD_ALL" = true ] || [ "$BUILD_SDK" = true ]; then
+  echo "Building darkswap-sdk..."
+  
+  # Navigate to the SDK directory
+  cd darkswap-sdk || exit 1
+  
+  # Build the SDK
+  if [ "$RELEASE" = true ]; then
+    cargo build --release
+  else
+    cargo build
+  fi
+  
+  # Check if the build was successful
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to build darkswap-sdk"
+    exit 1
+  fi
+  
+  echo "darkswap-sdk built successfully"
+  
+  # Navigate back to the root directory
+  cd ..
 fi
 
 # Build CLI
-if [ "$BUILD_CLI" = true ]; then
-    echo -e "${YELLOW}Building DarkSwap CLI...${NC}"
-    cd darkswap-cli
-    cargo build $CARGO_FLAGS
-    cd ..
-    echo -e "${GREEN}DarkSwap CLI built successfully!${NC}"
+if [ "$BUILD_ALL" = true ] || [ "$BUILD_CLI" = true ]; then
+  echo "Building darkswap-cli..."
+  
+  # Navigate to the CLI directory
+  cd darkswap-cli || exit 1
+  
+  # Build the CLI
+  if [ "$RELEASE" = true ]; then
+    cargo build --release
+  else
+    cargo build
+  fi
+  
+  # Check if the build was successful
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to build darkswap-cli"
+    exit 1
+  fi
+  
+  echo "darkswap-cli built successfully"
+  
+  # Navigate back to the root directory
+  cd ..
 fi
 
-# Build Daemon
-if [ "$BUILD_DAEMON" = true ]; then
-    echo -e "${YELLOW}Building DarkSwap Daemon...${NC}"
-    cd darkswap-daemon
-    cargo build $CARGO_FLAGS
-    cd ..
-    echo -e "${GREEN}DarkSwap Daemon built successfully!${NC}"
+# Build daemon
+if [ "$BUILD_ALL" = true ] || [ "$BUILD_DAEMON" = true ]; then
+  echo "Building darkswap-daemon..."
+  
+  # Navigate to the daemon directory
+  cd darkswap-daemon || exit 1
+  
+  # Build the daemon
+  if [ "$RELEASE" = true ]; then
+    cargo build --release
+  else
+    cargo build
+  fi
+  
+  # Check if the build was successful
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to build darkswap-daemon"
+    exit 1
+  fi
+  
+  echo "darkswap-daemon built successfully"
+  
+  # Navigate back to the root directory
+  cd ..
 fi
 
-# Build Web Interface
-if [ "$BUILD_WEB" = true ]; then
-    echo -e "${YELLOW}Building DarkSwap Web Interface...${NC}"
-    cd web
-    
-    # Install dependencies if node_modules doesn't exist
-    if [ ! -d "node_modules" ]; then
-        echo -e "${YELLOW}Installing dependencies...${NC}"
-        npm install
-    fi
-    
-    # Build web interface
-    if [ "$RELEASE" = true ]; then
-        npm run build
-    else
-        npm run build:dev
-    fi
-    
-    cd ..
-    echo -e "${GREEN}DarkSwap Web Interface built successfully!${NC}"
+# Build web
+if [ "$BUILD_ALL" = true ] || [ "$BUILD_WEB" = true ]; then
+  echo "Building web interface..."
+  
+  # Navigate to the web directory
+  cd web || exit 1
+  
+  # Install dependencies if needed
+  if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies..."
+    npm install
+  fi
+  
+  # Build the web interface
+  if [ "$RELEASE" = true ]; then
+    npm run build
+  else
+    # For debug mode, we just make sure dependencies are installed
+    echo "Web interface ready for development"
+  fi
+  
+  # Check if the build was successful
+  if [ "$RELEASE" = true ] && [ ! -d "build" ]; then
+    echo "Error: Failed to build web interface"
+    exit 1
+  fi
+  
+  echo "Web interface built successfully"
+  
+  # Navigate back to the root directory
+  cd ..
 fi
 
-echo -e "${BLUE}=======================================${NC}"
-echo -e "${GREEN}Build completed successfully!${NC}"
-echo -e "${BLUE}=======================================${NC}"
+echo "Build completed successfully!"
 
-# Print instructions
-echo -e "${YELLOW}To run the CLI:${NC}"
+# If in debug mode, provide instructions for running the development server
+if [ "$RELEASE" = false ] && ([ "$BUILD_ALL" = true ] || [ "$BUILD_WEB" = true ]); then
+  echo ""
+  echo "To start the development server for the web interface, run:"
+  echo "cd web && npm start"
+fi
+
+# If in release mode, provide instructions for running the built binaries
 if [ "$RELEASE" = true ]; then
-    echo -e "  ./target/release/darkswap-cli --help"
-else
-    echo -e "  ./target/debug/darkswap-cli --help"
+  echo ""
+  echo "The following binaries are available:"
+  
+  if [ "$BUILD_ALL" = true ] || [ "$BUILD_CLI" = true ]; then
+    echo "- darkswap-cli: target/release/darkswap-cli"
+  fi
+  
+  if [ "$BUILD_ALL" = true ] || [ "$BUILD_DAEMON" = true ]; then
+    echo "- darkswap-daemon: target/release/darkswap-daemon"
+  fi
+  
+  if [ "$BUILD_ALL" = true ] || [ "$BUILD_WEB" = true ]; then
+    echo "- web interface: web/build"
+    echo "  To serve the web interface, you can use a static file server:"
+    echo "  cd web/build && npx serve"
+  fi
 fi
-
-echo -e "${YELLOW}To run the Daemon:${NC}"
-if [ "$RELEASE" = true ]; then
-    echo -e "  ./target/release/darkswap-daemon --listen 127.0.0.1:8000"
-else
-    echo -e "  ./target/debug/darkswap-daemon --listen 127.0.0.1:8000"
-fi
-
-echo -e "${YELLOW}To run the Web Interface:${NC}"
-echo -e "  cd web && npm run dev"

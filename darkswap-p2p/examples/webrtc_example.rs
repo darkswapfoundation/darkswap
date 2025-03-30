@@ -5,6 +5,7 @@
 
 use darkswap_p2p::{
     WebRtcTransport,
+    WebRtcSignalingClient,
     error::Error,
 };
 use libp2p::{
@@ -39,8 +40,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Local peer id: {}", local_peer_id);
     
-    // Create a WebRTC transport
-    let mut webrtc_transport = WebRtcTransport::new(local_peer_id.clone());
+    // Create a WebRTC signaling client
+    let webrtc_signaling_client = WebRtcSignalingClient::new(local_peer_id.clone());
+    
+    // Connect to the signaling server
+    webrtc_signaling_client.connect(signaling_server_url).await?;
+    
+    // Create a WebRTC transport with the signaling client
+    let mut webrtc_transport = WebRtcTransport::with_signaling_client(
+        local_peer_id.clone(),
+        Some(std::sync::Arc::new(webrtc_signaling_client)),
+    );
     
     // Set the signaling server URL
     webrtc_transport.set_signaling_server(signaling_server_url.to_string());
@@ -59,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Wait for the connection to be established
     match tokio::time::timeout(Duration::from_secs(30), dial_future).await {
-        Ok(Ok((connection, _))) => {
+        Ok(Ok(connection)) => {
             println!("Connected to peer: {}", connection.peer_id);
             
             // Send a message
@@ -68,12 +78,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Sent message");
                 
                 // Receive a message
-                match data_channel.receive().await {
-                    Ok(data) => {
+                match tokio::time::timeout(Duration::from_secs(10), data_channel.receive()).await {
+                    Ok(Ok(data)) => {
                         println!("Received message: {}", String::from_utf8_lossy(&data));
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         println!("Error receiving message: {}", e);
+                    }
+                    Err(_) => {
+                        println!("Timeout waiting for message");
                     }
                 }
             }

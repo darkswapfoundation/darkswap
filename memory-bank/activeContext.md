@@ -48,6 +48,25 @@ The current focus of the DarkSwap project is implementing a modular P2P architec
 
 ## Recent Changes
 
+### Bitcoin Crate v0.30 Compatibility
+
+1. **Library Code Updates**:
+   - Updated the core SDK to work with Bitcoin crate v0.30
+   - Fixed compatibility issues in the library code
+   - All library tests are now passing with the new Bitcoin crate version
+
+2. **Integration Test Updates**:
+   - Updated `alkane_transfer_test.rs` to work with Bitcoin crate v0.30
+   - Created a document (`phase1-remaining-tasks.md`) outlining the changes needed for other integration tests
+   - Identified common patterns for updating tests to work with the new Bitcoin crate version
+
+3. **Key Changes for Bitcoin Crate v0.30**:
+   - Updated public key creation using `PublicKey::from_private_key` instead of `PublicKey::from_secret_key`
+   - Changed address creation to use constructor methods like `Address::p2pkh` instead of `Address::<NetworkUnchecked>::new`
+   - Updated hash handling to use `from_hash` instead of `from_raw_hash`
+   - Replaced `ScriptBuf` with `Script` and updated script building methods
+   - Replaced unsafe code with safe alternatives like `set_balance_for_testing`
+
 ### Daemon Improvements
 
 1. **WebSocket Event Handling Fix**:
@@ -294,6 +313,8 @@ The new architecture is designed to maximize code sharing between different plat
    - Implement alkane protocol in darkswap-sdk
    - Add tests for runes and alkanes functionality
    - Update API to support runes and alkanes trading
+   - Integrate predicate alkanes for secure trade conditions
+   - Implement EqualityPredicateAlkane for two-party trades
 
 2. **Port Subfrost P2P Stack**:
    - Port subfrost-relay and subfrost-p2p crates
@@ -324,6 +345,10 @@ The new architecture is designed to maximize code sharing between different plat
 
 2. **Complete Core SDK Implementation**:
    - Implement runes and alkanes support
+   - Develop predicate alkanes framework
+     - Port EqualityPredicateAlkane from reference implementation
+     - Create additional predicate types for different trade conditions
+     - Implement predicate composition for complex trade scenarios
    - Add comprehensive unit tests
    - Optimize performance
 
@@ -348,6 +373,10 @@ The new architecture is designed to maximize code sharing between different plat
    - Add support for advanced order types
    - Implement multi-signature support
    - Add support for more Bitcoin-based assets
+   - Develop advanced predicate alkanes
+     - Time-locked predicates for scheduled trades
+     - Multi-party predicates for complex trade agreements
+     - Conditional predicates based on external data
 
 3. **Ecosystem Development**:
    - Create developer tools and SDKs
@@ -389,6 +418,11 @@ The new architecture is designed to maximize code sharing between different plat
    - Decision: Support Bitcoin, runes, and alkanes
    - Rationale: These are the primary assets in the Bitcoin ecosystem
    - Impact: Need to implement support for all three asset types
+
+2. **Predicate Alkanes**:
+   - Decision: Implement predicate alkanes for secure trade conditions
+   - Rationale: Enhances security and reliability of trades
+   - Impact: Need to develop a framework for predicate alkanes and integrate with trade execution
 
 2. **User Experience**:
    - Decision: Focus on simplicity and usability
@@ -437,7 +471,12 @@ The new architecture is designed to maximize code sharing between different plat
 2. **Runes and Alkanes Integration**:
    - Integration: Support for runes and alkanes protocols
    - Approach: Implement protocol support in the SDK
-   - Status: Planning
+   - Status: In progress with predicate alkanes implementation
+
+3. **Predicate Alkanes Integration**:
+   - Integration: Support for predicate alkanes that enforce trade conditions
+   - Approach: Implement EqualityPredicateAlkane for two-party trades
+   - Status: Reference implementation added to reference/predicates
 
 3. **Block Explorer Integration**:
    - Integration: Link to block explorers for transaction verification
@@ -457,11 +496,22 @@ We've made significant progress on the core SDK implementation and are now focus
 7. **Bitcoin Utilities**: Implemented wallet integration and PSBT handling.
 8. **WASM Bindings**: Implemented WebAssembly bindings for browser integration.
 9. **Daemon Improvements**: Fixed WebSocket event handling in handlers.rs and verified OrderId import in api.rs.
+10. **Bitcoin Crate Compatibility**: Updated the core SDK and some integration tests to work with Bitcoin crate v0.30.
+11. **Predicate Alkanes**: Added reference implementation of EqualityPredicateAlkane for secure two-party trades.
 
-The next steps are to complete the runes and alkanes support, port the subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
+The next steps are to:
+1. Update the remaining integration tests to work with Bitcoin crate v0.30
+2. Complete the runes and alkanes support
+   - Integrate the predicate alkanes reference implementation
+   - Develop additional predicate types for different trade conditions
+   - Implement predicate composition for complex trade scenarios
+3. Port the subfrost P2P stack
+4. Create the modular architecture
+5. Implement WebAssembly bindings
+6. Develop the TypeScript library
 
 ## Conclusion
 
-The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent fixes to the WebSocket event handling in the daemon and verification of the OrderId import have improved the stability of the system. The next steps are to complete the runes and alkanes support, port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
+The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent updates to make the core SDK compatible with Bitcoin crate v0.30, along with fixes to the WebSocket event handling in the daemon and verification of the OrderId import, have improved the stability and compatibility of the system. The addition of the predicate alkanes reference implementation provides a foundation for secure trade conditions between parties. The next steps are to update the remaining integration tests, complete the runes and alkanes support (including integrating the predicate alkanes), port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
 
-With the redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
+With the redesigned architecture and the integration of predicate alkanes for secure trade conditions, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications. The predicate alkanes will provide an additional layer of security and reliability, making DarkSwap an attractive platform for users who require strong guarantees for their trades.

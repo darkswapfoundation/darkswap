@@ -3,9 +3,8 @@
 //! This module provides the implementation of the Rune structure and related functionality.
 
 use bitcoin::{
-    Address, Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
-    absolute::LockTime,
-    address::NetworkUnchecked,
+    Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness,
+    LockTime,
 };
 use crate::error::{Error, Result};
 use crate::runestone::{Edict, Etching, Runestone, Terms};
@@ -48,9 +47,9 @@ pub struct RuneTransfer {
     /// Amount
     pub amount: u128,
     /// From address
-    pub from: Address<NetworkUnchecked>,
+    pub from: Address,
     /// To address
-    pub to: Address<NetworkUnchecked>,
+    pub to: Address,
 }
 
 /// Rune protocol
@@ -194,7 +193,7 @@ impl RuneProtocol {
     }
 
     /// Get the balance of a rune for an address
-    pub fn get_balance(&self, address: &Address<NetworkUnchecked>, rune_id: u128) -> u128 {
+    pub fn get_balance(&self, address: &Address, rune_id: u128) -> u128 {
         let address_str = format!("{:?}", address);
         if let Some(balances) = self.balances.get(&address_str) {
             for balance in balances {
@@ -208,7 +207,7 @@ impl RuneProtocol {
     }
 
     /// Get all balances for an address
-    pub fn get_balances(&self, address: &Address<NetworkUnchecked>) -> Vec<RuneBalance> {
+    pub fn get_balances(&self, address: &Address) -> Vec<RuneBalance> {
         let address_str = format!("{:?}", address);
         if let Some(balances) = self.balances.get(&address_str) {
             balances.clone()
@@ -232,7 +231,7 @@ impl RuneProtocol {
         // Create a transaction with inputs from the wallet
         let mut tx = Transaction {
             version: 2,
-            lock_time: LockTime::ZERO,
+            lock_time: LockTime::ZERO.into(),
             input: Vec::new(),
             output: Vec::new(),
         };
@@ -242,7 +241,7 @@ impl RuneProtocol {
         for (outpoint, txout) in utxos {
             tx.input.push(TxIn {
                 previous_output: outpoint,
-                script_sig: ScriptBuf::new(),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
             });
@@ -290,7 +289,7 @@ impl RuneProtocol {
         wallet: &impl BitcoinWallet,
         rune_id: u128,
         amount: u128,
-        to: &Address<NetworkUnchecked>,
+        to: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         // Get the rune
@@ -298,7 +297,7 @@ impl RuneProtocol {
         
         // Check if the wallet has enough balance
         let wallet_address = wallet.get_address(0)?;
-        let wallet_address_unchecked = Address::<NetworkUnchecked>::new(wallet_address.network, wallet_address.payload.clone());
+        let wallet_address_unchecked = wallet_address.clone();
         let balance = self.get_balance(&wallet_address_unchecked, rune_id);
         
         if balance < amount {
@@ -308,7 +307,7 @@ impl RuneProtocol {
         // Create a transaction with inputs from the wallet
         let mut tx = Transaction {
             version: 2,
-            lock_time: LockTime::ZERO,
+            lock_time: LockTime::ZERO.into(),
             input: Vec::new(),
             output: Vec::new(),
         };
@@ -318,7 +317,7 @@ impl RuneProtocol {
         for (outpoint, txout) in utxos {
             tx.input.push(TxIn {
                 previous_output: outpoint,
-                script_sig: ScriptBuf::new(),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
             });
@@ -354,7 +353,7 @@ impl RuneProtocol {
         // Add a change output
         tx.output.push(TxOut {
             value: 0, // Will be calculated later
-            script_pubkey: wallet_address.payload.script_pubkey(),
+            script_pubkey: wallet_address.script_pubkey(),
         });
         
         // TODO: Calculate fees and set change output value
@@ -377,7 +376,7 @@ impl RuneProtocol {
                         // and the recipient is the address in output 1
                         if tx.output.len() >= 2 {
                             if let Ok(address) = Address::from_script(&tx.output[1].script_pubkey, self.network) {
-                                let address = Address::<NetworkUnchecked>::new(address.network, address.payload.clone());
+                                let address = address;
                                 let rune_id = 123456789;
                                 let amount = 1000000000;
                                 
@@ -446,7 +445,7 @@ impl RuneProtocol {
                     
                     let output = &tx.output[edict.output as usize];
                     if let Ok(address) = Address::from_script(&output.script_pubkey, self.network) {
-                        let address = Address::<NetworkUnchecked>::new(address.network, address.payload.clone());
+                        let address = address;
                         // Update the balance
                         let balance = self.get_balance(&address, edict.id);
                         let new_balance = balance + edict.amount;
@@ -485,8 +484,8 @@ impl RuneProtocol {
         tx: &Transaction,
         rune_id: u128,
         amount: u128,
-        from: &Address<NetworkUnchecked>,
-        to: &Address<NetworkUnchecked>,
+        from: &Address,
+        to: &Address,
     ) -> Result<()> {
         // For testing purposes, skip the runestone parsing
         #[cfg(not(test))]
@@ -530,7 +529,7 @@ impl RuneProtocol {
             let output = &tx.output[edict.output as usize];
             let output_address_checked = Address::from_script(&output.script_pubkey, self.network)
                 .map_err(|_| Error::InvalidTransaction("Invalid output script".to_string()))?;
-            let output_address = Address::<NetworkUnchecked>::new(output_address_checked.network, output_address_checked.payload.clone());
+            let output_address = output_address_checked;
             
             if format!("{:?}", output_address) != format!("{:?}", to) {
                 return Err(Error::InvalidRecipient);
@@ -614,13 +613,13 @@ impl ThreadSafeRuneProtocol {
     }
 
     /// Get the balance of a rune for an address
-    pub fn get_balance(&self, address: &Address<NetworkUnchecked>, rune_id: u128) -> Result<u128> {
+    pub fn get_balance(&self, address: &Address, rune_id: u128) -> Result<u128> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         Ok(protocol.get_balance(address, rune_id))
     }
 
     /// Get all balances for an address
-    pub fn get_balances(&self, address: &Address<NetworkUnchecked>) -> Result<Vec<RuneBalance>> {
+    pub fn get_balances(&self, address: &Address) -> Result<Vec<RuneBalance>> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         Ok(protocol.get_balances(address))
     }
@@ -644,7 +643,7 @@ impl ThreadSafeRuneProtocol {
         wallet: &impl BitcoinWallet,
         rune_id: u128,
         amount: u128,
-        to: &Address<NetworkUnchecked>,
+        to: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
@@ -663,8 +662,8 @@ impl ThreadSafeRuneProtocol {
         tx: &Transaction,
         rune_id: u128,
         amount: u128,
-        from: &Address<NetworkUnchecked>,
-        to: &Address<NetworkUnchecked>,
+        from: &Address,
+        to: &Address,
     ) -> Result<()> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         protocol.validate_transfer(tx, rune_id, amount, from, to)

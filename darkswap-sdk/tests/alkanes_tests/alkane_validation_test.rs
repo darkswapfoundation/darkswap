@@ -44,21 +44,20 @@ fn test_alkane_transfer_validation() -> Result<()> {
     let to_address = generate_test_address_unchecked(Network::Regtest, 2)?;
     
     // Create a simple OP_RETURN script with alkane data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
     let data = b"ALKANE:ALKANE123:5000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
-                previous_output: OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0),
-                script_sig: bitcoin::ScriptBuf::new(),
+                previous_output: OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::sha256d::Hash::all_zeros()), 0),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -70,7 +69,7 @@ fn test_alkane_transfer_validation() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: to_address.payload.script_pubkey(),
+                script_pubkey: to_address.script_pubkey(),
             },
         ],
     };
@@ -88,10 +87,10 @@ fn test_alkane_transfer_validation() -> Result<()> {
     );
     
     // Create inputs
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::sha256d::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: from_address.payload.script_pubkey(),
+        script_pubkey: from_address.script_pubkey(),
     };
     let inputs = vec![(outpoint, txout)];
     
@@ -125,8 +124,8 @@ fn test_alkane_etching_validation() -> Result<()> {
     metadata.insert("website".to_string(), "https://example.com".to_string());
     
     // Create a simple OP_RETURN script with alkane metadata
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
     
     // Create JSON metadata
     let mut alkane_metadata = HashMap::new();
@@ -138,20 +137,17 @@ fn test_alkane_etching_validation() -> Result<()> {
     let metadata_json = serde_json::to_string(&alkane_metadata).unwrap();
     
     // Add the metadata as an OP_RETURN output
-    for byte in metadata_json.as_bytes() {
-        let mut buffer = [0u8; 1];
-        buffer[0] = *byte;
-        script.push_slice(&buffer);
-    }
+    builder = builder.push_slice(metadata_json.as_bytes());
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
-                previous_output: OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0),
-                script_sig: bitcoin::ScriptBuf::new(),
+                previous_output: OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::sha256d::Hash::all_zeros()), 0),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -192,23 +188,20 @@ fn test_alkane_transaction_validation() -> Result<()> {
     let to_address = generate_test_address_unchecked(Network::Regtest, 2)?;
     
     // Create a simple OP_RETURN script with alkane data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
     let data = b"ALKANE:ALKANE123:1000";
-    for byte in data {
-        let mut buffer = [0u8; 1];
-        buffer[0] = *byte;
-        script.push_slice(&buffer);
-    }
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
-                previous_output: OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0),
-                script_sig: bitcoin::ScriptBuf::new(),
+                previous_output: OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::sha256d::Hash::all_zeros()), 0),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -220,7 +213,7 @@ fn test_alkane_transaction_validation() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: to_address.payload.script_pubkey(),
+                script_pubkey: to_address.script_pubkey(),
             },
         ],
     };
@@ -233,7 +226,7 @@ fn test_alkane_transaction_validation() -> Result<()> {
     let transfer = transfer.unwrap();
     assert_eq!(transfer.alkane_id, AlkaneId("ALKANE:ALKANE123".to_string()));
     assert_eq!(transfer.amount, 1000);
-    assert_eq!(transfer.to.payload.script_pubkey(), to_address.payload.script_pubkey());
+    assert_eq!(transfer.to.script_pubkey(), to_address.script_pubkey());
     
     Ok(())
 }

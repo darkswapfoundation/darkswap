@@ -13,11 +13,11 @@ fn test_alkane_protocol_transfer() -> Result<()> {
     let network = Network::Regtest;
 
     // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    let pubkey_hash1 = PubkeyHash::from_hash(hash160::Hash::hash(&[1; 20]));
+    let pubkey_hash2 = PubkeyHash::from_hash(hash160::Hash::hash(&[2; 20]));
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[1; 33]).unwrap(), network);
+    let address2 = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[2; 33]).unwrap(), network);
 
     // Create an Alkane protocol
     let mut protocol = AlkaneProtocol::new(network);
@@ -59,8 +59,8 @@ fn test_alkane_protocol_transfer() -> Result<()> {
     // Create a transaction that would mint alkanes to address1
     // This is normally done through the process_transaction method
     // but we'll simulate it by creating a transfer from the zero address
-    let zero_pubkey_hash = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[0; 20]));
-    let zero_address = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(zero_pubkey_hash));
+    let zero_pubkey_hash = PubkeyHash::from_hash(hash160::Hash::hash(&[0; 20]));
+    let zero_address = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[0; 33]).unwrap(), network);
     
     // Create a new protocol instance that we'll use to mint tokens
     // This is a workaround since we can't directly modify balances

@@ -1,6 +1,6 @@
 use bitcoin::{
-    address::NetworkUnchecked, Address, Network, PubkeyHash,
-    hashes::{Hash, hash160},
+    Address, Network, PrivateKey, PublicKey,
+    secp256k1::Secp256k1,
 };
 use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol, AlkaneTransfer};
 use darkswap_sdk::error::Result;
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 fn add_balance(
     protocol: &mut AlkaneProtocol,
     alkane_id: &AlkaneId,
-    address: &Address<NetworkUnchecked>,
+    address: &Address,
     amount: u128,
 ) -> Result<()> {
     // Use the set_balance_for_testing method to directly set the balance
@@ -25,12 +25,15 @@ fn test_alkane_protocol_simple() -> Result<()> {
     // Create a network
     let network = Network::Regtest;
 
-    // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    // Create valid public keys for p2pkh addresses
+    let secp = Secp256k1::new();
+    let private_key1 = PrivateKey::from_slice(&[1; 32], Network::Regtest).unwrap();
+    let private_key2 = PrivateKey::from_slice(&[2; 32], Network::Regtest).unwrap();
+    let pubkey1 = PublicKey::from_private_key(&secp, &private_key1);
+    let pubkey2 = PublicKey::from_private_key(&secp, &private_key2);
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&pubkey1, network);
+    let address2 = Address::p2pkh(&pubkey2, network);
 
     // Create an Alkane protocol
     let mut protocol = AlkaneProtocol::new(network);
@@ -103,12 +106,15 @@ fn test_alkane_protocol_with_initial_balance() -> Result<()> {
     // Create a network
     let network = Network::Regtest;
 
-    // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    // Create valid public keys for p2pkh addresses
+    let secp = Secp256k1::new();
+    let private_key1 = PrivateKey::from_slice(&[1; 32], Network::Regtest).unwrap();
+    let private_key2 = PrivateKey::from_slice(&[2; 32], Network::Regtest).unwrap();
+    let pubkey1 = PublicKey::from_private_key(&secp, &private_key1);
+    let pubkey2 = PublicKey::from_private_key(&secp, &private_key2);
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&pubkey1, network);
+    let address2 = Address::p2pkh(&pubkey2, network);
 
     // Create an Alkane protocol
     let mut protocol = AlkaneProtocol::new(network);

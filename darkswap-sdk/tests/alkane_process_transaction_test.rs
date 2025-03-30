@@ -1,8 +1,10 @@
 use bitcoin::{
-    address::NetworkUnchecked, Address, Network, PubkeyHash,
-    hashes::{Hash, hash160},
+    Address, Network, LockTime, PrivateKey, PublicKey,
+    secp256k1::Secp256k1,
+    blockdata::opcodes::all,
+    blockdata::script::Builder,
 };
-use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol, AlkaneTransfer};
+use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol};
 use darkswap_sdk::error::Result;
 use darkswap_sdk::types::AlkaneId;
 use std::collections::HashMap;
@@ -13,11 +15,15 @@ fn test_process_transaction() -> Result<()> {
     let network = Network::Regtest;
 
     // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    // Create valid public keys for p2pkh addresses
+    let secp = Secp256k1::new();
+    let private_key1 = PrivateKey::from_slice(&[1; 32], Network::Regtest).unwrap();
+    let private_key2 = PrivateKey::from_slice(&[2; 32], Network::Regtest).unwrap();
+    let pubkey1 = PublicKey::from_private_key(&secp, &private_key1);
+    let pubkey2 = PublicKey::from_private_key(&secp, &private_key2);
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&pubkey1, network);
+    let address2 = Address::p2pkh(&pubkey2, network);
 
     // Create an Alkane protocol
     let mut protocol = AlkaneProtocol::new(network);
@@ -60,30 +66,29 @@ fn test_process_transaction() -> Result<()> {
     // This is a special case for testing purposes
     let tx = bitcoin::Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             bitcoin::TxOut {
                 value: 0,
                 script_pubkey: {
-                    let mut script = bitcoin::ScriptBuf::new();
-                    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                    // Create a script with OP_RETURN and data
+                    let mut builder = Builder::new();
+                    builder = builder.push_opcode(all::OP_RETURN);
                     
                     // Format: "ALKANE:<id>:<amount>"
                     let data = format!("ALKANE:{}:{}", alkane_id.0, 10000000000u128);
                     println!("OP_RETURN data: {}", data);
                     
-                    // Push the data byte by byte
-                    for byte in data.as_bytes() {
-                        script.push_slice(&[*byte]);
-                    }
+                    // Push the data as a single chunk
+                    builder = builder.push_slice(data.as_bytes());
                     
-                    script
+                    builder.into_script()
                 },
             },
             bitcoin::TxOut {
                 value: 546, // Dust limit
-                script_pubkey: address1.payload.script_pubkey(),
+                script_pubkey: address1.script_pubkey(),
             },
         ],
     };
@@ -102,30 +107,29 @@ fn test_process_transaction() -> Result<()> {
     // Try with a different format for the OP_RETURN data
     let tx2 = bitcoin::Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             bitcoin::TxOut {
                 value: 0,
                 script_pubkey: {
-                    let mut script = bitcoin::ScriptBuf::new();
-                    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+                    // Create a script with OP_RETURN and data
+                    let mut builder = Builder::new();
+                    builder = builder.push_opcode(all::OP_RETURN);
                     
                     // Format: "<id>:<amount>" (without the ALKANE: prefix)
                     let data = format!("{}:{}", alkane_id.0, 10000000000u128);
                     println!("OP_RETURN data (without prefix): {}", data);
                     
-                    // Push the data byte by byte
-                    for byte in data.as_bytes() {
-                        script.push_slice(&[*byte]);
-                    }
+                    // Push the data as a single chunk
+                    builder = builder.push_slice(data.as_bytes());
                     
-                    script
+                    builder.into_script()
                 },
             },
             bitcoin::TxOut {
                 value: 546, // Dust limit
-                script_pubkey: address1.payload.script_pubkey(),
+                script_pubkey: address1.script_pubkey(),
             },
         ],
     };

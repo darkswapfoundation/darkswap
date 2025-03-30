@@ -1,12 +1,11 @@
 use bitcoin::{
-    address::NetworkUnchecked, Address, Network, PubkeyHash,
-    hashes::{Hash, hash160},
+    Address, Network, PublicKey, PrivateKey,
+    secp256k1::Secp256k1,
 };
 use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol, AlkaneTransfer};
 use darkswap_sdk::error::Result;
 use darkswap_sdk::types::AlkaneId;
 use std::collections::HashMap;
-use std::ptr;
 
 #[test]
 fn test_alkane_transfer_with_balance() -> Result<()> {
@@ -14,11 +13,15 @@ fn test_alkane_transfer_with_balance() -> Result<()> {
     let network = Network::Regtest;
 
     // Create addresses
-    let pubkey_hash1 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[1; 20]));
-    let pubkey_hash2 = PubkeyHash::from_raw_hash(hash160::Hash::hash(&[2; 20]));
+    // Create valid public keys for p2pkh addresses
+    let secp = Secp256k1::new();
+    let private_key1 = PrivateKey::from_slice(&[1; 32], Network::Regtest).unwrap();
+    let private_key2 = PrivateKey::from_slice(&[2; 32], Network::Regtest).unwrap();
+    let dummy_pubkey1 = PublicKey::from_private_key(&secp, &private_key1);
+    let dummy_pubkey2 = PublicKey::from_private_key(&secp, &private_key2);
     
-    let address1 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash1));
-    let address2 = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash2));
+    let address1 = Address::p2pkh(&dummy_pubkey1, network);
+    let address2 = Address::p2pkh(&dummy_pubkey2, network);
 
     // Create an Alkane protocol
     let mut protocol = AlkaneProtocol::new(network);
@@ -57,27 +60,8 @@ fn test_alkane_transfer_with_balance() -> Result<()> {
     assert_eq!(address1_balance, 0);
     assert_eq!(address2_balance, 0);
     
-    // Directly set the balance for address1 using unsafe code
-    // This is only for testing purposes
-    let address1_str = format!("{:?}", address1);
-    
-    // Create a new test that doesn't rely on process_transaction
-    // Instead, we'll directly set up the balances in the protocol
-    let mut balances = HashMap::new();
-    let mut address_balances = HashMap::new();
-    address_balances.insert(alkane_id.0.clone(), 10000000000u128);
-    balances.insert(address1_str, address_balances);
-    
-    // Use unsafe code to set the balances field
-    unsafe {
-        let protocol_ptr = &mut protocol as *mut AlkaneProtocol;
-        let balances_offset = std::mem::size_of::<Network>() + 
-                             std::mem::size_of::<darkswap_sdk::runes::RuneProtocol>() + 
-                             std::mem::size_of::<HashMap<String, Alkane>>();
-        
-        let balances_ptr = (protocol_ptr as *mut u8).add(balances_offset) as *mut HashMap<String, HashMap<String, u128>>;
-        ptr::write(balances_ptr, balances);
-    }
+    // Set the balance for address1 using the set_balance_for_testing method
+    protocol.set_balance_for_testing(&address1, &alkane_id, 10000000000);
     
     // Check balances after setting initial balance
     let address1_balance = protocol.get_balance(&address1, &alkane_id);

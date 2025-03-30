@@ -1,4 +1,5 @@
 use darkswap_sdk::runes::{Rune, RuneTransfer, RuneProtocol, Edict, Etching};
+use darkswap_sdk::runestone::{Runestone, Terms};
 use darkswap_sdk::types::RuneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
@@ -92,7 +93,7 @@ fn test_rune_balances() -> Result<()> {
     let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: address1.payload.script_pubkey(),
+        script_pubkey: address1.script_pubkey(),
     };
     
     // Create a simple OP_RETURN script with rune data
@@ -122,7 +123,7 @@ fn test_rune_balances() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: address1.payload.script_pubkey(),
+                script_pubkey: address1.script_pubkey(),
             },
         ],
     };
@@ -190,9 +191,8 @@ fn test_runestone_creation_and_parsing() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: Address::<NetworkUnchecked>::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
+                script_pubkey: Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
                     .unwrap()
-                    .payload
                     .script_pubkey(),
             },
         ],
@@ -241,7 +241,7 @@ fn test_rune_transaction_creation() -> Result<()> {
     let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: from_address.payload.script_pubkey(),
+        script_pubkey: from_address.script_pubkey(),
     };
     let inputs = vec![(outpoint, txout)];
     
@@ -262,7 +262,7 @@ fn test_rune_transaction_creation() -> Result<()> {
     assert!(tx.output[0].script_pubkey.is_op_return());
     
     // The second output should go to the recipient
-    assert_eq!(tx.output[1].script_pubkey, to_address.payload.script_pubkey());
+    assert_eq!(tx.output[1].script_pubkey, to_address.script_pubkey());
     assert_eq!(tx.output[1].value, 546); // Dust limit
     
     Ok(())
@@ -304,7 +304,7 @@ fn test_rune_transaction_validation() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: to_address.payload.script_pubkey(),
+                script_pubkey: to_address.script_pubkey(),
             },
         ],
     };
@@ -326,15 +326,15 @@ fn test_rune_etching_transaction() -> Result<()> {
     let protocol = RuneProtocol::new(Network::Regtest);
     
     // Create address
-    let address = Address::<NetworkUnchecked>::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap();
-    let change_address = Address::<NetworkUnchecked>::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap()
+    let address = Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap();
+    let change_address = Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap()
         .require_network(Network::Regtest).unwrap();
     
     // Create inputs
     let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: address.payload.script_pubkey(),
+        script_pubkey: address.script_pubkey(),
     };
     let inputs = vec![(outpoint, txout)];
     
@@ -358,7 +358,7 @@ fn test_rune_etching_transaction() -> Result<()> {
     assert!(tx.output[0].script_pubkey.is_op_return());
     
     // The second output should go back to the sender
-    assert_eq!(tx.output[1].script_pubkey, address.payload.script_pubkey());
+    assert_eq!(tx.output[1].script_pubkey, address.script_pubkey());
     assert_eq!(tx.output[1].value, 546); // Dust limit
     
     Ok(())

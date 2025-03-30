@@ -84,7 +84,7 @@ async fn test_order_creation() -> Result<()> {
     assert!(order.expiry <= now + 3600);
     
     // Check that we received an OrderCreated event
-    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     match event {
         Event::OrderCreated(created_order) => {
             assert_eq!(created_order.id, order.id);
@@ -126,15 +126,15 @@ async fn test_order_cancellation() -> Result<()> {
     ).await?;
     
     // Consume the OrderCreated event
-    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     
     // Cancel the order
     orderbook.cancel_order(&order.id).await?;
     
-    // Check that we received an OrderCanceled event
-    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await??;
+    // Check that we received an OrderCancelled event
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), event_receiver.recv()).await?.ok_or(anyhow::anyhow!("No event received"))?;
     match event {
-        Event::OrderCanceled(order_id) => {
+        Event::OrderCancelled(order_id) => {
             assert_eq!(order_id, order.id);
         }
         _ => panic!("Expected OrderCanceled event, got {:?}", event),

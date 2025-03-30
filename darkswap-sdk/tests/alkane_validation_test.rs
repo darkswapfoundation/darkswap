@@ -1,6 +1,7 @@
 use bitcoin::{
-    address::NetworkUnchecked, psbt::Psbt, Address, Network, OutPoint, ScriptBuf, Transaction,
+    psbt::Psbt, Address, Network, OutPoint, ScriptBuf, Transaction, LockTime,
     TxOut, Txid, PubkeyHash,
+    blockdata::opcodes::all,
 };
 use bitcoin::hashes::Hash;
 use darkswap_sdk::alkanes::{Alkane, AlkaneProperties, AlkaneProtocol};
@@ -46,7 +47,7 @@ fn test_alkane_validation() -> Result<()> {
     // Create a transaction with an OP_RETURN output
     let mut tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
                 previous_output: OutPoint::new(Txid::all_zeros(), 0),
@@ -60,7 +61,7 @@ fn test_alkane_validation() -> Result<()> {
 // Create the OP_RETURN output with the alkane transfer data
     // Create the OP_RETURN output with the alkane transfer data
     let mut script = ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    script.push_opcode(all::OP_RETURN);
     
     // Format: "ALKANE:<id>:<amount>"
     let data = "ALKANE:ALKANE123:10000000000";
@@ -77,22 +78,22 @@ fn test_alkane_validation() -> Result<()> {
     });
     
     // Create a recipient address
-    let pubkey_hash = PubkeyHash::from_raw_hash(bitcoin::hashes::hash160::Hash::from_slice(&[2; 20]).unwrap());
-    let recipient_address = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash));
+    let pubkey_hash = PubkeyHash::from_hash(bitcoin::hashes::hash160::Hash::from_slice(&[2; 20]).unwrap());
+    let recipient_address = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[2; 33]).unwrap(), network);
     
     // Add the recipient output
     tx.output.push(TxOut {
         value: 546, // Dust limit
-        script_pubkey: recipient_address.payload.script_pubkey(),
+        script_pubkey: recipient_address.script_pubkey(),
     });
     
     // Add a change output
-    let pubkey_hash = PubkeyHash::from_raw_hash(bitcoin::hashes::hash160::Hash::from_slice(&[3; 20]).unwrap());
-    let change_address = Address::<NetworkUnchecked>::new(network, bitcoin::address::Payload::PubkeyHash(pubkey_hash));
+    let pubkey_hash = PubkeyHash::from_hash(bitcoin::hashes::hash160::Hash::from_slice(&[3; 20]).unwrap());
+    let change_address = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[3; 33]).unwrap(), network);
     
     tx.output.push(TxOut {
         value: 9303,
-        script_pubkey: change_address.payload.script_pubkey(),
+        script_pubkey: change_address.script_pubkey(),
     });
     
     // Validate the transaction

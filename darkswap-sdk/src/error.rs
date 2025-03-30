@@ -225,14 +225,14 @@ impl From<bitcoin::psbt::Error> for Error {
     }
 }
 
-impl From<bitcoin::address::Error> for Error {
-    fn from(error: bitcoin::address::Error) -> Self {
+impl From<bitcoin::util::address::Error> for Error {
+    fn from(error: bitcoin::util::address::Error) -> Self {
         Error::BitcoinAddressError(error.to_string())
     }
 }
 
-impl From<bitcoin::key::Error> for Error {
-    fn from(error: bitcoin::key::Error) -> Self {
+impl From<bitcoin::util::key::Error> for Error {
+    fn from(error: bitcoin::util::key::Error) -> Self {
         Error::BitcoinError(error.to_string())
     }
 }
@@ -256,11 +256,12 @@ impl From<&str> for Error {
 }
 
 // Add From implementation for libp2p ConnectionDenied
-impl From<libp2p::swarm::ConnectionDenied> for Error {
-    fn from(error: libp2p::swarm::ConnectionDenied) -> Self {
-        Error::NetworkError(format!("Connection denied: {:?}", error))
-    }
-}
+// Commented out because ConnectionDenied is not available in the current version of libp2p
+// impl From<libp2p::swarm::ConnectionDenied> for Error {
+//     fn from(error: libp2p::swarm::ConnectionDenied) -> Self {
+//         Error::NetworkError(format!("Connection denied: {:?}", error))
+//     }
+// }
 
 // Note: We don't need to implement From<std::io::Error> for Error
 // because it's already implemented by the thiserror derive macro

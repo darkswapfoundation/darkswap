@@ -161,12 +161,12 @@ fn test_alkane_trade_creation() -> Result<()> {
     orderbook.add_order(order.clone());
     
     // Create a trade
-    let trade = Trade::new(&order, darkswap_sdk::types::PeerId(taker_peer_id.clone()), amount);
+    let trade = Trade::new(&order, taker_peer_id.clone(), amount);
     
     // Verify the trade properties
     assert_eq!(trade.order_id, order.id);
-    assert_eq!(trade.maker, darkswap_sdk::types::PeerId(maker_peer_id.clone()));
-    assert_eq!(trade.taker, darkswap_sdk::types::PeerId(taker_peer_id.clone()));
+    assert_eq!(trade.maker, maker_peer_id.clone());
+    assert_eq!(trade.taker, taker_peer_id.clone());
     assert_eq!(trade.base_asset, darkswap_sdk::types::Asset(base_asset.clone()));
     assert_eq!(trade.quote_asset, darkswap_sdk::types::Asset(quote_asset.clone()));
     assert_eq!(trade.side, darkswap_sdk::orderbook::OrderSide::Sell);

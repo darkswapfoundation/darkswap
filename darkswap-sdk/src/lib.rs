@@ -3,9 +3,15 @@
 //! This is the main entry point for the DarkSwap SDK, a decentralized peer-to-peer
 //! trading platform for Bitcoin, runes, and alkanes.
 
+pub mod alkanes;
+pub mod alkane_trade;
+pub mod bitcoin_utils;
 pub mod config;
+pub mod error;
 pub mod orderbook;
 pub mod p2p;
+pub mod runes;
+pub mod runestone;
 pub mod trade;
 pub mod types;
 pub mod wallet;

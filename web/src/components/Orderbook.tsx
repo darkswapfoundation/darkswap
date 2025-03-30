@@ -21,6 +21,20 @@ interface Order {
   total: number;
   maker: string;
   timestamp: number;
+  type?: string;
+  side?: string;
+  createdAt?: number;
+  creatorAddress?: string;
+  baseAsset?: {
+    type: string;
+    id?: string;
+    amount: string;
+  };
+  quoteAsset?: {
+    type: string;
+    id?: string;
+    amount: string;
+  };
 }
 
 const Orderbook: React.FC<OrderbookProps> = ({

@@ -1,7 +1,6 @@
 use darkswap_sdk::runestone::{Runestone, Edict, Etching, Terms};
 use bitcoin::{
-    Transaction, TxOut, ScriptBuf,
-    opcodes::all::OP_RETURN,
+    Transaction, TxOut, Script, LockTime,
 };
 use darkswap_sdk::error::Result;
 
@@ -107,7 +106,7 @@ fn test_runestone_parsing() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -154,7 +153,7 @@ fn test_runestone_with_etching_parsing() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -209,7 +208,7 @@ fn test_runestone_with_terms_parsing() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -263,7 +262,7 @@ fn test_runestone_with_default_output() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -309,7 +308,7 @@ fn test_runestone_with_burn() -> Result<()> {
     
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {

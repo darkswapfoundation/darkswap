@@ -3,7 +3,7 @@
 //! This module provides the implementation of the Runestone structure and related functionality.
 
 use bitcoin::{
-    ScriptBuf, Transaction,
+    Script, Transaction,
 };
 use crate::error::{Error, Result};
 use std::collections::HashMap;
@@ -94,7 +94,7 @@ impl Runestone {
                 // Collect all push operations
                 for instruction in instructions {
                     if let Ok(bitcoin::blockdata::script::Instruction::PushBytes(bytes)) = instruction {
-                        data.extend_from_slice(bytes.as_bytes());
+                        data.extend_from_slice(bytes);
                     }
                 }
                 
@@ -110,7 +110,7 @@ impl Runestone {
     }
 
     /// Convert the Runestone to a script
-    pub fn to_script(&self) -> ScriptBuf {
+    pub fn to_script(&self) -> Script {
         // Create a script with the rune protocol prefix
         let mut data = Vec::with_capacity(1024);
         data.extend_from_slice(b"RUNE");
@@ -120,27 +120,17 @@ impl Runestone {
         
         // Create an OP_RETURN script with the data
         // We need to use a fixed-size array that implements AsRef<PushBytes>
-        let mut script = ScriptBuf::new();
-        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        // Create a script with OP_RETURN
+        let mut builder = bitcoin::blockdata::script::Builder::new();
+        builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
         
         // Add the data in chunks of 75 bytes (max size for a standard push)
         for chunk in data.chunks(75) {
-            // Convert the chunk to a fixed-size array that implements AsRef<PushBytes>
-            match chunk.len() {
-                1 => script.push_slice(&[chunk[0]]),
-                2 => script.push_slice(&[chunk[0], chunk[1]]),
-                3 => script.push_slice(&[chunk[0], chunk[1], chunk[2]]),
-                4 => script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3]]),
-                5 => script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3], chunk[4]]),
-                // Add more cases as needed for larger chunks
-                _ => {
-                    // For larger chunks, we'll push bytes individually
-                    for &byte in chunk {
-                        script.push_slice(&[byte]);
-                    }
-                }
-            }
+            builder = builder.push_slice(chunk);
         }
+        
+        // Build the script
+        let script = builder.into_script();
         
         script
     }

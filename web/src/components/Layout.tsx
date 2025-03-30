@@ -17,6 +17,11 @@ import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
   ArrowLeftOnRectangleIcon,
+  GlobeAltIcon,
+  UsersIcon,
+  SparklesIcon,
+  BookOpenIcon,
+  BeakerIcon,
 } from '@heroicons/react/24/outline';
 
 interface LayoutProps {
@@ -34,6 +39,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/trade', label: 'Trade', icon: <ArrowsRightLeftIcon className="w-5 h-5" /> },
     { path: '/orders', label: 'Orders', icon: <ClipboardDocumentListIcon className="w-5 h-5" /> },
     { path: '/vault', label: 'Vault', icon: <ShieldCheckIcon className="w-5 h-5" /> },
+    { path: '/runes', label: 'Runes', icon: <SparklesIcon className="w-5 h-5" /> },
+    { path: '/alkanes', label: 'Alkanes', icon: <BeakerIcon className="w-5 h-5" /> },
+    { path: '/webrtc', label: 'P2P Network', icon: <GlobeAltIcon className="w-5 h-5" /> },
+    { path: '/p2p-trade', label: 'P2P Trade', icon: <UsersIcon className="w-5 h-5" /> },
+    { path: '/p2p-orderbook', label: 'P2P Orderbook', icon: <BookOpenIcon className="w-5 h-5" /> },
     { path: '/about', label: 'About', icon: <InformationCircleIcon className="w-5 h-5" /> },
     { path: '/settings', label: 'Settings', icon: <Cog6ToothIcon className="w-5 h-5" /> },
   ];

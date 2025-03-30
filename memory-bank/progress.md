@@ -31,6 +31,7 @@ This document tracks the progress of the DarkSwap project, including what works,
   - [x] Wallet integration
   - [x] PSBT handling
   - [x] Transaction broadcasting
+  - [x] Bitcoin crate v0.30 compatibility
 
 ### Daemon
 
@@ -63,6 +64,9 @@ This document tracks the progress of the DarkSwap project, including what works,
 - [ ] Runes and alkanes support
   - [ ] Rune protocol implementation
   - [ ] Alkane protocol implementation
+  - [ ] Predicate alkanes integration
+    - [x] Reference implementation of EqualityPredicateAlkane
+    - [ ] Integration with trade execution
 
 ### CLI
 
@@ -109,11 +113,38 @@ This document tracks the progress of the DarkSwap project, including what works,
 ### Testing
 
 - [ ] Unit tests
-  - [ ] SDK tests
+  - [x] SDK library tests
   - [ ] CLI tests
   - [ ] Daemon tests
   - [ ] Web interface tests
 - [ ] Integration tests
+  - [ ] Bitcoin crate v0.30 compatibility
+    - [x] alkane_transfer_test.rs
+    - [x] alkane_mock_test.rs
+    - [x] bitcoin_utils_test.rs
+    - [x] alkane_process_transaction_test.rs
+    - [x] alkane_protocol_balance_test.rs
+    - [x] runes_test.rs
+    - [x] runestone_test.rs
+    - [x] trade_tests.rs
+    - [x] orderbook_tests.rs
+    - [ ] 16 remaining integration tests:
+      - [ ] alkane_protocol_fix.rs
+      - [ ] alkane_trade_standalone.rs
+      - [ ] alkane_validation_test.rs
+      - [ ] alkanes_test.rs
+      - [ ] alkanes_tests/alkane_protocol_test.rs
+      - [ ] alkanes_tests/alkane_trade_test.rs
+      - [ ] alkanes_tests/alkane_trading_test.rs
+      - [ ] alkanes_tests/alkane_utils_test.rs
+      - [ ] alkanes_tests/alkane_validation_test.rs
+      - [ ] alkanes_tests/thread_safe_alkane_protocol_test.rs
+      - [ ] bitcoin_utils_standalone.rs
+      - [ ] darkswap_tests.rs
+      - [ ] runes_tests/rune_protocol_test.rs
+      - [ ] runes_tests/thread_safe_rune_protocol_test.rs
+      - [ ] wallet_tests.rs
+      - [ ] webrtc_test.rs
   - [ ] End-to-end tests
   - [ ] Network tests
   - [ ] Trade tests
@@ -138,6 +169,9 @@ This document tracks the progress of the DarkSwap project, including what works,
 - [x] Research on WebRTC integration with rust-libp2p
 - [x] Fixed WebSocket event handling in handlers.rs
 - [x] Verified OrderId import from orderbook module in api.rs
+- [x] Updated core SDK to work with Bitcoin crate v0.30
+- [x] Updated some integration tests to work with Bitcoin crate v0.30
+- [ ] Update remaining integration tests to work with Bitcoin crate v0.30
 - [ ] Port subfrost-relay and subfrost-node P2P functionality
 - [ ] Create darkswap-support crate for shared code
 - [ ] Implement darkswap-p2p crate with WebRTC support
@@ -186,29 +220,36 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ## Recent Achievements
 
-1. **Core SDK Implementation**:
+1. **Bitcoin Crate v0.30 Compatibility**:
+   - Updated the core SDK to work with Bitcoin crate v0.30
+   - Fixed compatibility issues in the library code
+   - Updated `alkane_transfer_test.rs` to work with the new Bitcoin crate version
+   - Created a document (`phase1-remaining-tasks.md`) outlining the changes needed for other integration tests
+   - All library tests are now passing with the new Bitcoin crate version
+
+2. **Core SDK Implementation**:
    - Implemented the core SDK with P2P networking, orderbook management, and trade execution
    - Added WebRTC transport for browser compatibility
    - Implemented PSBT-based trade execution for secure atomic swaps
    - Added Bitcoin wallet integration
 
-2. **Daemon Implementation**:
+3. **Daemon Implementation**:
    - Fixed WebSocket event handling in handlers.rs
    - Verified OrderId import from orderbook module in api.rs
    - Implemented REST API for interacting with the P2P network
    - Added WebSocket support for real-time updates
 
-3. **Subfrost Analysis**:
+4. **Subfrost Analysis**:
    - Conducted in-depth analysis of Subfrost's P2P networking implementation
    - Identified key components for porting to WebRTC
    - Documented circuit relay implementation
 
-4. **PintSwap Analysis**:
+5. **PintSwap Analysis**:
    - Analyzed PintSwap's architecture and functionality
    - Identified key components for adaptation to DarkSwap
    - Documented orderbook and trade execution
 
-5. **Implementation Plan**:
+6. **Implementation Plan**:
    - Created comprehensive implementation plan for DarkSwap
    - Defined phases, tasks, and dependencies
    - Established timeline and milestones
@@ -251,31 +292,38 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ## Next Steps
 
-1. **Complete Runes and Alkanes Support**:
+1. **Update Integration Tests for Bitcoin Crate v0.30**:
+   - Update remaining integration tests to work with Bitcoin crate v0.30
+   - Follow the patterns documented in `phase1-remaining-tasks.md`
+   - Ensure all tests pass with the new Bitcoin crate version
+
+2. **Complete Runes and Alkanes Support**:
    - Implement rune protocol in darkswap-sdk
    - Implement alkane protocol in darkswap-sdk
    - Add tests for runes and alkanes functionality
    - Update API to support runes and alkanes trading
+   - Integrate predicate alkanes for secure trade conditions
+   - Reference implementation of EqualityPredicateAlkane added to reference/predicates
 
-2. **Port Subfrost P2P Stack**:
+3. **Port Subfrost P2P Stack**:
    - Extract P2P networking code from subfrost-node/src/network.rs and subfrost-node/src/circuit_relay.rs
    - Port the subfrost-relay crate for relay functionality
    - Adapt the code to use WebRTC instead of QUIC
    - Implement WebRTC transport for rust-libp2p
 
-3. **Create Modular Architecture**:
+4. **Create Modular Architecture**:
    - Create darkswap-support crate for shared protobuf definitions and common code
    - Create darkswap-p2p crate for core P2P networking functionality
    - Ensure code can be compiled for both native and WASM targets
    - Implement feature flags for conditional compilation
 
-4. **Implement WebAssembly Bindings**:
+5. **Implement WebAssembly Bindings**:
    - Create darkswap-web-sys crate for WebAssembly bindings
    - Implement browser-native WebRTC support
    - Create TypeScript bindings for the WebAssembly module
    - Set up wasm-bindgen and wasm-pack
 
-5. **Develop TypeScript Library**:
+6. **Develop TypeScript Library**:
    - Create darkswap-lib package
    - Implement the same functionality as darkswap-sdk
    - Ensure parity between Rust and TypeScript implementations
@@ -283,6 +331,6 @@ This document tracks the progress of the DarkSwap project, including what works,
 
 ## Conclusion
 
-The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent fixes to the WebSocket event handling in the daemon and verification of the OrderId import have improved the stability of the system. The next steps are to complete the runes and alkanes support, port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
+The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent updates to make the core SDK compatible with Bitcoin crate v0.30, along with fixes to the WebSocket event handling in the daemon and verification of the OrderId import, have improved the stability and compatibility of the system. The next steps are to update the remaining integration tests, complete the runes and alkanes support, port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
 
 With the redesigned architecture, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.

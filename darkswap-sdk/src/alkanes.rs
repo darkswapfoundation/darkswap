@@ -3,9 +3,8 @@
 //! This module provides the implementation of the Alkane structure and related functionality.
 
 use bitcoin::{
-    Address, Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid, Witness,
-    address::NetworkUnchecked,
-    absolute::LockTime,
+    Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Txid, Witness,
+    LockTime,
 };
 use crate::error::{Error, Result};
 use crate::runes::{Rune, RuneProtocol};
@@ -66,9 +65,9 @@ pub struct AlkaneTransfer {
     /// Alkane ID
     pub alkane_id: AlkaneId,
     /// From address
-    pub from: Address<NetworkUnchecked>,
+    pub from: Address,
     /// To address
-    pub to: Address<NetworkUnchecked>,
+    pub to: Address,
     /// Amount
     pub amount: u128,
     /// Memo
@@ -77,7 +76,7 @@ pub struct AlkaneTransfer {
 
 impl AlkaneTransfer {
     /// Create a new alkane transfer
-    pub fn new<A: Into<Address<NetworkUnchecked>>>(
+    pub fn new<A: Into<Address>>(
         alkane_id: AlkaneId,
         from: A,
         to: A,
@@ -289,7 +288,7 @@ impl AlkaneProtocol {
     }
 
     /// Get the balance of an alkane for an address
-    pub fn get_balance(&self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId) -> u128 {
+    pub fn get_balance(&self, address: &Address, alkane_id: &AlkaneId) -> u128 {
         let address_str = format!("{:?}", address);
         
         if let Some(address_balances) = self.balances.get(&address_str) {
@@ -309,7 +308,7 @@ impl AlkaneProtocol {
     }
 
     /// Get all alkane balances for an address
-    pub fn get_balances(&self, address: &Address<NetworkUnchecked>) -> Vec<AlkaneBalance> {
+    pub fn get_balances(&self, address: &Address) -> Vec<AlkaneBalance> {
         let mut alkane_balances = Vec::new();
         let address_str = format!("{:?}", address);
         
@@ -381,7 +380,7 @@ impl AlkaneProtocol {
     
     /// Update balance directly (for testing purposes only)
     #[cfg(test)]
-    pub fn update_balance(&mut self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) {
+    pub fn update_balance(&mut self, address: &Address, alkane_id: &AlkaneId, amount: u128) {
         let address_str = format!("{:?}", address);
         self.balances
             .entry(address_str)
@@ -394,7 +393,7 @@ impl AlkaneProtocol {
         &self,
         transfer: &AlkaneTransfer,
         inputs: Vec<(OutPoint, TxOut)>,
-        change_address: &Address<NetworkUnchecked>,
+        change_address: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         // Debug output
@@ -422,10 +421,10 @@ impl AlkaneProtocol {
         // Create a simple transaction with an OP_RETURN output
         let mut tx = Transaction {
             version: 2,
-            lock_time: LockTime::ZERO,
+            lock_time: LockTime::ZERO.into(),
             input: inputs.iter().map(|(outpoint, _)| TxIn {
                 previous_output: *outpoint,
-                script_sig: ScriptBuf::new(),
+                script_sig: Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
             }).collect(),
@@ -433,8 +432,9 @@ impl AlkaneProtocol {
         };
         
         // Create the OP_RETURN output with the alkane transfer data
-        let mut script = ScriptBuf::new();
-        script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        // Create a script with OP_RETURN
+        let mut builder = bitcoin::blockdata::script::Builder::new();
+        builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
         
         // Format: "ALKANE:<id>:<amount>"
         // Strip the "ALKANE:" prefix if it exists to avoid double prefixing
@@ -444,9 +444,11 @@ impl AlkaneProtocol {
             &transfer.alkane_id.0
         };
         let data = format!("ALKANE:{}:{}", id_str, transfer.amount);
-        for byte in data.as_bytes() {
-            script.push_slice(&[*byte]);
-        }
+        // Add the data
+        builder = builder.push_slice(data.as_bytes());
+        
+        // Build the script
+        let script = builder.into_script();
         
         tx.output.push(TxOut {
             value: 0,
@@ -461,7 +463,7 @@ impl AlkaneProtocol {
         
         // Add the change output
         let total_input = inputs.iter().map(|(_, txout)| txout.value).sum::<u64>();
-        let weight_value = tx.weight().to_wu() as f32;
+        let weight_value = tx.weight() as f32;
         let fee = (weight_value * fee_rate / 4.0) as u64;
         let change = total_input.saturating_sub(546 + fee);
         
@@ -570,7 +572,7 @@ impl AlkaneProtocol {
                                 // Find the recipient address
                                 if tx.output.len() >= 2 {
                                     if let Ok(to_checked) = Address::from_script(&tx.output[1].script_pubkey, self.network) {
-                                        let to = Address::<NetworkUnchecked>::new(to_checked.network, to_checked.payload.clone());
+                                        let to = to_checked;
                                         // Find the sender address (first input)
                                         if !tx.input.is_empty() {
                                             // We would need to look up the previous output to get the sender address
@@ -643,28 +645,19 @@ impl AlkaneProtocol {
         
         // Add the metadata as an OP_RETURN output
         // We need to use a fixed-size array that implements AsRef<PushBytes>
-        let mut metadata_script = ScriptBuf::new();
-        metadata_script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+        // Create a script with OP_RETURN
+        let mut builder = bitcoin::blockdata::script::Builder::new();
+        builder = builder.push_opcode(bitcoin::blockdata::opcodes::all::OP_RETURN);
         
         // Add the data in chunks of 75 bytes (max size for a standard push)
         let metadata_bytes = metadata_json.as_bytes();
+        // Add the data in chunks of 75 bytes (max size for a standard push)
         for chunk in metadata_bytes.chunks(75) {
-            // Convert the chunk to a fixed-size array that implements AsRef<PushBytes>
-            match chunk.len() {
-                1 => metadata_script.push_slice(&[chunk[0]]),
-                2 => metadata_script.push_slice(&[chunk[0], chunk[1]]),
-                3 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2]]),
-                4 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3]]),
-                5 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3], chunk[4]]),
-                // Add more cases as needed for larger chunks
-                _ => {
-                    // For larger chunks, we'll push bytes individually
-                    for &byte in chunk {
-                        metadata_script.push_slice(&[byte]);
-                    }
-                }
-            }
+            builder = builder.push_slice(chunk);
         }
+        
+        // Build the script
+        let metadata_script = builder.into_script();
         
         tx.output.push(TxOut {
             value: 0,
@@ -680,7 +673,7 @@ impl AlkaneProtocol {
         wallet: &impl BitcoinWallet,
         alkane_id: u128,
         amount: u128,
-        to: &Address<NetworkUnchecked>,
+        to: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         // Get the alkane
@@ -730,7 +723,7 @@ impl AlkaneProtocol {
                                         // Find the recipient address
                                         if tx.output.len() >= 2 {
                                             if let Ok(to_checked) = Address::from_script(&tx.output[1].script_pubkey, self.network) {
-                                                let to = Address::<NetworkUnchecked>::new(to_checked.network, to_checked.payload.clone());
+                                                let to = to_checked;
                                                 
                                                 // Update the balance
                                                 let alkane_id = AlkaneId(alkane_id_str.clone());
@@ -818,7 +811,7 @@ impl AlkaneProtocol {
     }
 
     /// Set balance for testing purposes
-    pub fn set_balance_for_testing(&mut self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) {
+    pub fn set_balance_for_testing(&mut self, address: &Address, alkane_id: &AlkaneId, amount: u128) {
         let address_str = format!("{:?}", address);
         self.balances
             .entry(address_str)
@@ -832,8 +825,8 @@ impl AlkaneProtocol {
         tx: &Transaction,
         alkane_id: &AlkaneId,
         amount: u128,
-        from: &Address<NetworkUnchecked>,
-        to: &Address<NetworkUnchecked>,
+        from: &Address,
+        to: &Address,
     ) -> Result<()> {
         // Get the alkane
         let _alkane = self.get_alkane(alkane_id).ok_or_else(|| Error::AlkaneNotFound(alkane_id.0.clone()))?;
@@ -967,13 +960,13 @@ impl ThreadSafeAlkaneProtocol {
     }
 
     /// Get the balance of an alkane for an address
-    pub fn get_balance(&self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId) -> Result<u128> {
+    pub fn get_balance(&self, address: &Address, alkane_id: &AlkaneId) -> Result<u128> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         Ok(protocol.get_balance(address, alkane_id))
     }
 
     /// Get all alkane balances for an address
-    pub fn get_balances(&self, address: &Address<NetworkUnchecked>) -> Result<Vec<AlkaneBalance>> {
+    pub fn get_balances(&self, address: &Address) -> Result<Vec<AlkaneBalance>> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         Ok(protocol.get_balances(address))
     }
@@ -989,7 +982,7 @@ impl ThreadSafeAlkaneProtocol {
         &self,
         transfer: &AlkaneTransfer,
         inputs: Vec<(OutPoint, TxOut)>,
-        change_address: &Address<NetworkUnchecked>,
+        change_address: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
@@ -1035,7 +1028,7 @@ impl ThreadSafeAlkaneProtocol {
         wallet: &impl BitcoinWallet,
         alkane_id: AlkaneId,
         amount: u128,
-        to: &Address<NetworkUnchecked>,
+        to: &Address,
         fee_rate: f32,
     ) -> Result<Transaction> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
@@ -1066,7 +1059,7 @@ impl ThreadSafeAlkaneProtocol {
     }
 
     /// Set balance for testing purposes
-    pub fn set_balance_for_testing(&self, address: &Address<NetworkUnchecked>, alkane_id: &AlkaneId, amount: u128) -> Result<()> {
+    pub fn set_balance_for_testing(&self, address: &Address, alkane_id: &AlkaneId, amount: u128) -> Result<()> {
         let mut protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         protocol.set_balance_for_testing(address, alkane_id, amount);
         Ok(())
@@ -1078,8 +1071,8 @@ impl ThreadSafeAlkaneProtocol {
         tx: &Transaction,
         alkane_id: &AlkaneId,
         amount: u128,
-        from: &Address<NetworkUnchecked>,
-        to: &Address<NetworkUnchecked>,
+        from: &Address,
+        to: &Address,
     ) -> Result<()> {
         let protocol = self.inner.lock().map_err(|_| Error::LockError)?;
         protocol.validate_transfer(tx, alkane_id, amount, from, to)

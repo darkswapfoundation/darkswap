@@ -1,376 +1,454 @@
 # WebRTC Implementation Guide for DarkSwap
 
-This document provides a guide for implementing WebRTC support in rust-libp2p for the DarkSwap project. It covers the key components, challenges, and solutions for enabling browser compatibility through WebRTC.
+This guide provides an overview of the WebRTC implementation for DarkSwap's P2P networking layer, including the components implemented, their functionality, and how to use them.
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Components](#components)
+   - [WebRTC Manager](#webrtc-manager)
+   - [WebRTC Connection](#webrtc-connection)
+   - [WebRTC Context](#webrtc-context)
+   - [WebRTC Signaling Client](#webrtc-signaling-client)
+   - [WebRTC ICE Servers Utility](#webrtc-ice-servers-utility)
+   - [WebRTC Bandwidth Manager](#webrtc-bandwidth-manager)
+3. [UI Components](#ui-components)
+   - [WebRTC Demo](#webrtc-demo)
+   - [WebRTC Trade](#webrtc-trade)
+   - [WebRTC Network Status](#webrtc-network-status)
+   - [WebRTC Orderbook](#webrtc-orderbook)
+   - [WebRTC Peer Discovery](#webrtc-peer-discovery)
+   - [WebRTC Settings](#webrtc-settings)
+   - [WebRTC Group Chat](#webrtc-group-chat)
+   - [WebRTC File Sharing](#webrtc-file-sharing)
+   - [WebRTC Audio/Video Chat](#webrtc-audiovideo-chat)
+4. [Integration with DarkSwap](#integration-with-darkswap)
+5. [Testing](#testing)
+6. [Deployment](#deployment)
+7. [Future Improvements](#future-improvements)
 
 ## Overview
 
-WebRTC (Web Real-Time Communication) is a collection of protocols and APIs that enable real-time communication between browsers and other applications. It's particularly useful for DarkSwap because it allows the P2P network to operate in browsers, making the platform more accessible to users.
+The WebRTC implementation for DarkSwap enables direct peer-to-peer communication between users, allowing for decentralized trading, messaging, file sharing, and audio/video communication. It uses WebRTC for the data transport layer and a signaling server for connection establishment.
 
-The main challenge is that rust-libp2p doesn't have built-in WebRTC support yet, so we need to implement it ourselves or adapt existing solutions.
+Key features:
+- Direct peer-to-peer connections
+- NAT traversal using STUN/TURN servers
+- Bandwidth management for optimal performance
+- Secure, encrypted communication
+- Support for trading, messaging, file sharing, and audio/video calls
 
-## Key Components
+## Components
 
-### 1. WebRTC Transport
+### WebRTC Manager
 
-The WebRTC transport is responsible for establishing and maintaining WebRTC connections between peers. It needs to handle:
+The `WebRtcManager` class is the core of the WebRTC implementation. It manages WebRTC connections to peers and handles signaling.
 
-- ICE (Interactive Connectivity Establishment) for NAT traversal
-- STUN (Session Traversal Utilities for NAT) for discovering public IP addresses
-- TURN (Traversal Using Relays around NAT) for relaying traffic when direct connections fail
-- SDP (Session Description Protocol) for negotiating connection parameters
-- DTLS (Datagram Transport Layer Security) for securing the connection
+**Key Features:**
+- Connection creation and management
+- Signaling message handling
+- ICE candidate exchange
+- Bandwidth monitoring and optimization
 
-### 2. Signaling
+**Usage:**
+```typescript
+import { WebRtcManager } from '../utils/WebRtcManager';
+import { WebRtcSignalingClient } from '../utils/WebRtcSignalingClient';
 
-WebRTC requires a signaling mechanism to exchange connection information between peers. This can be implemented using:
+// Create a signaling client
+const signalingClient = new WebRtcSignalingClient('my-peer-id', 'wss://signaling.example.com');
 
-- The existing libp2p protocols (e.g., gossipsub)
-- A dedicated signaling server
-- A combination of both
+// Create a WebRTC manager
+const webRtcManager = new WebRtcManager(signalingClient);
 
-### 3. Circuit Relay
+// Connect to a peer
+const connection = await webRtcManager.connect('peer-id');
 
-Circuit relay is essential for NAT traversal, especially in WebRTC where direct connections may not always be possible. We need to:
-
-- Port Subfrost's circuit relay implementation to WebRTC
-- Ensure compatibility with browser environments
-- Handle relay discovery and selection
-
-## Implementation Approach
-
-### Option 1: Use libp2p-webrtc
-
-The [libp2p-webrtc](https://github.com/libp2p/rust-libp2p/tree/master/transports/webrtc) crate is an experimental implementation of WebRTC for rust-libp2p. It's still in development, but it provides a good starting point.
-
-```rust
-use libp2p_webrtc::{WebRtcConfig, WebRtcTransport};
-
-// Create WebRTC transport
-let webrtc_transport = WebRtcTransport::new(WebRtcConfig {
-    ice_servers: vec![
-        "stun:stun.l.google.com:19302".to_string(),
-        "stun:stun1.l.google.com:19302".to_string(),
-    ],
-    ..Default::default()
-});
+// Send data
+connection.sendString('data', 'Hello, world!');
 ```
 
-### Option 2: Implement Custom WebRTC Transport
+### WebRTC Connection
 
-If libp2p-webrtc doesn't meet our needs, we can implement a custom WebRTC transport using the [webrtc](https://github.com/webrtc-rs/webrtc) crate.
+The `WebRtcConnection` class represents a WebRTC connection to a peer. It handles the WebRTC peer connection, data channels, and media streams.
 
-```rust
-use webrtc::api::{APIBuilder, API};
-use webrtc::ice_transport::ice_server::RTCIceServer;
-use webrtc::peer_connection::configuration::RTCConfiguration;
+**Key Features:**
+- Data channel management
+- SDP offer/answer exchange
+- ICE candidate handling
+- Connection state management
+- Media stream handling
 
-// Create WebRTC API
-let api = APIBuilder::new().build();
+**Usage:**
+```typescript
+// Get a connection
+const connection = webRtcManager.getConnection('peer-id');
 
-// Create peer connection configuration
-let config = RTCConfiguration {
-    ice_servers: vec![
-        RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_string()],
-            ..Default::default()
-        },
-    ],
-    ..Default::default()
+// Create a data channel
+const dataChannel = connection.createDataChannel('my-channel');
+
+// Send data
+connection.sendString('my-channel', 'Hello, world!');
+
+// Close the connection
+connection.close();
+```
+
+### WebRTC Context
+
+The `WebRtcContext` provides a React context for using WebRTC in React components. It wraps the WebRTC manager and signaling client, providing a simple API for React components.
+
+**Key Features:**
+- Connection state management
+- Peer information
+- Connection management
+- Data transfer
+- Event handling
+
+**Usage:**
+```tsx
+import { useWebRtc } from '../contexts/WebRtcContext';
+
+const MyComponent = () => {
+  const {
+    isConnected,
+    isConnecting,
+    error,
+    localPeerId,
+    connectedPeers,
+    connect,
+    disconnect,
+    sendString,
+    onMessage,
+    offMessage,
+  } = useWebRtc();
+
+  // Connect to a peer
+  const handleConnect = async (peerId: string) => {
+    try {
+      await connect(peerId);
+    } catch (error) {
+      console.error('Error connecting to peer:', error);
+    }
+  };
+
+  // Send a message
+  const handleSendMessage = (peerId: string, message: string) => {
+    sendString(peerId, message);
+  };
+
+  // Handle incoming messages
+  useEffect(() => {
+    const handleMessage = (peerId: string, data: any) => {
+      console.log(`Message from ${peerId}:`, data);
+    };
+
+    onMessage(handleMessage);
+
+    return () => {
+      offMessage(handleMessage);
+    };
+  }, [onMessage, offMessage]);
+
+  return (
+    <div>
+      <p>Local Peer ID: {localPeerId}</p>
+      <p>Connected Peers: {connectedPeers.join(', ')}</p>
+      <button onClick={() => handleConnect('peer-id')}>Connect</button>
+      <button onClick={() => handleSendMessage('peer-id', 'Hello!')}>Send Message</button>
+    </div>
+  );
 };
-
-// Create peer connection
-let peer_connection = api.new_peer_connection(config).await?;
 ```
 
-### Option 3: WebAssembly Bridge
+### WebRTC Signaling Client
 
-Another approach is to use WebAssembly to bridge between Rust and the browser's WebRTC API. This allows us to use the native WebRTC implementation in the browser.
+The `WebRtcSignalingClient` handles communication with the signaling server, which is used to exchange connection information between peers.
 
-```rust
-#[wasm_bindgen]
-pub struct WebRtcBridge {
-    peer_connection: web_sys::RtcPeerConnection,
-    data_channel: Option<web_sys::RtcDataChannel>,
-}
+**Key Features:**
+- WebSocket communication with the signaling server
+- Peer registration
+- SDP offer/answer exchange
+- ICE candidate exchange
 
-#[wasm_bindgen]
-impl WebRtcBridge {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Result<WebRtcBridge, JsValue> {
-        // Create RTCPeerConnection
-        let rtc_config = web_sys::RtcConfiguration::new();
-        let ice_server = web_sys::RtcIceServer::new();
-        ice_server.urls(&JsValue::from_str("stun:stun.l.google.com:19302"));
-        let ice_servers = js_sys::Array::new();
-        ice_servers.push(&ice_server);
-        rtc_config.ice_servers(&ice_servers);
-        
-        let peer_connection = web_sys::RtcPeerConnection::new_with_configuration(&rtc_config)?;
-        
-        Ok(WebRtcBridge {
-            peer_connection,
-            data_channel: None,
-        })
-    }
-    
-    // ... other methods for creating data channels, handling signaling, etc.
-}
-```
+**Usage:**
+```typescript
+import { WebRtcSignalingClient, SignalingClientEvent } from '../utils/WebRtcSignalingClient';
 
-## Circuit Relay Implementation
+// Create a signaling client
+const signalingClient = new WebRtcSignalingClient('my-peer-id', 'wss://signaling.example.com');
 
-The circuit relay implementation needs to be adapted to work with WebRTC. Here's a high-level approach:
+// Connect to the signaling server
+await signalingClient.connect();
 
-1. **Relay Discovery**: Use the existing libp2p mechanisms (e.g., Kademlia DHT) to discover relay nodes.
-
-2. **Relay Connection**: Establish a WebRTC connection to the relay node.
-
-3. **Relay Protocol**: Implement the circuit relay protocol over WebRTC data channels.
-
-```rust
-/// Circuit relay implementation for WebRTC
-pub struct WebRtcCircuitRelay {
-    /// Local peer ID
-    peer_id: PeerId,
-    /// Active reservations by relay peer ID
-    reservations: Arc<Mutex<HashMap<PeerId, RelayReservation>>>,
-    /// Metrics for circuit relay connections
-    metrics: Arc<Mutex<RelayMetrics>>,
-    /// Command sender for the reservation manager
-    command_sender: mpsc::Sender<ReservationCommand>,
-}
-
-impl WebRtcCircuitRelay {
-    /// Create a new circuit relay
-    pub fn new(peer_id: PeerId) -> Self {
-        let (tx, rx) = mpsc::channel(100);
-        let metrics = Arc::new(Mutex::new(RelayMetrics::default()));
-        let reservations = Arc::new(Mutex::new(HashMap::new()));
-        
-        let relay = Self {
-            peer_id,
-            reservations,
-            metrics,
-            command_sender: tx,
-        };
-        
-        // Start the reservation manager
-        relay.start_reservation_manager(rx);
-        
-        relay
-    }
-    
-    /// Make a reservation with a relay
-    pub async fn make_reservation(
-        &self,
-        relay_peer_id: PeerId,
-    ) -> Result<RelayReservation> {
-        // Implementation similar to Subfrost's make_reservation but using WebRTC
-        // ...
-    }
-    
-    /// Connect to a peer through a relay
-    pub async fn connect_through_relay(
-        &self,
-        relay_peer_id: PeerId,
-        target_peer_id: PeerId,
-    ) -> Result<()> {
-        // Implementation similar to Subfrost's connect_through_relay but using WebRTC
-        // ...
-    }
-}
-```
-
-## Signaling Implementation
-
-WebRTC requires a signaling mechanism to exchange SDP offers and answers between peers. We can implement this using the existing libp2p protocols:
-
-```rust
-/// Signaling trait for WebRTC connection establishment
-pub trait Signaling: Send + Sync {
-    /// Send an offer to a peer
-    async fn send_offer(&self, peer_id: &PeerId, offer: &RTCSessionDescription) -> Result<()>;
-    
-    /// Send an answer to a peer
-    async fn send_answer(&self, peer_id: &PeerId, answer: &RTCSessionDescription) -> Result<()>;
-    
-    /// Send an ICE candidate to a peer
-    async fn send_ice_candidate(&self, peer_id: &PeerId, candidate: &RTCIceCandidate) -> Result<()>;
-    
-    /// Receive an offer from a peer
-    async fn on_offer(&self) -> Result<(PeerId, RTCSessionDescription)>;
-    
-    /// Receive an answer from a peer
-    async fn on_answer(&self) -> Result<(PeerId, RTCSessionDescription)>;
-    
-    /// Receive an ICE candidate from a peer
-    async fn on_ice_candidate(&self) -> Result<(PeerId, RTCIceCandidate)>;
-}
-
-/// Implementation using libp2p protocols
-pub struct Libp2pSignaling {
-    /// Swarm for network communication
-    swarm: Swarm<SignalingBehaviour>,
-}
-
-impl Signaling for Libp2pSignaling {
-    // Implementation of the Signaling trait using libp2p
-    // ...
-}
-```
-
-## Browser Integration
-
-To integrate with browsers, we need to compile the Rust code to WebAssembly and provide JavaScript bindings:
-
-```rust
-#[wasm_bindgen]
-pub struct DarkSwapP2P {
-    inner: WebRtcNetwork,
-}
-
-#[wasm_bindgen]
-impl DarkSwapP2P {
-    #[wasm_bindgen(constructor)]
-    pub fn new(config_json: &str) -> Result<DarkSwapP2P, JsValue> {
-        // Initialize the P2P network
-        // ...
-    }
-
-    #[wasm_bindgen]
-    pub async fn connect(&mut self) -> Result<(), JsValue> {
-        // Connect to the P2P network
-        // ...
-    }
-
-    #[wasm_bindgen]
-    pub async fn create_order(&mut self, order_json: &str) -> Result<String, JsValue> {
-        // Create an order and broadcast it to the network
-        // ...
-    }
-
-    #[wasm_bindgen]
-    pub async fn take_order(&mut self, order_id: &str, amount_json: &str) -> Result<String, JsValue> {
-        // Take an order from the network
-        // ...
-    }
-
-    #[wasm_bindgen]
-    pub fn on_order_created(&mut self, callback: js_sys::Function) {
-        // Register a callback for order creation events
-        // ...
-    }
-
-    #[wasm_bindgen]
-    pub fn on_order_taken(&mut self, callback: js_sys::Function) {
-        // Register a callback for order taking events
-        // ...
-    }
-}
-```
-
-## Challenges and Solutions
-
-### 1. NAT Traversal
-
-**Challenge**: WebRTC connections may fail when peers are behind NATs.
-
-**Solution**: Use a combination of STUN servers, TURN servers, and circuit relays to ensure connectivity.
-
-```rust
-// Configure ICE servers
-let ice_servers = vec![
-    "stun:stun.l.google.com:19302".to_string(),
-    "stun:stun1.l.google.com:19302".to_string(),
-    "turn:turn.example.com:3478?transport=udp".to_string(),
-];
-
-// Create WebRTC transport with ICE servers
-let webrtc_transport = WebRtcTransport::new(WebRtcConfig {
-    ice_servers,
-    ..Default::default()
+// Listen for events
+signalingClient.on(SignalingClientEvent.Connected, () => {
+  console.log('Connected to signaling server');
 });
+
+// Send an offer
+signalingClient.sendOffer('peer-id', 'offer-sdp');
 ```
 
-### 2. Browser Compatibility
+### WebRTC ICE Servers Utility
 
-**Challenge**: Different browsers have different levels of WebRTC support.
+The `WebRtcIceServers` utility provides functionality for managing STUN and TURN server configurations.
 
-**Solution**: Use feature detection and fallback mechanisms.
+**Key Features:**
+- Default ICE server configuration
+- Custom ICE server management
+- Server testing
+- Persistent storage of configurations
 
-```rust
-#[wasm_bindgen]
-pub fn is_webrtc_supported() -> bool {
-    let window = web_sys::window().unwrap();
-    js_sys::Reflect::has(&window, &JsValue::from_str("RTCPeerConnection")).unwrap_or(false)
-}
+**Usage:**
+```typescript
+import { WebRtcIceServers } from '../utils/WebRtcIceServers';
+
+// Get default ICE servers
+const defaultServers = WebRtcIceServers.getDefaultIceServers();
+
+// Get stored ICE servers
+const storedServers = WebRtcIceServers.getIceServers();
+
+// Add a STUN server
+WebRtcIceServers.addStunServer('stun:stun.example.com:19302');
+
+// Add a TURN server
+WebRtcIceServers.addTurnServer('turn:turn.example.com:3478', 'username', 'password');
+
+// Test a server
+const isReachable = await WebRtcIceServers.testIceServer({
+  urls: 'stun:stun.example.com:19302',
+});
+
+// Reset to default
+WebRtcIceServers.resetIceServers();
 ```
 
-### 3. Performance
+### WebRTC Bandwidth Manager
 
-**Challenge**: WebAssembly can have performance overhead compared to native code.
+The `WebRtcBandwidthManager` utility provides functionality for controlling bandwidth usage in WebRTC connections.
 
-**Solution**: Optimize critical paths and use web workers for CPU-intensive tasks.
+**Key Features:**
+- Bandwidth constraint management
+- Adaptive bitrate control
+- Bandwidth monitoring
+- Network type detection
+- Optimal settings estimation
 
-```rust
-#[wasm_bindgen]
-pub fn start_worker() -> Result<(), JsValue> {
-    let worker = web_sys::Worker::new("worker.js")?;
-    worker.post_message(&JsValue::from_str("start"))?;
-    Ok(())
-}
+**Usage:**
+```typescript
+import { WebRtcBandwidthManager } from '../utils/WebRtcBandwidthManager';
+
+// Get bandwidth settings
+const settings = WebRtcBandwidthManager.getBandwidthSettings();
+
+// Apply bandwidth constraints to a connection
+WebRtcBandwidthManager.applyBandwidthConstraints(peerConnection, settings);
+
+// Monitor bandwidth usage
+const stopMonitoring = WebRtcBandwidthManager.monitorBandwidthUsage(
+  peerConnection,
+  (stats) => {
+    console.log('Bandwidth stats:', stats);
+  },
+  1000 // Update every second
+);
+
+// Estimate optimal settings
+const optimalSettings = await WebRtcBandwidthManager.estimateOptimalBandwidthSettings(peerConnection);
+
+// Get recommended settings based on network type
+const recommendedSettings = await WebRtcBandwidthManager.getRecommendedBandwidthSettings();
 ```
+
+## UI Components
+
+### WebRTC Demo
+
+The `WebRtcDemo` component provides a simple interface for testing WebRTC connections.
+
+**Key Features:**
+- Connect to peers
+- Send and receive messages
+- Display connection status
+
+### WebRTC Trade
+
+The `WebRtcTrade` component enables peer-to-peer trading using WebRTC.
+
+**Key Features:**
+- Trade request and acceptance
+- Trade confirmation
+- Trade execution
+- Trade history
+
+### WebRTC Network Status
+
+The `WebRtcNetworkStatus` component displays information about WebRTC connections.
+
+**Key Features:**
+- Connection status
+- Bandwidth usage
+- Latency
+- Packet loss
+
+### WebRTC Orderbook
+
+The `WebRtcOrderbook` component implements a decentralized orderbook using WebRTC.
+
+**Key Features:**
+- Order creation
+- Order matching
+- Order cancellation
+- Order synchronization
+
+### WebRTC Peer Discovery
+
+The `WebRtcPeerDiscovery` component enables automatic peer discovery.
+
+**Key Features:**
+- Peer announcement
+- Peer list
+- Automatic connection
+- Peer metadata
+
+### WebRTC Settings
+
+The `WebRtcSettings` component provides a user interface for configuring WebRTC settings.
+
+**Key Features:**
+- General settings
+- ICE server configuration
+- Bandwidth configuration
+- Data management
+
+### WebRTC Group Chat
+
+The `WebRtcGroupChat` component enables multi-party communication using WebRTC.
+
+**Key Features:**
+- Group creation
+- Group joining
+- Group messaging
+- Message synchronization
+
+### WebRTC File Sharing
+
+The `WebRtcFileSharing` component enables direct file transfer between peers.
+
+**Key Features:**
+- File selection
+- File transfer request
+- Chunked transfer
+- Progress tracking
+
+### WebRTC Audio/Video Chat
+
+The `WebRtcAudioVideoChat` component enables voice and video calls between peers.
+
+**Key Features:**
+- Call initiation
+- Call acceptance
+- Media controls
+- Call history
+
+## Integration with DarkSwap
+
+The WebRTC implementation integrates with DarkSwap's core functionality:
+
+1. **Trading Integration**
+   - Connect WebRTC trading with wallet functionality
+   - Implement trade execution using Bitcoin transactions
+   - Integrate with runes and alkanes trading
+
+2. **Orderbook Integration**
+   - Synchronize orderbook with other peers
+   - Implement order matching and execution
+   - Display orders in the UI
+
+3. **Peer Discovery Integration**
+   - Integrate with DarkSwap's peer management
+   - Implement peer discovery mechanisms
+   - Display peers in the UI
 
 ## Testing
 
-Testing WebRTC implementations can be challenging. Here are some approaches:
+The WebRTC implementation includes unit and integration tests:
 
-1. **Unit Tests**: Test individual components in isolation.
+1. **Unit Tests**
+   - WebRTC Manager tests
+   - WebRTC Connection tests
+   - WebRTC Context tests
+   - WebRTC Signaling Client tests
+   - WebRTC ICE Servers Utility tests
+   - WebRTC Bandwidth Manager tests
 
-```rust
-#[test]
-fn test_webrtc_transport_creation() {
-    let transport = WebRtcTransport::new(WebRtcConfig::default());
-    assert!(transport.is_ok());
-}
+2. **Integration Tests**
+   - End-to-end WebRTC connection tests
+   - Data synchronization tests
+   - Trading functionality tests
+
+To run the tests:
+
+```bash
+# Install Jest and its dependencies
+npm install --save-dev jest @types/jest ts-jest
+
+# Run the tests
+npm test
 ```
 
-2. **Integration Tests**: Test the interaction between components.
+## Deployment
 
-```rust
-#[tokio::test]
-async fn test_webrtc_connection() {
-    let transport1 = WebRtcTransport::new(WebRtcConfig::default()).unwrap();
-    let transport2 = WebRtcTransport::new(WebRtcConfig::default()).unwrap();
-    
-    // Connect the transports
-    // ...
-    
-    // Send and receive data
-    // ...
-}
-```
+To deploy the WebRTC implementation:
 
-3. **Browser Tests**: Test the WebAssembly bindings in a browser environment.
+1. **Signaling Server**
+   - Deploy a signaling server (see the TURN Server Deployment Guide)
+   - Configure the signaling server URL in the application
 
-```rust
-#[wasm_bindgen_test]
-async fn test_browser_connection() {
-    let p2p = DarkSwapP2P::new("{}").unwrap();
-    let result = p2p.connect().await;
-    assert!(result.is_ok());
-}
-```
+2. **TURN Server**
+   - Deploy a TURN server for NAT traversal (see the TURN Server Deployment Guide)
+   - Configure the TURN server in the application
+
+3. **Application**
+   - Build and deploy the application
+   - Configure the WebRTC settings in the application
+
+## Future Improvements
+
+1. **WebRTC Statistics Dashboard**
+   - Create a comprehensive dashboard for monitoring WebRTC performance
+   - Display detailed statistics about connections, bandwidth, and latency
+
+2. **Geographic Server Selection**
+   - Implement intelligent server selection based on geographic proximity
+   - Improve connection quality by selecting the closest servers
+
+3. **Connection Quality Metrics**
+   - Add detailed metrics for monitoring connection quality
+   - Automatically switch to better servers based on quality metrics
+
+4. **ICE Configuration Presets**
+   - Create presets for different network environments
+   - Allow users to select presets based on their network conditions
+
+5. **Multi-TURN Load Balancing**
+   - Implement load balancing across multiple TURN servers
+   - Improve reliability and performance of relay connections
+
+6. **Bandwidth Scheduling**
+   - Add time-based bandwidth profiles
+   - Allow users to schedule high-quality sessions
+
+7. **Network Simulation**
+   - Create a testing environment for simulating various network conditions
+   - Test WebRTC connections under different network scenarios
+
+8. **Mobile Optimization**
+   - Further optimize bandwidth usage for mobile devices
+   - Implement mobile-specific UI components
 
 ## Conclusion
 
-Implementing WebRTC support in rust-libp2p for DarkSwap is a challenging but achievable task. By leveraging existing libraries and implementing custom components where needed, we can create a robust P2P network that works seamlessly in browsers.
-
-The key to success is a modular design that allows for different transport implementations while maintaining a consistent API. This will enable DarkSwap to work across different platforms and network conditions, making it accessible to a wide range of users.
-
-## References
-
-- [WebRTC API](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API)
-- [rust-libp2p](https://github.com/libp2p/rust-libp2p)
-- [webrtc-rs](https://github.com/webrtc-rs/webrtc)
-- [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen)
+The WebRTC implementation for DarkSwap provides a solid foundation for peer-to-peer communication, enabling decentralized trading, messaging, file sharing, and audio/video communication. By following this guide, you can understand, use, and extend the WebRTC functionality in DarkSwap.

@@ -20,6 +20,7 @@ env_logger = "0.10"
 tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
 void = "1.0"
 url = "2.4"
+warp = "0.3"
 
 [features]
 default = ["native"]
@@ -29,3 +30,11 @@ wasm = ["libp2p/wasm-bindgen", "libp2p/wasm-ext"]
 [[example]]
 name = "webrtc_example"
 path = "examples/webrtc_example.rs"
+
+[[example]]
+name = "signaling_server"
+path = "examples/signaling_server.rs"
+
+[[example]]
+name = "advanced_webrtc_example"
+path = "examples/advanced_webrtc_example.rs"

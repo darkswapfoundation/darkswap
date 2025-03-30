@@ -7,6 +7,8 @@
 
 use crate::error::Error;
 use crate::signaling_client::{SignalingClient, SignalingEvent};
+use crate::webrtc_signaling_client::WebRtcSignalingClient;
+use crate::webrtc_connection::{WebRtcConnection, WebRtcConnectionManager, DataChannel};
 use futures::{
     channel::mpsc,
     prelude::*,
@@ -23,31 +25,23 @@ use std::{
     task::{Context, Poll},
 };
 
-/// WebRTC connection representation
-pub struct WebRtcConnection {
-    /// Peer ID
-    pub peer_id: PeerId,
-    /// Data channels
-    pub data_channels: HashMap<String, DataChannel>,
-}
-
-/// Simple data channel representation
+/// Data Channel
 pub struct DataChannel {
     /// Label
     pub label: String,
-    /// Whether the channel is ordered
+    /// Ordered
     pub ordered: bool,
-    /// Sender for outgoing data
+    /// Sender
     pub sender: mpsc::Sender<Vec<u8>>,
-    /// Receiver for incoming data
+    /// Receiver
     pub receiver: mpsc::Receiver<Vec<u8>>,
 }
 
 impl DataChannel {
     /// Create a new data channel
     pub fn new(label: String, ordered: bool) -> Self {
-        let (tx1, rx1) = mpsc::channel(10);
-        let (tx2, rx2) = mpsc::channel(10);
+        let (tx1, rx1) = mpsc::channel(100);
+        let (tx2, rx2) = mpsc::channel(100);
         
         DataChannel {
             label,
@@ -84,6 +78,10 @@ pub struct WebRtcTransport {
     ice_servers: Vec<String>,
     /// Signaling client
     signaling_client: Option<SignalingClient>,
+    /// WebRTC signaling client
+    webrtc_signaling_client: Option<Arc<WebRtcSignalingClient>>,
+    /// WebRTC connection manager
+    webrtc_connection_manager: Option<Arc<WebRtcConnectionManager>>,
     /// Signaling server URL
     signaling_server_url: Option<String>,
 }
@@ -149,7 +147,7 @@ impl WebRtcTransport {
     }
 
     /// Create a new WebRTC transport with a signaling client
-    pub fn with_signaling_client(local_peer_id: PeerId, signaling_client: Option<Arc<WebRtcSignalingClient>>) -> Self {
+    pub fn with_signaling_client(local_peer_id: PeerId, webrtc_signaling_client: Option<Arc<WebRtcSignalingClient>>) -> Self {
         WebRtcTransport {
             local_peer_id,
             listeners: HashMap::new(),
@@ -160,6 +158,7 @@ impl WebRtcTransport {
                 "stun:stun1.l.google.com:19302".to_string(),
             ],
             signaling_client: None,
+            webrtc_signaling_client,
             signaling_server_url: None,
         }
     }
@@ -180,9 +179,27 @@ impl WebRtcTransport {
     /// Connect to the signaling server
     pub async fn connect_to_signaling_server(&mut self) -> Result<(), Error> {
         if let Some(url) = &self.signaling_server_url {
+            // Create and connect the signaling client
             let signaling_client = SignalingClient::new(self.local_peer_id.to_string());
             signaling_client.connect(url).await?;
             self.signaling_client = Some(signaling_client);
+            
+            // Create and connect the WebRTC signaling client if not already provided
+            if self.webrtc_signaling_client.is_none() {
+                let webrtc_signaling_client = WebRtcSignalingClient::new(self.local_peer_id.clone());
+                webrtc_signaling_client.connect(url).await?;
+                self.webrtc_signaling_client = Some(Arc::new(webrtc_signaling_client));
+            }
+            
+            // Create the WebRTC connection manager if not already provided
+            if self.webrtc_connection_manager.is_none() {
+                let webrtc_connection_manager = WebRtcConnectionManager::new(
+                    self.local_peer_id.clone(),
+                    self.webrtc_signaling_client.as_ref().unwrap().clone(),
+                );
+                self.webrtc_connection_manager = Some(Arc::new(webrtc_connection_manager));
+            }
+            
             Ok(())
         } else {
             Err(Error::WebSocketError("Signaling server URL not set".to_string()))
@@ -196,23 +213,43 @@ impl WebRtcTransport {
 
     /// Create a WebRTC offer
     pub async fn create_offer(&self, peer_id: &PeerId) -> Result<String, std::io::Error> {
-        // In a real implementation, this would create a WebRTC offer
-        // For now, we'll just return a dummy offer
-        Ok(format!("dummy_offer_for_{}", peer_id))
+        // Use the WebRTC signaling client if available
+        if let Some(webrtc_signaling_client) = &self.webrtc_signaling_client {
+            webrtc_signaling_client.create_offer(peer_id)
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        } else {
+            // Fallback to dummy implementation
+            Ok(format!("dummy_offer_for_{}", peer_id))
+        }
     }
 
     /// Process a WebRTC answer
     pub async fn process_answer(&self, peer_id: &PeerId, answer: &str) -> Result<(), std::io::Error> {
-        // In a real implementation, this would process a WebRTC answer
-        log::debug!("Processing WebRTC answer from peer {}: {}", peer_id, answer);
-        Ok(())
+        // Use the WebRTC signaling client if available
+        if let Some(webrtc_signaling_client) = &self.webrtc_signaling_client {
+            webrtc_signaling_client.process_answer(peer_id, answer)
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        } else {
+            // Fallback to dummy implementation
+            log::debug!("Processing WebRTC answer from peer {}: {}", peer_id, answer);
+            Ok(())
+        }
     }
 
     /// Add an ICE candidate
     pub async fn add_ice_candidate(&self, peer_id: &PeerId, candidate: &str) -> Result<(), std::io::Error> {
-        // In a real implementation, this would add an ICE candidate
-        log::debug!("Adding ICE candidate for peer {}: {}", peer_id, candidate);
-        Ok(())
+        // Use the WebRTC signaling client if available
+        if let Some(webrtc_signaling_client) = &self.webrtc_signaling_client {
+            webrtc_signaling_client.add_ice_candidate(peer_id, candidate, "data", 0)
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        } else {
+            // Fallback to dummy implementation
+            log::debug!("Adding ICE candidate for peer {}: {}", peer_id, candidate);
+            Ok(())
+        }
     }
 
     /// Handle a new connection
@@ -355,26 +392,27 @@ impl Transport for WebRtcTransport {
         
         self.pending_dials.insert(peer_id.clone(), dial.clone());
         
-        // If we have a signaling client, use it to establish the WebRTC connection
-        if let Some(signaling_client) = &self.signaling_client {
-            // Create an offer
-            let offer_result = self.create_offer(&peer_id).await;
-            let offer: String = match offer_result {
-                Ok(offer_string) => offer_string.to_string(),
-                Err(e) => {
-                    log::error!("Failed to create offer: {}", e);
-                    return Ok(dial);
+        // If we have a WebRTC connection manager, use it to establish the WebRTC connection
+        if let Some(webrtc_connection_manager) = &self.webrtc_connection_manager {
+            // Create a connection
+            match webrtc_connection_manager.create_connection(&peer_id).await {
+                Ok(connection) => {
+                    // Send the connection to the result sender
+                    if let Err(e) = dial.result_sender.clone().try_send(Ok(connection)) {
+                        log::error!("Failed to send connection: {}", e);
+                    }
                 }
-            };
-            
-            // Send the offer through the signaling server
-            if let Err(e) = signaling_client.send_offer(&peer_id.to_string(), &offer).await {
-                log::error!("Failed to send offer: {}", e);
-                return Ok(dial);
+                Err(e) => {
+                    log::error!("Failed to create connection: {}", e);
+                    // Send the error to the result sender
+                    if let Err(e) = dial.result_sender.clone().try_send(Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        e.to_string(),
+                    ))) {
+                        log::error!("Failed to send error: {}", e);
+                    }
+                }
             }
-            
-            // Subscribe to events from this peer
-            let mut events = signaling_client.subscribe(&peer_id.to_string());
             
             // Process events in a separate task
             let peer_id_clone = peer_id.clone();
