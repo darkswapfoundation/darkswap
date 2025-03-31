@@ -4,7 +4,7 @@ use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
     OutPoint, TxOut, Transaction,
-    address::{Address, NetworkUnchecked},
+    Address,
     hashes::Hash,
 };
 use std::collections::HashMap;
@@ -101,28 +101,27 @@ fn test_alkane_balances() -> Result<()> {
     assert!(result.is_err());
     
     // Create a transaction to set the initial balance
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: address1.payload.script_pubkey(),
+        script_pubkey: address1.script_pubkey(),
     };
     
     // Create a simple OP_RETURN script with alkane data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::opcodes::all::OP_RETURN);
     let data = b"ALKANE:ALKANE123:5000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
                 previous_output: outpoint,
-                script_sig: bitcoin::ScriptBuf::new(),
+                script_sig: bitcoin::Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -134,7 +133,7 @@ fn test_alkane_balances() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: address1.payload.script_pubkey(),
+                script_pubkey: address1.script_pubkey(),
             },
         ],
     };
@@ -180,10 +179,10 @@ fn test_alkane_transaction_creation() -> Result<()> {
     );
     
     // Create inputs
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: from_address.payload.script_pubkey(),
+        script_pubkey: from_address.script_pubkey(),
     };
     let inputs = vec![(outpoint, txout)];
     
@@ -199,7 +198,7 @@ fn test_alkane_transaction_creation() -> Result<()> {
     assert!(tx.output[0].script_pubkey.is_op_return());
     
     // The second output should go to the recipient
-    assert_eq!(tx.output[1].script_pubkey, to_address.payload.script_pubkey());
+    assert_eq!(tx.output[1].script_pubkey, to_address.script_pubkey());
     assert_eq!(tx.output[1].value, 546); // Dust limit
     
     Ok(())
@@ -215,21 +214,20 @@ fn test_alkane_transaction_validation() -> Result<()> {
     let to_address = generate_test_address_unchecked(Network::Regtest, 2)?;
     
     // Create a simple OP_RETURN script with alkane data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::opcodes::all::OP_RETURN);
     let data = b"ALKANE:ALKANE123:1000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
-                previous_output: OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0),
-                script_sig: bitcoin::ScriptBuf::new(),
+                previous_output: OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0),
+                script_sig: bitcoin::Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -241,7 +239,7 @@ fn test_alkane_transaction_validation() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: to_address.payload.script_pubkey(),
+                script_pubkey: to_address.script_pubkey(),
             },
         ],
     };
@@ -283,10 +281,10 @@ fn test_alkane_creation_transaction() -> Result<()> {
     let change_address = generate_test_address(Network::Regtest, 1)?;
     
     // Create inputs
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: address.payload.script_pubkey(),
+        script_pubkey: address.script_pubkey(),
     };
     let inputs = vec![(outpoint, txout)];
     
@@ -338,7 +336,7 @@ fn test_alkane_creation_transaction() -> Result<()> {
     assert!(tx.output[0].script_pubkey.is_op_return());
     
     // The second output should go back to the sender
-    assert_eq!(tx.output[1].script_pubkey, address.payload.script_pubkey());
+    assert_eq!(tx.output[1].script_pubkey, address.script_pubkey());
     assert_eq!(tx.output[1].value, 546); // Dust limit
     
     Ok(())

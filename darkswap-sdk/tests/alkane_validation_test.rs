@@ -1,5 +1,5 @@
 use bitcoin::{
-    psbt::Psbt, Address, Network, OutPoint, ScriptBuf, Transaction, LockTime,
+    psbt::Psbt, Address, Network, OutPoint, Script, Transaction, LockTime,
     TxOut, Txid, PubkeyHash,
     blockdata::opcodes::all,
 };
@@ -51,7 +51,7 @@ fn test_alkane_validation() -> Result<()> {
         input: vec![
             bitcoin::TxIn {
                 previous_output: OutPoint::new(Txid::all_zeros(), 0),
-                script_sig: ScriptBuf::new(),
+                script_sig: Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             }
@@ -60,16 +60,17 @@ fn test_alkane_validation() -> Result<()> {
     };
 // Create the OP_RETURN output with the alkane transfer data
     // Create the OP_RETURN output with the alkane transfer data
-    let mut script = ScriptBuf::new();
-    script.push_opcode(all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(all::OP_RETURN);
     
     // Format: "ALKANE:<id>:<amount>"
     let data = "ALKANE:ALKANE123:10000000000";
     
-    // Push each byte individually
-    for byte in data.as_bytes() {
-        script.push_slice(&[*byte]);
-    }
+    // Push the data as a single slice
+    builder = builder.push_slice(data.as_bytes());
+    
+    // Build the script
+    let script = builder.into_script();
     
     // Add the script to the transaction
     tx.output.push(TxOut {

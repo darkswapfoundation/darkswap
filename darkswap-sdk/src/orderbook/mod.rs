@@ -3,6 +3,8 @@
 //! This module provides orderbook functionality for DarkSwap, including order creation,
 //! cancellation, and matching.
 
+mod runes_alkanes;
+
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::Arc;

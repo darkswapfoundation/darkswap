@@ -6,7 +6,7 @@ use darkswap_sdk::trade::Trade;
 use bitcoin::{
     Network,
     OutPoint,
-    address::NetworkUnchecked,
+    Address,
     hashes::Hash,
 };
 use std::collections::HashMap;

@@ -3,8 +3,7 @@ use darkswap_sdk::types::AlkaneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
-    OutPoint, TxOut, Transaction,
-    address::{Address, NetworkUnchecked},
+    OutPoint, TxOut, Transaction, Address,
     hashes::Hash,
 };
 use std::sync::Arc;
@@ -70,28 +69,27 @@ fn test_thread_safe_alkane_protocol_concurrent_access() -> Result<()> {
     );
     
     // Create a transaction to set the initial balance
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
-        script_pubkey: address1.payload.script_pubkey(),
+        script_pubkey: address1.script_pubkey(),
     };
     
     // Create a simple OP_RETURN script with alkane data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::opcodes::all::OP_RETURN);
     let data = b"ALKANE:ALKANE123:5000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
                 previous_output: outpoint,
-                script_sig: bitcoin::ScriptBuf::new(),
+                script_sig: bitcoin::Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -103,7 +101,7 @@ fn test_thread_safe_alkane_protocol_concurrent_access() -> Result<()> {
             },
             TxOut {
                 value: 546,
-                script_pubkey: address1.payload.script_pubkey(),
+                script_pubkey: address1.script_pubkey(),
             },
         ],
     };
@@ -136,10 +134,10 @@ fn test_thread_safe_alkane_protocol_concurrent_access() -> Result<()> {
             );
             
             // Create inputs
-            let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), i as u32);
+            let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), i as u32);
             let txout = TxOut {
                 value: 10000,
-                script_pubkey: address1_clone.payload.script_pubkey(),
+                script_pubkey: address1_clone.script_pubkey(),
             };
             let inputs = vec![(outpoint, txout)];
             

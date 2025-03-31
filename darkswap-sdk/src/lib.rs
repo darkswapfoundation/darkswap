@@ -10,6 +10,7 @@ pub mod config;
 pub mod error;
 pub mod orderbook;
 pub mod p2p;
+pub mod predicates;
 pub mod runes;
 pub mod runestone;
 pub mod trade;
@@ -31,6 +32,14 @@ use p2p::{circuit_relay::CircuitRelayManager, webrtc_transport::DarkSwapWebRtcTr
 use trade::{Trade, TradeManager};
 use types::{Asset, Event, TradeId};
 use wallet::{bdk_wallet::BdkWallet, simple_wallet::SimpleWallet, WalletInterface};
+use predicates::{
+    EqualityPredicateAlkane,
+    Predicate,
+    PredicateAlkaneFactory,
+    TimeLockedPredicateAlkane,
+    TimeLockedPredicateAlkaneFactory,
+    TimeConstraint
+};
 
 /// DarkSwap SDK
 pub struct DarkSwap {
@@ -365,6 +374,175 @@ impl DarkSwap {
     pub async fn get_alkane(&self, alkane_id: &types::AlkaneId) -> Result<Option<types::Alkane>> {
         // TODO: Implement alkane lookup
         Ok(None)
+    }
+
+    // Runes and Alkanes Orderbook Methods
+
+    /// Create a new order for a BTC/Rune trading pair
+    pub async fn create_btc_rune_order(
+        &self,
+        rune_id: types::RuneId,
+        side: orderbook::OrderSide,
+        amount: rust_decimal::Decimal,
+        price: rust_decimal::Decimal,
+        expiry: Option<u64>,
+    ) -> Result<Order> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
+        
+        match side {
+            orderbook::OrderSide::Buy => {
+                // Buy rune with BTC
+                self.create_order(
+                    types::Asset::Rune(rune_id),
+                    types::Asset::Bitcoin,
+                    side,
+                    amount,
+                    price,
+                    expiry,
+                ).await
+            }
+            orderbook::OrderSide::Sell => {
+                // Sell rune for BTC
+                self.create_order(
+                    types::Asset::Rune(rune_id),
+                    types::Asset::Bitcoin,
+                    side,
+                    amount,
+                    price,
+                    expiry,
+                ).await
+            }
+        }
+    }
+
+    /// Create a new order for a BTC/Alkane trading pair
+    pub async fn create_btc_alkane_order(
+        &self,
+        alkane_id: types::AlkaneId,
+        side: orderbook::OrderSide,
+        amount: rust_decimal::Decimal,
+        price: rust_decimal::Decimal,
+        expiry: Option<u64>,
+    ) -> Result<Order> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
+        
+        match side {
+            orderbook::OrderSide::Buy => {
+                // Buy alkane with BTC
+                self.create_order(
+                    types::Asset::Alkane(alkane_id),
+                    types::Asset::Bitcoin,
+                    side,
+                    amount,
+                    price,
+                    expiry,
+                ).await
+            }
+            orderbook::OrderSide::Sell => {
+                // Sell alkane for BTC
+                self.create_order(
+                    types::Asset::Alkane(alkane_id),
+                    types::Asset::Bitcoin,
+                    side,
+                    amount,
+                    price,
+                    expiry,
+                ).await
+            }
+        }
+    }
+
+    /// Get orders for a BTC/Rune trading pair
+    pub async fn get_btc_rune_orders(&self, rune_id: types::RuneId) -> Result<Vec<Order>> {
+        self.get_orders(&types::Asset::Rune(rune_id), &types::Asset::Bitcoin).await
+    }
+
+    /// Get orders for a BTC/Alkane trading pair
+    pub async fn get_btc_alkane_orders(&self, alkane_id: &types::AlkaneId) -> Result<Vec<Order>> {
+        self.get_orders(&types::Asset::Alkane(alkane_id.clone()), &types::Asset::Bitcoin).await
+    }
+
+    /// Get best bid and ask for a BTC/Rune trading pair
+    pub async fn get_btc_rune_best_bid_ask(
+        &self,
+        rune_id: types::RuneId,
+    ) -> Result<(Option<rust_decimal::Decimal>, Option<rust_decimal::Decimal>)> {
+        self.get_best_bid_ask(&types::Asset::Rune(rune_id), &types::Asset::Bitcoin).await
+    }
+
+    /// Get best bid and ask for a BTC/Alkane trading pair
+    pub async fn get_btc_alkane_best_bid_ask(
+        &self,
+        alkane_id: &types::AlkaneId,
+    ) -> Result<(Option<rust_decimal::Decimal>, Option<rust_decimal::Decimal>)> {
+        self.get_best_bid_ask(&types::Asset::Alkane(alkane_id.clone()), &types::Asset::Bitcoin).await
+    }
+
+    /// Create an equality predicate alkane
+    pub fn create_equality_predicate_alkane(
+        &self,
+        left_alkane_id: types::AlkaneId,
+        left_amount: u128,
+        right_alkane_id: types::AlkaneId,
+        right_amount: u128,
+    ) -> EqualityPredicateAlkane {
+        PredicateAlkaneFactory::create_equality_predicate(
+            left_alkane_id,
+            left_amount,
+            right_alkane_id,
+            right_amount,
+        )
+    }
+
+    /// Validate a transaction against a predicate
+    pub fn validate_predicate(&self, predicate: &impl Predicate, tx: &bitcoin::Transaction) -> Result<bool> {
+        predicate.validate(tx)
+    }
+
+    /// Create a time-locked predicate alkane that can only be executed before a specific timestamp
+    pub fn create_time_locked_before_predicate_alkane(
+        &self,
+        alkane_id: types::AlkaneId,
+        amount: u128,
+        timestamp: u64,
+    ) -> TimeLockedPredicateAlkane {
+        TimeLockedPredicateAlkaneFactory::create_before(
+            alkane_id,
+            amount,
+            timestamp,
+        )
+    }
+
+    /// Create a time-locked predicate alkane that can only be executed after a specific timestamp
+    pub fn create_time_locked_after_predicate_alkane(
+        &self,
+        alkane_id: types::AlkaneId,
+        amount: u128,
+        timestamp: u64,
+    ) -> TimeLockedPredicateAlkane {
+        TimeLockedPredicateAlkaneFactory::create_after(
+            alkane_id,
+            amount,
+            timestamp,
+        )
+    }
+
+    /// Create a time-locked predicate alkane that can only be executed between two timestamps
+    pub fn create_time_locked_between_predicate_alkane(
+        &self,
+        alkane_id: types::AlkaneId,
+        amount: u128,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> TimeLockedPredicateAlkane {
+        TimeLockedPredicateAlkaneFactory::create_between(
+            alkane_id,
+            amount,
+            start_timestamp,
+            end_timestamp,
+        )
     }
 
     /// Subscribe to events

@@ -37,7 +37,7 @@ impl bitcoin::psbt::GetKey for &Keypair {
 fn test_keypair_creation() {
     let secp = Secp256k1::new();
     let secret_key = SecretKey::from_slice(&[0; 32]).unwrap();
-    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key_global(&secret_key);
     let public_key = PublicKey::new(secp_public_key);
     
     let keypair = Keypair {
@@ -54,7 +54,7 @@ fn test_keypair_creation() {
 fn test_get_key() {
     let secp = Secp256k1::new();
     let secret_key = SecretKey::from_slice(&[0; 32]).unwrap();
-    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+    let secp_public_key = bitcoin::secp256k1::PublicKey::from_secret_key_global(&secret_key);
     let public_key = PublicKey::new(secp_public_key);
     
     let keypair = Keypair {

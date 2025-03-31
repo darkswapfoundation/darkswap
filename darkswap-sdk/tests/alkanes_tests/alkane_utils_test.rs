@@ -142,7 +142,7 @@ fn test_alkane_parse_amount() -> Result<()> {
 #[test]
 fn test_alkane_from_rune() -> Result<()> {
     // Create a test rune
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let rune_id = 123456789u128;
     let rune = darkswap_sdk::runes::Rune::new(
         rune_id,

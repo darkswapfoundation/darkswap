@@ -6,9 +6,8 @@ use darkswap_sdk::orderbook::{Order, OrderSide};
 use darkswap_sdk::trade::Trade;
 use darkswap_sdk::types::{AlkaneId, Asset, PeerId};
 use bitcoin::{
-    Network,
+    Network, Address,
     OutPoint, TxOut, Transaction, psbt::Psbt,
-    address::NetworkUnchecked,
     hashes::Hash,
 };
 use rust_decimal::Decimal;
@@ -19,12 +18,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 struct MockWallet {
     network: Network,
-    address: NetworkUnchecked,
+    address: Address,
     utxos: Vec<(OutPoint, TxOut)>,
 }
 
 impl MockWallet {
-    fn new(network: Network, address: Address<NetworkUnchecked>) -> Self {
+    fn new(network: Network, address: Address) -> Self {
         Self {
             network,
             address,
@@ -33,7 +32,7 @@ impl MockWallet {
     }
 
     fn add_utxo(&mut self, value: u64) {
-        let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), self.utxos.len() as u32);
+        let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), self.utxos.len() as u32);
         let txout = TxOut {
             value,
             script_pubkey: self.address.script_pubkey(),
@@ -43,7 +42,7 @@ impl MockWallet {
 }
 
 impl BitcoinWallet for MockWallet {
-    fn get_address(&self) -> Result<NetworkUnchecked> {
+    fn get_address(&self) -> Result<Address> {
         Ok(self.address.clone())
     }
 

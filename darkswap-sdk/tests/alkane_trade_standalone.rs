@@ -1,6 +1,6 @@
 use bitcoin::{
-    address::NetworkUnchecked, psbt::Psbt, Address, Network, OutPoint, ScriptBuf, Transaction,
-    TxOut, Txid, PubkeyHash,
+    psbt::Psbt, Address, Network, OutPoint, Script, Transaction,
+    TxOut, Txid, PubkeyHash, PublicKey,
 };
 use bitcoin::hashes::hash160;
 use bitcoin::hashes::Hash;
@@ -19,12 +19,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 struct MockWallet {
     network: Network,
-    address: Address<NetworkUnchecked>,
+    address: Address,
     utxos: Vec<(OutPoint, TxOut)>,
 }
 
 impl MockWallet {
-    fn new(network: Network, address: Address<NetworkUnchecked>) -> Self {
+    fn new(network: Network, address: Address) -> Self {
         Self {
             network,
             address,
@@ -39,7 +39,7 @@ impl MockWallet {
         );
         let txout = TxOut {
             value,
-            script_pubkey: self.address.payload.script_pubkey(),
+            script_pubkey: self.address.script_pubkey(),
         };
         self.utxos.push((outpoint, txout));
     }
@@ -50,9 +50,8 @@ impl BitcoinWallet for MockWallet {
     }
 
     fn get_address(&self, _index: u32) -> Result<Address> {
-        // Convert from NetworkUnchecked to NetworkChecked
-        let address = Address::new(self.network, self.address.payload.clone());
-        Ok(address)
+        // Return a clone of the address
+        Ok(self.address.clone())
     }
 
     fn get_addresses(&self) -> Result<Vec<Address>> {

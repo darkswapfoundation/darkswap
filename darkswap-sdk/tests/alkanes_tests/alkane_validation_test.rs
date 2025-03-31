@@ -3,8 +3,7 @@ use darkswap_sdk::types::AlkaneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
-    OutPoint, TxOut, Transaction,
-    address::{Address, NetworkUnchecked},
+    OutPoint, TxOut, Transaction, Address,
     hashes::Hash,
 };
 use std::collections::HashMap;

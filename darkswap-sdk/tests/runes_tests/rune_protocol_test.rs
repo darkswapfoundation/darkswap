@@ -4,8 +4,7 @@ use darkswap_sdk::types::RuneId;
 use darkswap_sdk::error::Result;
 use bitcoin::{
     Network,
-    OutPoint, TxOut, Transaction, Txid,
-    address::{Address, NetworkUnchecked},
+    OutPoint, TxOut, Transaction, Txid, Address,
     hashes::Hash,
 };
 use std::collections::HashMap;
@@ -90,28 +89,27 @@ fn test_rune_balances() -> Result<()> {
     assert!(result.is_err());
     
     // Create a transaction to set the initial balance
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
         script_pubkey: address1.script_pubkey(),
     };
     
     // Create a simple OP_RETURN script with rune data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::opcodes::all::OP_RETURN);
     let data = b"RUNE:RUNE123:5000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
                 previous_output: outpoint,
-                script_sig: bitcoin::ScriptBuf::new(),
+                script_sig: bitcoin::Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -182,7 +180,7 @@ fn test_runestone_creation_and_parsing() -> Result<()> {
     // Create a transaction with the runestone script
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![],
         output: vec![
             TxOut {
@@ -238,7 +236,7 @@ fn test_rune_transaction_creation() -> Result<()> {
     );
     
     // Create inputs
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
         script_pubkey: from_address.script_pubkey(),
@@ -278,21 +276,20 @@ fn test_rune_transaction_validation() -> Result<()> {
     let to_address = generate_test_address_unchecked(Network::Regtest, 2)?;
     
     // Create a simple OP_RETURN script with rune data
-    let mut script = bitcoin::ScriptBuf::new();
-    script.push_opcode(bitcoin::opcodes::all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(bitcoin::opcodes::all::OP_RETURN);
     let data = b"RUNE:RUNE123:1000";
-    let mut buffer = [0u8; 1];
-    buffer[0] = data[0];
-    script.push_slice(&buffer);
+    builder = builder.push_slice(data);
+    let script = builder.into_script();
     
     // Create a transaction
     let tx = Transaction {
         version: 2,
-        lock_time: bitcoin::absolute::LockTime::ZERO,
+        lock_time: bitcoin::absolute::LockTime::ZERO.into(),
         input: vec![
             bitcoin::TxIn {
-                previous_output: OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0),
-                script_sig: bitcoin::ScriptBuf::new(),
+                previous_output: OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0),
+                script_sig: bitcoin::Script::new(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             },
@@ -327,11 +324,10 @@ fn test_rune_etching_transaction() -> Result<()> {
     
     // Create address
     let address = Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap();
-    let change_address = Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap()
-        .require_network(Network::Regtest).unwrap();
+    let change_address = Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap();
     
     // Create inputs
-    let outpoint = OutPoint::new(bitcoin::Txid::from_raw_hash(bitcoin::hashes::Hash::all_zeros()), 0);
+    let outpoint = OutPoint::new(bitcoin::Txid::from_hash(bitcoin::hashes::Hash::all_zeros()), 0);
     let txout = TxOut {
         value: 10000,
         script_pubkey: address.script_pubkey(),

@@ -458,7 +458,7 @@ impl AlkaneProtocol {
         // Add the recipient output
         tx.output.push(TxOut {
             value: 546, // Dust limit
-            script_pubkey: transfer.to.payload.script_pubkey(),
+            script_pubkey: transfer.to.script_pubkey(),
         });
         
         // Add the change output
@@ -470,7 +470,7 @@ impl AlkaneProtocol {
         if change > 546 {
             tx.output.push(TxOut {
                 value: change,
-                script_pubkey: change_address.payload.script_pubkey(),
+                script_pubkey: change_address.script_pubkey(),
             });
         }
         

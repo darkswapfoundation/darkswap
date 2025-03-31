@@ -21,11 +21,13 @@ struct MockWallet {
 
 impl MockWallet {
     fn new(network: Network) -> Self {
-        let address_checked = bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
-            .unwrap()
-            .require_network(network)
-            .unwrap();
-        let address = address_checked;
+        // Create an address directly with the correct network
+        let address = match network {
+            Network::Regtest => bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap(),
+            Network::Testnet => bitcoin::Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx").unwrap(),
+            Network::Bitcoin => bitcoin::Address::from_str("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4").unwrap(),
+            _ => bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap(),
+        };
         
         let outpoint = OutPoint {
             txid: bitcoin::Txid::from_str("0000000000000000000000000000000000000000000000000000000000000001").unwrap(),
@@ -51,13 +53,13 @@ impl BitcoinWallet for MockWallet {
     }
     
     fn get_address(&self, _index: u32) -> Result<bitcoin::Address> {
-        let address_checked = bitcoin::Address::new(self.address.network, self.address.payload.clone());
-        Ok(address_checked)
+        // Return a clone of the address
+        Ok(self.address.clone())
     }
     
     fn get_addresses(&self) -> Result<Vec<bitcoin::Address>> {
-        let address_checked = bitcoin::Address::new(self.address.network, self.address.payload.clone());
-        Ok(vec![address_checked])
+        // Return a vector with a clone of the address
+        Ok(vec![self.address.clone()])
     }
     
     fn get_utxos(&self) -> Result<Vec<(OutPoint, TxOut)>> {
@@ -352,29 +354,15 @@ fn test_alkane_etching() -> Result<()> {
     let metadata_json = serde_json::to_string(&metadata).unwrap();
     
     // Create an OP_RETURN script with the metadata
-    let mut metadata_script = ScriptBuf::new();
-    let mut metadata_script = ScriptBuf::new();
-    metadata_script.push_opcode(all::OP_RETURN);
+    let mut builder = bitcoin::blockdata::script::Builder::new();
+    builder = builder.push_opcode(all::OP_RETURN);
     
-    // Add the data in chunks
+    // Add the data as a single slice
     let metadata_bytes = metadata_json.as_bytes();
-    for chunk in metadata_bytes.chunks(75) {
-        // Convert the chunk to a fixed-size array that implements AsRef<PushBytes>
-        match chunk.len() {
-            1 => metadata_script.push_slice(&[chunk[0]]),
-            2 => metadata_script.push_slice(&[chunk[0], chunk[1]]),
-            3 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2]]),
-            4 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3]]),
-            5 => metadata_script.push_slice(&[chunk[0], chunk[1], chunk[2], chunk[3], chunk[4]]),
-            // Add more cases as needed for larger chunks
-            _ => {
-                // For larger chunks, we'll push bytes individually
-                for &byte in chunk {
-                    metadata_script.push_slice(&[byte]);
-                }
-            }
-        }
-    }
+    builder = builder.push_slice(metadata_bytes);
+    
+    // Build the script
+    let metadata_script = builder.into_script();
     
     let tx = Transaction {
         version: 2,
@@ -465,10 +453,7 @@ fn test_alkane_balance() -> Result<()> {
     // Print the script for debugging
     println!("Script: {:?}", script);
     
-    let address = bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080")
-        .unwrap()
-        .require_network(Network::Regtest)
-        .unwrap();
+    let address = bitcoin::Address::from_str("bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080").unwrap();
     
     let tx = Transaction {
         version: 2,

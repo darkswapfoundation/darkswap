@@ -1,4 +1,4 @@
-# Phase 1 Remaining Tasks
+ # Phase 1 Remaining Tasks
 
 ## Bitcoin Crate v0.30 Compatibility
 
@@ -16,12 +16,12 @@
 - ✅ Updated `runestone_test.rs` to work with Bitcoin crate v0.30
 - ✅ Updated `trade_tests.rs` to work with Bitcoin crate v0.30
 - ✅ Updated `orderbook_tests.rs` to work with Bitcoin crate v0.30
-- ❌ Need to update 16 remaining integration tests:
-  - `alkane_protocol_fix.rs`
-  - `alkane_trade_standalone.rs`
-  - `alkane_validation_test.rs`
-  - `alkanes_test.rs`
-  - `alkanes_tests/alkane_protocol_test.rs`
+- ❌ Need to update 14 remaining integration tests:
+  - `alkane_protocol_fix.rs` (already compatible)
+  - ✅ `alkane_trade_standalone.rs` (updated)
+  - ✅ `alkane_validation_test.rs` (updated)
+  - ✅ `alkanes_test.rs` (updated)
+  - ✅ `alkanes_tests/alkane_protocol_test.rs` (updated)
   - `alkanes_tests/alkane_trade_test.rs`
   - `alkanes_tests/alkane_trading_test.rs`
   - `alkanes_tests/alkane_utils_test.rs`
