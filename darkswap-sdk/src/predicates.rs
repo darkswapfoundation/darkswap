@@ -4,11 +4,15 @@
 //! Predicate alkanes are specialized alkane contracts that enforce constraints on their inputs.
 //! They are particularly useful for enforcing trade conditions between two parties.
 pub mod time_locked;
+pub mod composite;
+pub mod multi_signature;
 
 pub use time_locked::{TimeLockedPredicateAlkane, TimeLockedPredicateAlkaneFactory, TimeConstraint};
-pub mod time_locked;
+pub use composite::{CompositePredicateAlkane, CompositePredicateAlkaneFactory, LogicalOperator};
+pub use multi_signature::{MultiSignaturePredicateAlkane, MultiSignaturePredicateAlkaneFactory};
 
-use crate::alkanes::{Alkane, AlkaneId};
+use crate::alkanes::Alkane;
+use crate::types::AlkaneId;
 use crate::error::{Error, Result};
 use bitcoin::{Transaction, TxOut};
 use std::collections::HashMap;

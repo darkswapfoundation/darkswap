@@ -238,9 +238,9 @@ impl RuneProtocol {
         
         // Add inputs from the wallet
         let utxos = wallet.get_utxos()?;
-        for (outpoint, txout) in utxos {
+        for (outpoint, _) in &utxos {
             tx.input.push(TxIn {
-                previous_output: outpoint,
+                previous_output: *outpoint,
                 script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
@@ -280,7 +280,7 @@ impl RuneProtocol {
         
         // Calculate the total input value
         let mut total_input_value = 0;
-        for (_, txout) in utxos {
+        for (_, txout) in &utxos {
             total_input_value += txout.value;
         }
         
@@ -331,9 +331,9 @@ impl RuneProtocol {
         
         // Add inputs from the wallet
         let utxos = wallet.get_utxos()?;
-        for (outpoint, txout) in utxos {
+        for (outpoint, _) in &utxos {
             tx.input.push(TxIn {
-                previous_output: outpoint,
+                previous_output: *outpoint,
                 script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
@@ -375,7 +375,7 @@ impl RuneProtocol {
         
         // Calculate the total input value
         let mut total_input_value = 0;
-        for (_, txout) in utxos {
+        for (_, txout) in &utxos {
             total_input_value += txout.value;
         }
         

@@ -7,8 +7,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bitcoin::Transaction;
-
-use crate::alkanes::AlkaneId;
+use crate::types::AlkaneId;
 use crate::error::{Error, Result};
 use crate::predicates::Predicate;
 
@@ -63,7 +62,7 @@ impl TimeLockedPredicateAlkane {
         // Get current timestamp
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| Error::Other(format!("Failed to get current time: {}", e)))?
+            .map_err(|e| Error::UnknownError(format!("Failed to get current time: {}", e)))?
             .as_secs();
         
         // Check time constraint

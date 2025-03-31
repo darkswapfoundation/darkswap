@@ -26,6 +26,7 @@ import WebRtc from './pages/WebRtc';
 import P2PTrade from './pages/P2PTrade';
 import Runes from './pages/Runes';
 import Alkanes from './pages/Alkanes';
+import Predicates from './pages/Predicates';
 import P2POrderbookPage from './pages/P2POrderbookPage';
 
 // Wrapper component to provide context values to pages

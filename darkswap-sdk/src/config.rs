@@ -185,6 +185,30 @@ impl Default for LoggingConfig {
     }
 }
 
+/// Performance configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceConfig {
+    /// Enable performance profiling
+    pub enabled: bool,
+    /// Enable caching
+    pub enable_caching: bool,
+    /// Cache expiry (seconds)
+    pub cache_expiry: u64,
+    /// Profile critical paths
+    pub profile_critical_paths: bool,
+}
+
+impl Default for PerformanceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            enable_caching: true,
+            cache_expiry: 300, // 5 minutes
+            profile_critical_paths: true,
+        }
+    }
+}
+
 /// DarkSwap configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -203,6 +227,8 @@ pub struct Config {
     pub trade: TradeConfig,
     /// Logging configuration
     pub logging: LoggingConfig,
+    /// Performance configuration
+    pub performance: PerformanceConfig,
 }
 
 impl Default for Config {
@@ -215,6 +241,7 @@ impl Default for Config {
             orderbook: OrderbookConfig::default(),
             trade: TradeConfig::default(),
             logging: LoggingConfig::default(),
+            performance: PerformanceConfig::default(),
         }
     }
 }

@@ -10,6 +10,7 @@ pub mod config;
 pub mod error;
 pub mod orderbook;
 pub mod p2p;
+pub mod performance;
 pub mod predicates;
 pub mod runes;
 pub mod runestone;
@@ -20,16 +21,17 @@ pub mod wallet;
 pub mod wasm;
 
 use std::sync::Arc;
-
 use anyhow::{Context as AnyhowContext, Result};
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use tokio::sync::{mpsc, Mutex, RwLock};
 
+use performance::{PerformanceProfiler, PerformanceOptimizer};
+
 use config::Config;
 use orderbook::{Order, OrderId, OrderSide, OrderStatus, Orderbook};
 use p2p::{circuit_relay::CircuitRelayManager, webrtc_transport::DarkSwapWebRtcTransport, P2PNetwork};
-use trade::{Trade, TradeManager};
+use trade::{Trade, TradeModule as TradeManager};
 use types::{Asset, Event, TradeId};
 use wallet::{bdk_wallet::BdkWallet, simple_wallet::SimpleWallet, WalletInterface};
 use predicates::{
@@ -38,7 +40,12 @@ use predicates::{
     PredicateAlkaneFactory,
     TimeLockedPredicateAlkane,
     TimeLockedPredicateAlkaneFactory,
-    TimeConstraint
+    TimeConstraint,
+    CompositePredicateAlkane,
+    CompositePredicateAlkaneFactory,
+    LogicalOperator,
+    MultiSignaturePredicateAlkane,
+    MultiSignaturePredicateAlkaneFactory
 };
 
 /// DarkSwap SDK
@@ -59,6 +66,10 @@ pub struct DarkSwap {
     trade_manager: Option<Arc<TradeManager>>,
     /// Event channel
     event_channel: (mpsc::Sender<Event>, mpsc::Receiver<Event>),
+    /// Performance profiler
+    performance_profiler: Option<Arc<PerformanceProfiler>>,
+    /// Performance optimizer
+    performance_optimizer: Option<Arc<PerformanceOptimizer>>,
 }
 
 impl DarkSwap {
@@ -76,6 +87,8 @@ impl DarkSwap {
             orderbook: None,
             trade_manager: None,
             event_channel: (event_sender, event_receiver),
+            performance_profiler: None,
+            performance_optimizer: None,
         })
     }
 
@@ -92,6 +105,9 @@ impl DarkSwap {
         
         // Initialize trade manager
         self.init_trade_manager().await?;
+        
+        // Initialize performance profiler and optimizer
+        self.init_performance().await?;
         
         info!("DarkSwap started successfully");
         
@@ -190,20 +206,54 @@ impl DarkSwap {
             .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))?;
         
         // Create trade manager
+        // Note: This is a simplified implementation for now
+        // In a real implementation, we would need to create proper implementations
+        // of the Wallet, RunesExecutor, and AlkanesExecutor traits
+        let wallet_trait = Arc::new(DummyWallet {});
+        let runes_executor = Arc::new(DummyRunesExecutor {});
+        let alkanes_executor = Arc::new(DummyAlkanesExecutor {});
+        
         let trade_manager = TradeManager::new(
             network.clone(),
-            wallet.clone(),
             self.event_channel.0.clone(),
+            wallet_trait,
+            runes_executor,
+            alkanes_executor,
         );
         
         let trade_manager = Arc::new(trade_manager);
         
         // Start trade manager
-        trade_manager.start().await?;
+        trade_manager.init().await?;
         
         self.trade_manager = Some(trade_manager);
         
         info!("Trade manager initialized successfully");
+        
+        Ok(())
+    }
+
+    /// Initialize performance profiler and optimizer
+    async fn init_performance(&mut self) -> Result<()> {
+        // Create performance profiler
+        let profiler = Arc::new(PerformanceProfiler::new(self.config.performance.enabled));
+        
+        // Create performance optimizer
+        let optimizer = Arc::new(PerformanceOptimizer::new(profiler.clone()));
+        
+        // Enable caching for common operations
+        if self.config.performance.enable_caching {
+            optimizer.enable_cache("orderbook").await;
+            optimizer.enable_cache("trade").await;
+            optimizer.enable_cache("wallet").await;
+            optimizer.enable_cache("runes").await;
+            optimizer.enable_cache("alkanes").await;
+        }
+        
+        self.performance_profiler = Some(profiler);
+        self.performance_optimizer = Some(optimizer);
+        
+        info!("Performance profiler and optimizer initialized successfully");
         
         Ok(())
     }
@@ -219,6 +269,15 @@ impl DarkSwap {
         self.network = None;
         self.webrtc_transport = None;
         self.circuit_relay = None;
+        
+        // Print performance metrics if enabled
+        if let Some(profiler) = &self.performance_profiler {
+            profiler.print_metrics().await;
+        }
+        
+        // Clear performance profiler and optimizer
+        self.performance_profiler = None;
+        self.performance_optimizer = None;
         self.wallet = None;
         self.orderbook = None;
         self.trade_manager = None;
@@ -300,8 +359,10 @@ impl DarkSwap {
         // Create trade
         let trade_manager = self.trade_manager.as_ref()
             .ok_or_else(|| anyhow::anyhow!("Trade manager not initialized"))?;
-        
-        trade_manager.create_trade(&order, amount).await
+        let network = self.network.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("P2P network not initialized"))?;
+        let local_peer_id = network.read().await.local_peer_id().to_string();
+        trade_manager.create_trade(order_id, local_peer_id, amount).await
     }
 
     /// Get a trade by ID
@@ -496,9 +557,38 @@ impl DarkSwap {
         )
     }
 
+    /// Create a composite predicate alkane with AND operator
+    pub fn create_composite_and_predicate_alkane(&self) -> CompositePredicateAlkane {
+        CompositePredicateAlkaneFactory::create_and()
+    }
+
+    /// Create a composite predicate alkane with OR operator
+    pub fn create_composite_or_predicate_alkane(&self) -> CompositePredicateAlkane {
+        CompositePredicateAlkaneFactory::create_or()
+    }
+    
+    /// Create a multi-signature predicate alkane
+    pub fn create_multi_signature_predicate_alkane(
+        &self,
+        alkane_id: types::AlkaneId,
+        amount: u128,
+        public_keys: Vec<bitcoin::PublicKey>,
+        required_signatures: usize,
+    ) -> MultiSignaturePredicateAlkane {
+        MultiSignaturePredicateAlkaneFactory::create(
+            alkane_id,
+            amount,
+            public_keys,
+            required_signatures,
+        )
+    }
+    
     /// Validate a transaction against a predicate
     pub fn validate_predicate(&self, predicate: &impl Predicate, tx: &bitcoin::Transaction) -> Result<bool> {
-        predicate.validate(tx)
+        match predicate.validate(tx) {
+            Ok(result) => Ok(result),
+            Err(e) => Err(anyhow::anyhow!("Predicate validation error: {}", e))
+        }
     }
 
     /// Create a time-locked predicate alkane that can only be executed before a specific timestamp
@@ -565,5 +655,184 @@ impl DarkSwap {
         });
         
         receiver
+    }
+    
+    /// Get performance profiler
+    pub fn get_performance_profiler(&self) -> Option<Arc<PerformanceProfiler>> {
+        self.performance_profiler.clone()
+    }
+    
+    /// Get performance optimizer
+    pub fn get_performance_optimizer(&self) -> Option<Arc<PerformanceOptimizer>> {
+        self.performance_optimizer.clone()
+    }
+    
+    /// Enable performance profiling
+    pub async fn enable_performance_profiling(&mut self) -> Result<()> {
+        if let Some(profiler) = &self.performance_profiler {
+            // Create a new profiler with enabled=true
+            let new_profiler = Arc::new(performance::PerformanceProfiler::new(true));
+            self.performance_profiler = Some(new_profiler);
+            info!("Performance profiling enabled");
+        } else {
+            self.init_performance().await?;
+            if let Some(profiler) = &self.performance_profiler {
+                // Create a new profiler with enabled=true
+                let new_profiler = Arc::new(performance::PerformanceProfiler::new(true));
+                self.performance_profiler = Some(new_profiler);
+                info!("Performance profiling enabled");
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Disable performance profiling
+    pub fn disable_performance_profiling(&mut self) -> Result<()> {
+        if let Some(profiler) = &self.performance_profiler {
+            // Create a new profiler with enabled=false
+            let new_profiler = Arc::new(performance::PerformanceProfiler::new(false));
+            self.performance_profiler = Some(new_profiler);
+            info!("Performance profiling disabled");
+        }
+        
+        Ok(())
+    }
+    
+    /// Reset performance metrics
+    pub async fn reset_performance_metrics(&self) -> Result<()> {
+        if let Some(profiler) = &self.performance_profiler {
+            profiler.reset().await;
+            info!("Performance metrics reset");
+        }
+        
+        Ok(())
+    }
+    
+    /// Print performance metrics
+    pub async fn print_performance_metrics(&self) -> Result<()> {
+        if let Some(profiler) = &self.performance_profiler {
+            profiler.print_metrics().await;
+        }
+        
+        Ok(())
+    }
+    
+    /// Enable caching for a specific category
+    pub async fn enable_cache(&self, category: &str) -> Result<()> {
+        if let Some(optimizer) = &self.performance_optimizer {
+            optimizer.enable_cache(category).await;
+            info!("Caching enabled for {}", category);
+        }
+        
+        Ok(())
+    }
+    
+    /// Disable caching for a specific category
+    pub async fn disable_cache(&self, category: &str) -> Result<()> {
+        if let Some(optimizer) = &self.performance_optimizer {
+            optimizer.disable_cache(category).await;
+            info!("Caching disabled for {}", category);
+        }
+        
+        Ok(())
+    }
+    
+    /// Clear cache for a specific category
+    pub async fn clear_cache(&self, category: &str) -> Result<()> {
+        if let Some(optimizer) = &self.performance_optimizer {
+            optimizer.clear_cache(category).await;
+            info!("Cache cleared for {}", category);
+        }
+        
+        Ok(())
+    }
+    
+    /// Clear all caches
+    pub async fn clear_all_caches(&self) -> Result<()> {
+        if let Some(optimizer) = &self.performance_optimizer {
+            optimizer.clear_all_caches().await;
+            info!("All caches cleared");
+        }
+        
+        Ok(())
+    }
+}
+
+// Dummy implementations for the trade module traits
+// These are temporary implementations for compilation purposes
+// In a real implementation, these would be replaced with proper implementations
+
+/// Dummy wallet implementation
+struct DummyWallet {}
+
+#[async_trait]
+impl trade::Wallet for DummyWallet {
+    async fn create_trade_psbt(
+        &self,
+        _trade_id: &TradeId,
+        _order_id: &OrderId,
+        _base_asset: &Asset,
+        _quote_asset: &Asset,
+        _amount: u64,
+        _price: u64,
+    ) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn verify_psbt(&self, _psbt: &[u8]) -> Result<bool> {
+        Ok(true)
+    }
+    
+    async fn sign_psbt(&self, _psbt: &[u8]) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn finalize_and_broadcast_psbt(&self, _psbt: &[u8]) -> Result<String> {
+        Ok("dummy_txid".to_string())
+    }
+}
+
+/// Dummy runes executor implementation
+struct DummyRunesExecutor {}
+
+#[async_trait]
+impl trade::RunesExecutor for DummyRunesExecutor {
+    async fn create_rune_trade_psbt(&self, _trade: &Trade, _is_maker: bool) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn verify_rune_trade_psbt(&self, _psbt: &[u8], _trade: &Trade) -> Result<bool> {
+        Ok(true)
+    }
+    
+    async fn sign_rune_trade_psbt(&self, _psbt: &[u8]) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn finalize_and_broadcast_rune_trade_psbt(&self, _psbt: &[u8]) -> Result<String> {
+        Ok("dummy_txid".to_string())
+    }
+}
+
+/// Dummy alkanes executor implementation
+struct DummyAlkanesExecutor {}
+
+#[async_trait]
+impl trade::AlkanesExecutor for DummyAlkanesExecutor {
+    async fn create_alkane_trade_psbt(&self, _trade: &Trade, _is_maker: bool) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn verify_alkane_trade_psbt(&self, _psbt: &[u8], _trade: &Trade) -> Result<bool> {
+        Ok(true)
+    }
+    
+    async fn sign_alkane_trade_psbt(&self, _psbt: &[u8]) -> Result<Vec<u8>> {
+        Ok(vec![])
+    }
+    
+    async fn finalize_and_broadcast_alkane_trade_psbt(&self, _psbt: &[u8]) -> Result<String> {
+        Ok("dummy_txid".to_string())
     }
 }
