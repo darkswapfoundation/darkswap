@@ -297,20 +297,12 @@ async fn get_order_handler(
     // Get order
     let order = {
         let darkswap = state.darkswap.lock().await;
-        // TODO: Implement get_order in DarkSwap
-        // For now, return a dummy order
-        Order {
-            id: order_id.clone(),
-            maker: "unknown".to_string(),
-            base_asset: Asset::Bitcoin,
-            quote_asset: Asset::Bitcoin,
-            side: OrderSide::Buy,
-            amount: Decimal::new(1, 0),
-            price: Decimal::new(1, 0),
-            status: OrderStatus::Open,
-            timestamp: 0,
-            expiry: 0,
-        }
+        darkswap.get_order(&order_id)
+            .await
+            .map_err(|e| ApiError {
+                message: format!("Failed to get order: {}", e),
+                code: 500,
+            })?
     };
 
     // Return order
@@ -336,8 +328,13 @@ async fn list_orders_handler(
                     code: 500,
                 })?
         } else {
-            // TODO: Get all orders
-            Vec::new()
+            // Get all orders
+            darkswap.get_all_orders()
+                .await
+                .map_err(|e| ApiError {
+                    message: format!("Failed to get all orders: {}", e),
+                    code: 500,
+                })?
         }
     };
 

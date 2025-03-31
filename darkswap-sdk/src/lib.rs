@@ -332,6 +332,14 @@ impl DarkSwap {
         orderbook.get_orders(base_asset, quote_asset).await
     }
 
+    /// Get all orders
+    pub async fn get_all_orders(&self) -> Result<Vec<Order>> {
+        let orderbook = self.orderbook.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Orderbook not initialized"))?;
+        
+        orderbook.get_all_orders().await
+    }
+
     /// Get best bid and ask for a pair
     pub async fn get_best_bid_ask(
         &self,

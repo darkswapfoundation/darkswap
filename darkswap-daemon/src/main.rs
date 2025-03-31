@@ -1,3 +1,5 @@
+
+
 mod types;
 mod api;
 mod handlers;
@@ -63,8 +65,76 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         while let Some(event) = event_receiver.recv().await {
             log::info!("Event: {:?}", event);
-            // Process event
-            // TODO: Implement event processing
+            
+            // Process event based on type
+            match &event {
+                Event::OrderCreated(order) => {
+                    log::info!("Order created: {}", order.id);
+                    // Forward event to clients via WebSocket
+                    // This will be handled by the WebSocket handler
+                },
+                Event::OrderCancelled(order_id) => {
+                    log::info!("Order cancelled: {}", order_id);
+                    // Additional processing if needed
+                },
+                Event::OrderFilled(order_id) => {
+                    log::info!("Order filled: {}", order_id);
+                    // Additional processing if needed
+                },
+                Event::OrderExpired(order_id) => {
+                    log::info!("Order expired: {}", order_id);
+                    // Additional processing if needed
+                },
+                Event::OrderUpdated(order) => {
+                    log::info!("Order updated: {}", order.id);
+                    // Additional processing if needed
+                },
+                Event::TradeStarted(trade) => {
+                    log::info!("Trade started: {}", trade.0);
+                    // Additional processing if needed
+                },
+                Event::TradeCompleted(trade) => {
+                    log::info!("Trade completed: {}", trade.0);
+                    // Additional processing if needed
+                },
+                Event::TradeFailed(trade) => {
+                    log::info!("Trade failed: {}", trade.0);
+                    // Additional processing if needed
+                },
+                Event::TradeCreated(trade) => {
+                    log::info!("Trade created: {}", trade.0);
+                    // Additional processing if needed
+                },
+                Event::TradeUpdated(trade) => {
+                    log::info!("Trade updated: {}", trade.0);
+                    // Additional processing if needed
+                },
+                Event::TradeCancelled(trade_id) => {
+                    log::info!("Trade cancelled: {}", trade_id.0);
+                    // Additional processing if needed
+                },
+                Event::TradeExpired(trade_id) => {
+                    log::info!("Trade expired: {}", trade_id.0);
+                    // Additional processing if needed
+                },
+                Event::PeerConnected(peer_id) => {
+                    log::info!("Peer connected: {:?}", peer_id);
+                    // Additional processing if needed
+                },
+                Event::PeerDisconnected(peer_id) => {
+                    log::info!("Peer disconnected: {:?}", peer_id);
+                    // Additional processing if needed
+                },
+                _ => {
+                    // Handle other event types
+                    log::debug!("Unhandled event type: {:?}", event);
+                }
+            }
+            
+            // Forward event to event_sender for WebSocket clients
+            if let Err(e) = event_sender.send(event).await {
+                log::error!("Failed to forward event: {}", e);
+            }
         }
     });
 

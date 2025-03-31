@@ -5,6 +5,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use futures_util::FutureExt;
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
     types::{Asset, AlkaneId},
@@ -271,11 +272,18 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
                     table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
                     
                     match event {
-                        Event::Network(network_event) => {
+                        Event::PeerConnected(peer_id) => {
                             table.add_row(row![
                                 now,
-                                "Network".blue(),
-                                format!("{:?}", network_event)
+                                "Peer Connected".blue(),
+                                format!("{:?}", peer_id)
+                            ]);
+                        }
+                        Event::PeerDisconnected(peer_id) => {
+                            table.add_row(row![
+                                now,
+                                "Peer Disconnected".yellow(),
+                                format!("{:?}", peer_id)
                             ]);
                         }
                         Event::OrderCreated(order) => {
@@ -296,7 +304,7 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
                                 )
                             ]);
                         }
-                        Event::OrderCanceled(order_id) => {
+                        Event::OrderCancelled(order_id) => {
                             table.add_row(row![
                                 now,
                                 "Order Canceled".yellow(),
@@ -310,36 +318,79 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
                                 order_id.to_string().cyan()
                             ]);
                         }
-                        Event::TradeStarted(trade) => {
-                            table.add_row(row![
-                                now,
-                                "Trade Started".blue(),
-                                format!("Trade: {} | Order: {}",
-                                    trade.id.to_string().cyan(),
-                                    trade.order_id.to_string().cyan()
-                                )
-                            ]);
+                        Event::TradeStarted(trade_id) => {
+                            // Get the trade details if possible
+                            match darkswap.get_trade(&trade_id).await {
+                                Ok(trade) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Started".blue(),
+                                        format!("Trade: {} | Order: {}",
+                                            trade_id.to_string().cyan(),
+                                            trade.order_id.to_string().cyan()
+                                        )
+                                    ]);
+                                },
+                                Err(_) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Started".blue(),
+                                        format!("Trade: {}", trade_id.to_string().cyan())
+                                    ]);
+                                }
+                            }
                         }
-                        Event::TradeCompleted(trade) => {
-                            table.add_row(row![
-                                now,
-                                "Trade Completed".green(),
-                                format!("Trade: {} | Order: {} | Amount: {} {}",
-                                    trade.id.to_string().cyan(),
-                                    trade.order_id.to_string().cyan(),
-                                    trade.amount.to_string(),
-                                    trade.base_asset.to_string()
-                                )
-                            ]);
+                        Event::TradeCompleted(trade_id) => {
+                            // Get the trade details if possible
+                            match darkswap.get_trade(&trade_id).await {
+                                Ok(trade) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Completed".green(),
+                                        format!("Trade: {} | Order: {} | Amount: {} {}",
+                                            trade_id.to_string().cyan(),
+                                            trade.order_id.to_string().cyan(),
+                                            trade.amount.to_string(),
+                                            trade.base_asset.to_string()
+                                        )
+                                    ]);
+                                },
+                                Err(_) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Completed".green(),
+                                        format!("Trade: {}", trade_id.to_string().cyan())
+                                    ]);
+                                }
+                            }
                         }
-                        Event::TradeFailed(trade) => {
+                        Event::TradeFailed(trade_id) => {
+                            // Get the trade details if possible
+                            match darkswap.get_trade(&trade_id).await {
+                                Ok(trade) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Failed".red(),
+                                        format!("Trade: {} | Order: {}",
+                                            trade_id.to_string().cyan(),
+                                            trade.order_id.to_string().cyan()
+                                        )
+                                    ]);
+                                },
+                                Err(_) => {
+                                    table.add_row(row![
+                                        now,
+                                        "Trade Failed".red(),
+                                        format!("Trade: {}", trade_id.to_string().cyan())
+                                    ]);
+                                }
+                            }
+                        }
+                        _ => {
                             table.add_row(row![
                                 now,
-                                "Trade Failed".red(),
-                                format!("Trade: {} | Order: {}",
-                                    trade.id.to_string().cyan(),
-                                    trade.order_id.to_string().cyan()
-                                )
+                                "Other Event".yellow(),
+                                format!("{:?}", event)
                             ]);
                         }
                     }

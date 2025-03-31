@@ -19,6 +19,7 @@ clap = { version = "4.2.7", features = ["derive"] }
 
 # Async
 tokio = { version = "1.28.0", features = ["full"] }
+futures-util = "0.3.31"
 
 # Error handling
 anyhow = "1.0.71"

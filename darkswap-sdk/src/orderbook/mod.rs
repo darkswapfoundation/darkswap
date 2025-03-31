@@ -435,6 +435,18 @@ impl Orderbook {
         Ok(filtered_orders)
     }
 
+    /// Get all orders
+    pub async fn get_all_orders(&self) -> Result<Vec<Order>> {
+        let orders = self.orders.read().await;
+        
+        let filtered_orders = orders.values()
+            .filter(|order| order.status == OrderStatus::Open)
+            .cloned()
+            .collect();
+        
+        Ok(filtered_orders)
+    }
+
     /// Get best bid and ask for a pair
     pub async fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
         let orders = self.orders.read().await;

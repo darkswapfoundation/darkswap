@@ -4,14 +4,14 @@ This document provides information about the current work focus, recent changes,
 
 ## Current Work Focus
 
-The current focus of the DarkSwap project is implementing a modular P2P architecture with WebRTC support for cross-platform compatibility. This involves:
+The current focus of the DarkSwap project is transitioning from Phase 2 to Phase 3, building on the completed CLI and daemon components to implement the web interface and relay server. This involves:
 
-1. **P2P Stack Implementation**: Porting the subfrost-relay and subfrost-node (which contains P2P functionality) crates to create a modular P2P stack with WebRTC support.
-2. **Component Modularization**: Factoring out common P2P code that can be shared between the relay, daemon, and browser components.
-3. **Cross-Platform Support**: Ensuring the codebase can be built for both wasm and x86_64-unknown-linux-gnu targets.
-4. **TypeScript Integration**: Creating a TypeScript library (darkswap-lib) that provides the same functionality as the Rust SDK.
-5. **Core SDK Implementation**: Completing the core SDK with runes and alkanes support, comprehensive unit tests, and performance optimizations.
-6. **Daemon Stability**: Fixing issues in the daemon to ensure stable operation, such as the recent WebSocket event handling fix.
+1. **Web Interface Development**: Creating the darkswap-app web interface using React components and state management.
+2. **Relay Server Implementation**: Implementing the darkswap-relay server with DTLS/ICE support for NAT traversal.
+3. **WebAssembly Bindings**: Creating darkswap-web-sys WASM bindings for browser integration.
+4. **TypeScript Integration**: Developing the darkswap-lib TypeScript library that provides the same functionality as the Rust SDK.
+5. **Runes and Alkanes Support**: Completing the implementation of runes and alkanes support in the SDK.
+6. **Testing and Documentation**: Enhancing testing coverage and improving documentation for all components.
 
 ### Specific Implementation Tasks
 
@@ -47,6 +47,26 @@ The current focus of the DarkSwap project is implementing a modular P2P architec
    - Implement bootstrap mechanism for web clients
 
 ## Recent Changes
+
+### Phase 2 Completion
+
+1. **CLI Implementation**:
+   - Implemented comprehensive command-line interface for DarkSwap
+   - Added commands for order creation, cancellation, listing, and taking
+   - Implemented market data retrieval and wallet connection
+   - Created detailed documentation and usage examples
+
+2. **Daemon Implementation**:
+   - Completed the daemon implementation with REST API and WebSocket support
+   - Added service management files for Linux (systemd), macOS (launchd), and Windows
+   - Implemented event processing for real-time updates
+   - Created comprehensive documentation for installation and usage
+
+3. **SDK Enhancements**:
+   - Added `get_all_orders` method to the Orderbook and DarkSwap structs
+   - Fixed the `get_order` handler in the daemon API
+   - Implemented event processing in the daemon
+   - Added service management capabilities
 
 ### Bitcoin Crate v0.30 Compatibility
 
@@ -308,7 +328,13 @@ The new architecture is designed to maximize code sharing between different plat
 
 ### Short-Term (1 Week)
 
-1. **Complete Runes and Alkanes Support**:
+1. **Begin Phase 3: Applications and Services**:
+   - Start implementing the darkswap-relay server with DTLS/ICE support
+   - Begin development of the darkswap-app web interface
+   - Set up the project structure for the web interface
+   - Create basic React components for the UI
+
+2. **Complete Runes and Alkanes Support**:
    - Implement rune protocol in darkswap-sdk
    - Implement alkane protocol in darkswap-sdk
    - Add tests for runes and alkanes functionality
@@ -316,25 +342,23 @@ The new architecture is designed to maximize code sharing between different plat
    - Integrate predicate alkanes for secure trade conditions
    - Implement EqualityPredicateAlkane for two-party trades
 
-2. **Port Subfrost P2P Stack**:
-   - Port subfrost-relay and subfrost-p2p crates
-   - Adapt for WebRTC support
-   - Implement circuit relay v2 protocol
-
-3. **Create Modular Architecture**:
-   - Create darkswap-support crate for shared code
-   - Create darkswap-p2p crate for P2P networking
-   - Ensure compatibility with both wasm and x86_64-unknown-linux-gnu targets
-
-4. **Implement WebAssembly Bindings**:
+3. **Implement WebAssembly Bindings**:
    - Create darkswap-web-sys crate for WebAssembly bindings
    - Implement browser-native WebRTC support
    - Create TypeScript bindings for the WebAssembly module
+   - Set up wasm-bindgen and wasm-pack
 
-5. **Develop TypeScript Library**:
+4. **Develop TypeScript Library**:
    - Create darkswap-lib package
    - Implement the same functionality as darkswap-sdk
    - Ensure parity between Rust and TypeScript implementations
+   - Create comprehensive TypeScript type definitions
+
+5. **Enhance Testing and Documentation**:
+   - Add more comprehensive unit and integration tests
+   - Create tutorials and examples
+   - Improve API documentation
+   - Create user guides for the web interface
 
 ### Medium-Term (1-2 Months)
 
@@ -485,33 +509,47 @@ The new architecture is designed to maximize code sharing between different plat
 
 ## Implementation Progress
 
-We've made significant progress on the core SDK implementation and are now focusing on the P2P architecture redesign:
+We've made significant progress on the project, completing Phase 2 and preparing for Phase 3:
 
-1. **P2P Architecture**: Analyzing subfrost-relay and subfrost-p2p crates for porting to our architecture.
-2. **Component Structure**: Designing the modular component structure with shared code between platforms.
-3. **WebRTC Integration**: Researching WebRTC integration with rust-libp2p for browser compatibility.
-4. **Network Module**: Implemented P2P networking with WebRTC transport and circuit relay functionality.
-5. **Orderbook Module**: Implemented orderbook management with order matching and expiry.
-6. **Trade Module**: Implemented trade execution with PSBT creation and signing.
-7. **Bitcoin Utilities**: Implemented wallet integration and PSBT handling.
-8. **WASM Bindings**: Implemented WebAssembly bindings for browser integration.
-9. **Daemon Improvements**: Fixed WebSocket event handling in handlers.rs and verified OrderId import in api.rs.
-10. **Bitcoin Crate Compatibility**: Updated the core SDK and some integration tests to work with Bitcoin crate v0.30.
-11. **Predicate Alkanes**: Added reference implementation of EqualityPredicateAlkane for secure two-party trades.
+1. **CLI Implementation**: Completed the command-line interface with comprehensive commands for order management, market data retrieval, and wallet connection.
+2. **Daemon Implementation**: Completed the daemon with REST API, WebSocket support, and service management for Linux, macOS, and Windows.
+3. **SDK Enhancements**: Added new methods to the SDK, fixed issues in the daemon API, and implemented event processing.
+The addition of the predicate alkanes reference implementation provides a foundation for secure trade conditions between parties. As we move forward, we will continue to build on this foundation to create a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications.
+
+With the redesigned architecture and the integration of predicate alkanes for secure trade conditions, DarkSwap will be well-positioned to become a leading platform in the Bitcoin ecosystem, providing users with a secure, reliable, and user-friendly way to trade Bitcoin, runes, and alkanes.
+4. **P2P Architecture**: Analyzing subfrost-relay and subfrost-p2p crates for porting to our architecture.
+5. **Component Structure**: Designing the modular component structure with shared code between platforms.
+6. **WebRTC Integration**: Researching WebRTC integration with rust-libp2p for browser compatibility.
+7. **Network Module**: Implemented P2P networking with WebRTC transport and circuit relay functionality.
+8. **Orderbook Module**: Implemented orderbook management with order matching and expiry.
+9. **Trade Module**: Implemented trade execution with PSBT creation and signing.
+10. **Bitcoin Utilities**: Implemented wallet integration and PSBT handling.
+11. **WASM Bindings**: Implemented WebAssembly bindings for browser integration.
+12. **Bitcoin Crate Compatibility**: Updated the core SDK and some integration tests to work with Bitcoin crate v0.30.
+13. **Predicate Alkanes**: Added reference implementation of EqualityPredicateAlkane for secure two-party trades.
+14. **Documentation**: Created comprehensive documentation for the CLI and daemon components.
 
 The next steps are to:
-1. Update the remaining integration tests to work with Bitcoin crate v0.30
-2. Complete the runes and alkanes support
+1. Begin Phase 3 with the implementation of the relay server and web interface
+2. Update the remaining integration tests to work with Bitcoin crate v0.30
+3. Complete the runes and alkanes support
    - Integrate the predicate alkanes reference implementation
    - Develop additional predicate types for different trade conditions
    - Implement predicate composition for complex trade scenarios
-3. Port the subfrost P2P stack
-4. Create the modular architecture
-5. Implement WebAssembly bindings
-6. Develop the TypeScript library
+4. Implement WebAssembly bindings for browser integration
+5. Develop the TypeScript library for web applications
+6. Enhance testing and documentation
 
 ## Conclusion
 
-The DarkSwap project is making steady progress towards creating a modular and cross-platform P2P trading system. Recent updates to make the core SDK compatible with Bitcoin crate v0.30, along with fixes to the WebSocket event handling in the daemon and verification of the OrderId import, have improved the stability and compatibility of the system. The addition of the predicate alkanes reference implementation provides a foundation for secure trade conditions between parties. The next steps are to update the remaining integration tests, complete the runes and alkanes support (including integrating the predicate alkanes), port the Subfrost P2P stack, create the modular architecture, implement WebAssembly bindings, and develop the TypeScript library.
+The DarkSwap project has made significant progress with the completion of Phase 2, which included the implementation of the CLI and daemon components. The CLI now provides a comprehensive set of commands for managing orders, trades, and wallet operations, while the daemon offers a robust REST API and WebSocket interface for interacting with the DarkSwap SDK.
+
+Recent achievements include:
+1. Implementation of the CLI with commands for order creation, cancellation, listing, and taking
+2. Completion of the daemon with REST API, WebSocket support, and service management
+3. Enhancement of the SDK with new methods like `get_all_orders` and improved event processing
+4. Creation of comprehensive documentation for installation and usage
+
+With the completion of Phase 2, we are now ready to begin Phase 3, which will focus on implementing the relay server and web interface. This will involve creating the darkswap-relay server with DTLS/ICE support, developing the darkswap-app web interface, implementing WebAssembly bindings for browser integration, and developing the TypeScript library for web applications.
 
 With the redesigned architecture and the integration of predicate alkanes for secure trade conditions, DarkSwap will be well-positioned to become a powerful decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes, accessible from both web browsers and native applications. The predicate alkanes will provide an additional layer of security and reliability, making DarkSwap an attractive platform for users who require strong guarantees for their trades.
