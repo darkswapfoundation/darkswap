@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+wasm = []
+
 [dependencies]
 darkswap-support = { path = "../darkswap-support" }
 darkswap-p2p = { path = "../darkswap-p2p", features = ["wasm"] }
@@ -31,3 +35,5 @@ serde-wasm-bindgen = "0.4"
 futures = "0.3"
 log = "0.4"
 console_log = "0.2"
+rand = "0.8"
+console_error_panic_hook = "0.1.7"

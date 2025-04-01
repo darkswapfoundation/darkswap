@@ -4,6 +4,10 @@
 //! allowing it to be used in web browsers.
 
 pub mod webrtc;
+pub mod wallet_mock;
+
+// Re-export wallet_mock as wallet for compatibility
+pub use wallet_mock as wallet;
 
 use darkswap_p2p::{
     network::{Network, NetworkConfig, NetworkEvent},
