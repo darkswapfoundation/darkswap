@@ -36,7 +36,7 @@ yarn-error.log
 .DS_Store
 
 # Reference repositories
-/reference/repos/
+/reference
 
 # Logs
 logs/
