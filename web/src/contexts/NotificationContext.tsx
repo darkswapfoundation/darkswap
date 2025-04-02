@@ -11,20 +11,32 @@ import {
 } from '@heroicons/react/24/outline';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationCategory = 'system' | 'trade' | 'wallet' | 'p2p' | 'other';
 
 export interface Notification {
   id: string;
   type: NotificationType;
+  title?: string;
   message: string;
   timestamp: number;
   duration: number;
+  category?: NotificationCategory;
+  read?: boolean;
+  actionable?: boolean;
+  action?: {
+    label: string;
+    handler: () => void;
+  };
 }
 
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (type: NotificationType, message: string, duration?: number) => void;
+  addNotification: (type: NotificationType, message: string, title?: string, category?: NotificationCategory, duration?: number) => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  removeAllNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -39,11 +51,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   maxNotifications = 5 
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationHistory, setNotificationHistory] = useState<Notification[]>([]);
 
   // Add a notification
   const addNotification = (
-    type: NotificationType, 
-    message: string, 
+    type: NotificationType,
+    message: string,
+    title?: string,
+    category: NotificationCategory = 'other',
     duration: number = 5000
   ) => {
     const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -51,9 +66,13 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     const newNotification: Notification = {
       id,
       type,
+      title: title || type.charAt(0).toUpperCase() + type.slice(1),
       message,
       timestamp: Date.now(),
       duration,
+      category,
+      read: false,
+      actionable: false,
     };
     
     setNotifications(prev => {
@@ -70,6 +89,31 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
   // Clear all notifications
   const clearNotifications = () => {
+    setNotifications([]);
+  };
+  
+  // Mark a notification as read
+  const markAsRead = (id: string) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+  
+  // Mark all notifications as read
+  const markAllAsRead = () => {
+    setNotifications(prev =>
+      prev.map(notification => ({ ...notification, read: true }))
+    );
+  };
+  
+  // Remove all notifications
+  const removeAllNotifications = () => {
+    // Add current notifications to history before clearing
+    setNotificationHistory(prev => [...notifications, ...prev].slice(0, 100));
     setNotifications([]);
   };
 
@@ -99,6 +143,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         addNotification,
         removeNotification,
         clearNotifications,
+        markAsRead,
+        markAllAsRead,
+        removeAllNotifications,
       }}
     >
       {children}

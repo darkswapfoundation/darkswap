@@ -2,43 +2,87 @@
 name = "darkswap-relay"
 version = "0.1.0"
 edition = "2021"
-description = "DarkSwap relay server"
+description = "DarkSwap Relay Server for WebRTC and Circuit Relay"
 authors = ["DarkSwap Team"]
-license = "MIT OR Apache-2.0"
+license = "MIT"
+repository = "https://github.com/darkswap/darkswap-relay"
+build = "build.rs"
 
 [dependencies]
 # Async runtime
 tokio = { version = "1.28", features = ["full"] }
-
-# Logging
-log = "0.4"
-env_logger = "0.10"
-
-# Command line arguments
-clap = { version = "4.3", features = ["derive"] }
-
-# Error handling
-anyhow = "1.0"
-thiserror = "1.0"
-
-# Serialization/Deserialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-
-# WebSocket server
-warp = { version = "0.3", features = ["tls"] }
 futures = "0.3"
 
-# P2P networking
-libp2p = { version = "0.52", features = ["tcp", "noise", "yamux", "relay"] }
+# WebRTC
+webrtc = "0.7"
+webrtc-ice = "0.9"
+webrtc-dtls = "0.7"
+webrtc-sctp = "0.7"
+webrtc-data = "0.7"
 
-# WebSocket client (for testing)
-tokio-tungstenite = { version = "0.20", features = ["native-tls"], optional = true }
+# Networking
+libp2p = { version = "0.52", features = ["full"] }
+libp2p-webrtc = { version = "0.5", features = ["tokio"] }
+libp2p-webrtc-server = "0.2"
+tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
+axum = { version = "0.6", features = ["ws"] }
+reqwest = { version = "0.11", features = ["json"] }
+warp = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.7"
+base64 = "0.21"
+
+# Cryptography
+rand = "0.8"
+sha2 = "0.10"
+ed25519-dalek = "2.0"
+
+# Logging and metrics
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+prometheus = "0.13"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# CLI
+clap = { version = "4.3", features = ["derive"] }
+
+# Utilities
+dashmap = "5.4"
+chrono = "0.4"
+uuid = { version = "1.3", features = ["v4"] }
+once_cell = "1.17"
+
+[dev-dependencies]
+tempfile = "3.5"
+assert_matches = "1.5"
+criterion = "0.5"
+mockall = "0.11"
+
+[build-dependencies]
+chrono = "0.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.test]
+opt-level = 0
+debug = true
 
 [features]
 default = []
-test-utils = ["tokio-tungstenite"]
-
-[[bin]]
-name = "darkswap-relay"
-path = "src/main.rs"
+metrics = []
+tracing = []

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import ApiClient from '../utils/ApiClient';
 import { useNotification } from '../contexts/NotificationContext';
 import { useApi } from '../contexts/ApiContext';
 import { useWebSocket } from '../contexts/WebSocketContext';
+import { useWasmWallet } from '../contexts/WasmWalletContext';
+import P2PNetworkStatus from '../components/P2PNetworkStatus';
 
 // Icons
 import {
@@ -14,24 +15,15 @@ import {
   SignalIcon,
 } from '@heroicons/react/24/outline';
 
-export interface SettingsProps {
-  isWalletConnected: boolean;
-  isSDKInitialized: boolean;
-  apiClient?: ApiClient;
-  isApiLoading: boolean;
-}
-
-const Settings: React.FC<SettingsProps> = ({
-  isWalletConnected,
-  isSDKInitialized,
-  apiClient,
-  isApiLoading,
-}) => {
+const Settings: React.FC = () => {
+  // Get contexts
+  const { isConnected: isWalletConnected, isInitialized: isSDKInitialized } = useWasmWallet();
+  const { client: apiClient, isLoading: isApiLoading, setBaseUrl } = useApi();
+  
   const [apiUrl, setApiUrl] = useState<string>('http://localhost:3000');
   const [wsUrl, setWsUrl] = useState<string>('ws://localhost:3000/ws');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const { addNotification } = useNotification();
-  const { setBaseUrl } = useApi();
   const { disconnect, connect } = useWebSocket();
 
   // Initialize form values
@@ -89,18 +81,13 @@ const Settings: React.FC<SettingsProps> = ({
     setIsSaving(true);
 
     try {
-      if (apiClient) {
-        const response = await apiClient.getHealth();
+      // Test API connection
+      const response = await apiClient.getHealth();
 
-        if (response.error) {
-          addNotification('error', `API connection failed: ${response.error}`);
-        } else {
-          addNotification('success', `API connection successful: v${response.data?.version}`);
-        }
+      if (response.error) {
+        addNotification('error', `API connection failed: ${response.error}`);
       } else {
-        // Simulate API call for demo
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        addNotification('success', 'API connection successful (simulated)');
+        addNotification('success', `API connection successful: v${response.data?.version}`);
       }
     } catch (error) {
       addNotification('error', `API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -242,6 +229,17 @@ const Settings: React.FC<SettingsProps> = ({
               <span>Automatically connect wallet on startup</span>
             </div>
           </div>
+        </div>
+      </div>
+      
+      {/* P2P Network Status */}
+      <div className="card">
+        <div className="card-header flex items-center">
+          <SignalIcon className="w-5 h-5 mr-2 text-twilight-neon-blue" />
+          <h2 className="text-lg font-display font-medium">P2P Network</h2>
+        </div>
+        <div className="card-body p-0">
+          <P2PNetworkStatus />
         </div>
       </div>
 

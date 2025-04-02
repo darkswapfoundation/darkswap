@@ -1,6 +1,7 @@
 /**
  * API client for the DarkSwap daemon
  */
+import { RelayInfo, RelayStatus } from '../contexts/ApiContext';
 
 export interface ApiResponse<T> {
   data?: T;
@@ -19,6 +20,19 @@ export interface Order {
   timestamp: number;
   expiry?: number;
   status: 'open' | 'filled' | 'canceled' | 'expired';
+}
+
+export interface Trade {
+  id: string;
+  maker_peer_id: string;
+  taker_peer_id: string;
+  base_asset: string;
+  quote_asset: string;
+  side: 'buy' | 'sell';
+  amount: string;
+  price: string;
+  total: string;
+  timestamp: number;
 }
 
 export interface MarketData {
@@ -85,14 +99,31 @@ export class ApiClient {
   }
 
   /**
-   * Make a request to the API
+   * Make a request to the API (public version)
    * @param method HTTP method
    * @param path API path
    * @param body Request body
    * @param headers Additional headers
    * @returns API response
    */
-  private async request<T>(
+  public async request<T>(
+    method: string,
+    path: string,
+    body?: any,
+    headers?: HeadersInit
+  ): Promise<ApiResponse<T>> {
+    return this.privateRequest<T>(method, path, body, headers);
+  }
+
+  /**
+   * Make a request to the API (private implementation)
+   * @param method HTTP method (private)
+   * @param path API path
+   * @param body Request body
+   * @param headers Additional headers
+   * @returns API response
+   */
+  private async privateRequest<T>(
     method: string,
     path: string,
     body?: any,
@@ -146,7 +177,7 @@ export class ApiClient {
    * @returns Health status
    */
   public async getHealth(): Promise<ApiResponse<{ status: string; version: string }>> {
-    return this.request('GET', '/health');
+    return this.privateRequest('GET', '/health');
   }
 
   /**
@@ -175,7 +206,7 @@ export class ApiClient {
     
     query += `side=${encodeURIComponent(side)}&status=${encodeURIComponent(status)}`;
     
-    return this.request('GET', `/orders?${query}`);
+    return this.privateRequest('GET', `/orders?${query}`);
   }
 
   /**
@@ -184,7 +215,7 @@ export class ApiClient {
    * @returns Order
    */
   public async getOrder(orderId: string): Promise<ApiResponse<Order>> {
-    return this.request('GET', `/orders/${orderId}`);
+    return this.privateRequest('GET', `/orders/${orderId}`);
   }
 
   /**
@@ -205,7 +236,7 @@ export class ApiClient {
     price: string,
     expiry?: number
   ): Promise<ApiResponse<Order>> {
-    return this.request('POST', '/orders', {
+    return this.privateRequest('POST', '/orders', {
       base_asset: baseAsset,
       quote_asset: quoteAsset,
       side,
@@ -221,7 +252,7 @@ export class ApiClient {
    * @returns Success status
    */
   public async cancelOrder(orderId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return this.request('DELETE', `/orders/${orderId}`);
+    return this.privateRequest('DELETE', `/orders/${orderId}`);
   }
 
   /**
@@ -234,7 +265,7 @@ export class ApiClient {
     orderId: string,
     amount: string
   ): Promise<ApiResponse<{ success: boolean }>> {
-    return this.request('POST', `/orders/${orderId}/take`, {
+    return this.privateRequest('POST', `/orders/${orderId}/take`, {
       amount,
     });
   }
@@ -249,7 +280,7 @@ export class ApiClient {
     baseAsset: string,
     quoteAsset: string
   ): Promise<ApiResponse<MarketData>> {
-    return this.request(
+    return this.privateRequest(
       'GET',
       `/market?base_asset=${encodeURIComponent(baseAsset)}&quote_asset=${encodeURIComponent(quoteAsset)}`
     );
@@ -260,7 +291,7 @@ export class ApiClient {
    * @returns Runes
    */
   public async getRunes(): Promise<ApiResponse<RuneInfo[]>> {
-    return this.request('GET', '/runes');
+    return this.privateRequest('GET', '/runes');
   }
 
   /**
@@ -269,7 +300,7 @@ export class ApiClient {
    * @returns Rune
    */
   public async getRune(runeId: string): Promise<ApiResponse<RuneInfo>> {
-    return this.request('GET', `/runes/${runeId}`);
+    return this.privateRequest('GET', `/runes/${runeId}`);
   }
 
   /**
@@ -277,16 +308,64 @@ export class ApiClient {
    * @returns Alkanes
    */
   public async getAlkanes(): Promise<ApiResponse<AlkaneInfo[]>> {
-    return this.request('GET', '/alkanes');
+    return this.privateRequest('GET', '/alkanes');
   }
-
+  
+  /**
+   * Create a predicate alkane
+   * @param name Predicate name
+   * @param type Predicate type
+   * @param description Predicate description
+   * @param parameters Predicate parameters
+   * @returns Created predicate
+   */
+  public async createPredicate(
+    name: string,
+    type: string,
+    description: string,
+    parameters: any
+  ): Promise<ApiResponse<{ id: string }>> {
+    return this.privateRequest('POST', '/predicates', {
+      name,
+      type,
+      description,
+      parameters,
+    });
+  }
+  
   /**
    * Get alkane by ID
    * @param alkaneId Alkane ID
    * @returns Alkane
    */
   public async getAlkane(alkaneId: string): Promise<ApiResponse<AlkaneInfo>> {
-    return this.request('GET', `/alkanes/${alkaneId}`);
+    return this.privateRequest('GET', `/alkanes/${alkaneId}`);
+  }
+  
+  /**
+   * Get relay server status
+   * @returns Relay server status
+   */
+  public async getRelayStatus(): Promise<ApiResponse<RelayStatus>> {
+    return this.privateRequest('GET', '/api/relay/status');
+  }
+  
+  /**
+   * Get recent trades
+   * @param baseAsset Base asset
+   * @param quoteAsset Quote asset
+   * @param limit Maximum number of trades to return
+   * @returns Recent trades
+   */
+  public async getRecentTrades(
+    baseAsset: string,
+    quoteAsset: string,
+    limit: number = 10
+  ): Promise<ApiResponse<Trade[]>> {
+    return this.privateRequest(
+      'GET',
+      `/trades?base_asset=${encodeURIComponent(baseAsset)}&quote_asset=${encodeURIComponent(quoteAsset)}&limit=${limit}`
+    );
   }
 }
 

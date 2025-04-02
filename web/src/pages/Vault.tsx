@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import ApiClient from '../utils/ApiClient';
+import { useApi } from '../contexts/ApiContext';
+import { useWasmWallet } from '../contexts/WasmWalletContext';
 import { useNotification } from '../contexts/NotificationContext';
+import WalletBalancesDisplay from '../components/WalletBalancesDisplay';
+import TransactionHistory from '../components/TransactionHistory';
+import AssetInfo from '../components/AssetInfo';
 
 // Icons
 import {
@@ -13,27 +17,22 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-export interface VaultProps {
-  isWalletConnected: boolean;
-  isSDKInitialized: boolean;
-  apiClient?: ApiClient;
-  isApiLoading: boolean;
-}
-
 interface Asset {
   id: string;
   name: string;
   ticker: string;
   balance: string;
   usdValue: number;
+  type: 'btc' | 'rune' | 'alkane';
 }
 
-const Vault: React.FC<VaultProps> = ({
-  isWalletConnected,
-  isSDKInitialized,
-  apiClient,
-  isApiLoading,
-}) => {
+const Vault: React.FC = () => {
+  // Get contexts
+  const { client, isLoading: isApiLoading } = useApi();
+  const { isConnected: isWalletConnected, isInitialized: isSDKInitialized } = useWasmWallet();
+  const { addNotification } = useNotification();
+  
+  // State
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -41,29 +40,29 @@ const Vault: React.FC<VaultProps> = ({
   const [withdrawAmount, setWithdrawAmount] = useState<string>('');
   const [showDepositModal, setShowDepositModal] = useState<boolean>(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false);
-  const { addNotification } = useNotification();
-
+  const [showAssetInfo, setShowAssetInfo] = useState<boolean>(false);
+  
   // Fetch assets when component mounts
   useEffect(() => {
     if (isSDKInitialized && isWalletConnected && !isApiLoading) {
       fetchAssets();
     }
   }, [isSDKInitialized, isWalletConnected, isApiLoading]);
-
+  
   // Fetch assets from API or generate mock data
   const fetchAssets = async () => {
     setIsLoading(true);
     
     try {
-      if (apiClient) {
+      if (client) {
         // Fetch Bitcoin balance
         // This would be a real API call in production
         
         // Fetch runes
-        const runesResponse = await apiClient.getRunes();
+        const runesResponse = await client.getRunes();
         
         // Fetch alkanes
-        const alkanesResponse = await apiClient.getAlkanes();
+        const alkanesResponse = await client.getAlkanes();
         
         if (runesResponse.error || alkanesResponse.error) {
           addNotification('error', `Failed to fetch assets: ${runesResponse.error || alkanesResponse.error}`);
@@ -77,6 +76,7 @@ const Vault: React.FC<VaultProps> = ({
             ticker: 'BTC',
             balance: '0.5',
             usdValue: 0.5 * 20000,
+            type: 'btc',
           });
           
           // Add runes
@@ -88,6 +88,7 @@ const Vault: React.FC<VaultProps> = ({
                 ticker: rune.ticker,
                 balance: (Math.random() * 1000).toFixed(2),
                 usdValue: Math.random() * 1000,
+                type: 'rune',
               });
             });
           }
@@ -101,6 +102,7 @@ const Vault: React.FC<VaultProps> = ({
                 ticker: alkane.ticker,
                 balance: (Math.random() * 1000).toFixed(2),
                 usdValue: Math.random() * 1000,
+                type: 'alkane',
               });
             });
           }
@@ -118,7 +120,7 @@ const Vault: React.FC<VaultProps> = ({
       setIsLoading(false);
     }
   };
-
+  
   // Generate mock assets for demo
   const generateMockAssets = () => {
     const mockAssets: Asset[] = [
@@ -128,6 +130,7 @@ const Vault: React.FC<VaultProps> = ({
         ticker: 'BTC',
         balance: '0.5',
         usdValue: 0.5 * 20000,
+        type: 'btc',
       },
       {
         id: 'rune-1',
@@ -135,6 +138,7 @@ const Vault: React.FC<VaultProps> = ({
         ticker: 'RUNE1',
         balance: '1000',
         usdValue: 1000 * 0.5,
+        type: 'rune',
       },
       {
         id: 'rune-2',
@@ -142,6 +146,7 @@ const Vault: React.FC<VaultProps> = ({
         ticker: 'RUNE2',
         balance: '500',
         usdValue: 500 * 0.2,
+        type: 'rune',
       },
       {
         id: 'alkane-1',
@@ -149,6 +154,7 @@ const Vault: React.FC<VaultProps> = ({
         ticker: 'ALK1',
         balance: '750',
         usdValue: 750 * 0.3,
+        type: 'alkane',
       },
       {
         id: 'alkane-2',
@@ -156,12 +162,13 @@ const Vault: React.FC<VaultProps> = ({
         ticker: 'ALK2',
         balance: '250',
         usdValue: 250 * 0.1,
+        type: 'alkane',
       },
     ];
     
     setAssets(mockAssets);
   };
-
+  
   // Handle deposit
   const handleDeposit = () => {
     if (!selectedAsset) return;
@@ -192,7 +199,7 @@ const Vault: React.FC<VaultProps> = ({
       addNotification('success', `Deposited ${depositAmount} ${selectedAsset.ticker}`);
     }, 1500);
   };
-
+  
   // Handle withdraw
   const handleWithdraw = () => {
     if (!selectedAsset) return;
@@ -223,10 +230,10 @@ const Vault: React.FC<VaultProps> = ({
       addNotification('success', `Withdrew ${withdrawAmount} ${selectedAsset.ticker}`);
     }, 1500);
   };
-
+  
   // Calculate total USD value
   const totalUsdValue = assets.reduce((total, asset) => total + asset.usdValue, 0);
-
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -253,7 +260,7 @@ const Vault: React.FC<VaultProps> = ({
           Refresh
         </button>
       </div>
-
+      
       {/* Connection Warning */}
       {!isWalletConnected && (
         <motion.div 
@@ -269,7 +276,7 @@ const Vault: React.FC<VaultProps> = ({
           </div>
         </motion.div>
       )}
-
+      
       {/* SDK Warning */}
       {isWalletConnected && !isSDKInitialized && (
         <motion.div 
@@ -285,92 +292,123 @@ const Vault: React.FC<VaultProps> = ({
           </div>
         </motion.div>
       )}
-
-      {/* Total Value */}
-      {isWalletConnected && isSDKInitialized && (
-        <div className="card p-6">
-          <div className="flex items-center">
-            <LockClosedIcon className="w-8 h-8 text-twilight-neon-blue mr-4" />
-            <div>
-              <h2 className="text-lg font-medium text-gray-300">Total Value</h2>
-              <p className="text-3xl font-display font-bold text-white">
-                ${totalUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
+      
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Wallet Balances and Transaction History */}
+        <div className="lg:col-span-4 space-y-6">
+          <WalletBalancesDisplay />
+          <TransactionHistory />
+        </div>
+        
+        {/* Right Column: Assets and Total Value */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Total Value */}
+          {isWalletConnected && isSDKInitialized && (
+            <div className="card p-6">
+              <div className="flex items-center">
+                <LockClosedIcon className="w-8 h-8 text-twilight-neon-blue mr-4" />
+                <div>
+                  <h2 className="text-lg font-medium text-gray-300">Total Value</h2>
+                  <p className="text-3xl font-display font-bold text-white">
+                    ${totalUsdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Assets Table */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="text-lg font-display font-medium">Your Assets</h2>
+            </div>
+            <div className="overflow-x-auto">
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20">
+                  <ArrowPathIcon className="w-8 h-8 text-twilight-neon-blue animate-spin" />
+                </div>
+              ) : assets.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-400">No assets found</p>
+                </div>
+              ) : (
+                <table className="table w-full">
+                  <thead>
+                    <tr>
+                      <th>Asset</th>
+                      <th>Balance</th>
+                      <th>Value (USD)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.map((asset) => (
+                      <tr key={asset.id}>
+                        <td>
+                          <div className="flex items-center">
+                            <div className={`w-8 h-8 rounded-full ${
+                              asset.type === 'btc' ? 'bg-orange-500' : 
+                              asset.type === 'rune' ? 'bg-blue-500' : 'bg-green-500'
+                            } flex items-center justify-center mr-2`}>
+                              <span className="text-xs font-bold text-white">{asset.ticker.substring(0, 2)}</span>
+                            </div>
+                            <div>
+                              <div className="font-medium">{asset.name}</div>
+                              <div className="text-sm text-gray-400">{asset.ticker}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{asset.balance}</td>
+                        <td>${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setShowDepositModal(true);
+                              }}
+                              className="btn btn-sm btn-primary"
+                              title="Deposit"
+                            >
+                              <ArrowDownTrayIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setShowWithdrawModal(true);
+                              }}
+                              className="btn btn-sm btn-secondary"
+                              title="Withdraw"
+                            >
+                              <ArrowUpTrayIcon className="w-4 h-4" />
+                            </button>
+                            {asset.type !== 'btc' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setShowAssetInfo(true);
+                                }}
+                                className="btn btn-sm btn-tertiary"
+                                title="Info"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Assets Table */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-display font-medium">Your Assets</h2>
-        </div>
-        <div className="overflow-x-auto">
-          {isLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <ArrowPathIcon className="w-8 h-8 text-twilight-neon-blue animate-spin" />
-            </div>
-          ) : assets.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-400">No assets found</p>
-            </div>
-          ) : (
-            <table className="table w-full">
-              <thead>
-                <tr>
-                  <th>Asset</th>
-                  <th>Balance</th>
-                  <th>Value (USD)</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assets.map((asset) => (
-                  <tr key={asset.id}>
-                    <td>
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-twilight-dark flex items-center justify-center mr-2">
-                          <span className="text-xs font-bold">{asset.ticker.substring(0, 2)}</span>
-                        </div>
-                        <div>
-                          <div className="font-medium">{asset.name}</div>
-                          <div className="text-sm text-gray-400">{asset.ticker}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{asset.balance}</td>
-                    <td>${asset.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedAsset(asset);
-                            setShowDepositModal(true);
-                          }}
-                          className="btn btn-sm btn-primary"
-                        >
-                          <ArrowDownTrayIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedAsset(asset);
-                            setShowWithdrawModal(true);
-                          }}
-                          className="btn btn-sm btn-secondary"
-                        >
-                          <ArrowUpTrayIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
       </div>
-
+      
       {/* Deposit Modal */}
       {showDepositModal && selectedAsset && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -426,7 +464,7 @@ const Vault: React.FC<VaultProps> = ({
           </div>
         </div>
       )}
-
+      
       {/* Withdraw Modal */}
       {showWithdrawModal && selectedAsset && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -485,6 +523,37 @@ const Vault: React.FC<VaultProps> = ({
                     <ArrowUpTrayIcon className="w-5 h-5 mr-2" />
                   )}
                   Withdraw
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Asset Info Modal */}
+      {showAssetInfo && selectedAsset && selectedAsset.type !== 'btc' && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="card w-96">
+            <div className="card-header flex justify-between items-center">
+              <h3 className="text-lg font-medium">{selectedAsset.name} Info</h3>
+              <button
+                onClick={() => setShowAssetInfo(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="card-body">
+              <AssetInfo
+                assetType={selectedAsset.type as 'rune' | 'alkane'}
+                assetId={selectedAsset.id}
+              />
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setShowAssetInfo(false)}
+                  className="btn btn-secondary"
+                >
+                  Close
                 </button>
               </div>
             </div>

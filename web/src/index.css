@@ -114,6 +114,35 @@
   }
 }
 
+/* Orderbook animations */
+@keyframes flash-green {
+  0% { background-color: rgba(52, 211, 153, 0.2); }
+  100% { background-color: transparent; }
+}
+
+/* Input highlight animation */
+@keyframes highlight-input {
+  0% { box-shadow: 0 0 0 2px rgba(77, 171, 247, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(77, 171, 247, 0); }
+}
+
+.highlight-input {
+  animation: highlight-input 1s ease-out;
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(248, 113, 113, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.animate-flash-green {
+  animation: flash-green 1s ease-out;
+}
+
+.animate-flash-red {
+  animation: flash-red 1s ease-out;
+}
+
 /* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;

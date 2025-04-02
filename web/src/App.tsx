@@ -8,6 +8,15 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { WebRtcProvider } from './contexts/WebRtcContext';
 import { OrderbookProvider } from './contexts/OrderbookContext';
+import { TradeExecutionProvider } from './contexts/TradeExecutionContext';
+import { WasmWalletProvider } from './contexts/WasmWalletContext';
+import { PeerDiscoveryProvider } from './contexts/PeerDiscoveryContext';
+import { CircuitRelayProvider } from './contexts/CircuitRelayContext';
+import { PeerEncryptionProvider } from './contexts/PeerEncryptionContext';
+
+// Pages
+import WasmWalletPage from './pages/WasmWalletPage';
+import WebRtcPage from './pages/WebRtcPage';
 import Layout from './components/Layout';
 import { useWallet } from './contexts/WalletContext';
 import { useSDK } from './contexts/SDKContext';
@@ -28,6 +37,9 @@ import Runes from './pages/Runes';
 import Alkanes from './pages/Alkanes';
 import Predicates from './pages/Predicates';
 import P2POrderbookPage from './pages/P2POrderbookPage';
+import WasmWalletDemo from './pages/WasmWalletDemo';
+import P2PNetworkPage from './pages/P2PNetworkPage';
+import Advanced from './pages/Advanced';
 
 // Wrapper component to provide context values to pages
 const PageWrapper: React.FC = () => {
@@ -72,9 +84,11 @@ const PageWrapper: React.FC = () => {
         }
       />
       <Route path="/about" element={<About />} />
-      <Route path="/webrtc" element={<WebRtc />} />
+      <Route path="/webrtc" element={<WebRtcPage />} />
       <Route path="/p2p-orderbook" element={<P2POrderbookPage />} />
       <Route path="/p2p-trade" element={<P2PTrade />} />
+      <Route path="/p2p-network" element={<P2PNetworkPage />} />
+      <Route path="/wasm-wallet" element={<WasmWalletPage />} />
       <Route
         path="/runes"
         element={
@@ -108,6 +122,7 @@ const PageWrapper: React.FC = () => {
           />
         }
       />
+      <Route path="/advanced" element={<Advanced />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -122,15 +137,42 @@ const App: React.FC = () => {
             <SDKProvider>
               <WebSocketProvider url="ws://localhost:3000/ws">
                 <WebRtcProvider signalingServerUrl="ws://localhost:9001/signaling">
-                  <OrderbookProvider>
-                    <WebSocketManager>
-                    <Router>
-                      <Layout>
-                        <PageWrapper />
-                      </Layout>
-                    </Router>
-                    </WebSocketManager>
-                  </OrderbookProvider>
+                  <PeerDiscoveryProvider
+                    signalingServers={['ws://localhost:9001/signaling']}
+                    bootstrapPeers={[]}
+                    enableDht={true}
+                    enableLocalDiscovery={true}
+                    maxPeers={10}
+                    autoStart={false}
+                  >
+                    <CircuitRelayProvider
+                      relays={['relay-1.darkswap.io', 'relay-2.darkswap.io']}
+                      maxRelays={3}
+                      enableAutoRelay={true}
+                      autoStart={false}
+                    >
+                      <PeerEncryptionProvider
+                        keySize={2048}
+                        algorithm="RSA-OAEP"
+                        hashAlgorithm="SHA-256"
+                        autoInitialize={true}
+                      >
+                        <WasmWalletProvider>
+                          <OrderbookProvider>
+                            <TradeExecutionProvider>
+                              <WebSocketManager>
+                              <Router>
+                                <Layout>
+                                  <PageWrapper />
+                                </Layout>
+                              </Router>
+                              </WebSocketManager>
+                            </TradeExecutionProvider>
+                          </OrderbookProvider>
+                        </WasmWalletProvider>
+                      </PeerEncryptionProvider>
+                    </CircuitRelayProvider>
+                  </PeerDiscoveryProvider>
                 </WebRtcProvider>
               </WebSocketProvider>
             </SDKProvider>

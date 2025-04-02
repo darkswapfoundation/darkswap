@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Orderbook from '../components/Orderbook';
-import TradeForm from '../components/TradeForm';
+import { useApi } from '../contexts/ApiContext';
+import { useWasmWallet } from '../contexts/WasmWalletContext';
+import { useNotification } from '../contexts/NotificationContext';
 import PeerStatus from '../components/PeerStatus';
 import PriceChart from '../components/PriceChart';
-import NotificationTest from '../components/NotificationTest';
-import { useNotification } from '../contexts/NotificationContext';
+import AdvancedOrderForm from '../components/AdvancedOrderForm';
+import OrderbookVisualization from '../components/OrderbookVisualization';
+import MarketDataVisualization from '../components/MarketDataVisualization';
+import RecentTrades from '../components/RecentTrades';
+import AssetDetails from '../components/AssetDetails';
+import TradingPairSelector from '../components/TradingPairSelector';
+import CryptoChart from '../components/CryptoChart';
 
 // Icons
 import {
@@ -13,42 +19,45 @@ import {
   InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 
-import ApiClient from '../utils/ApiClient';
+// Trading pair mapping
+const tradingPairMap: Record<string, { baseAsset: string, quoteAsset: string, baseAssetType: 'btc' | 'rune' | 'alkane', quoteAssetType: 'btc' | 'rune' | 'alkane' }> = {
+  'btc-rune1': { baseAsset: 'RUNE1', quoteAsset: 'BTC', baseAssetType: 'rune', quoteAssetType: 'btc' },
+  'btc-rune2': { baseAsset: 'RUNE2', quoteAsset: 'BTC', baseAssetType: 'rune', quoteAssetType: 'btc' },
+  'btc-rune3': { baseAsset: 'RUNE3', quoteAsset: 'BTC', baseAssetType: 'rune', quoteAssetType: 'btc' },
+  'btc-alk1': { baseAsset: 'ALK1', quoteAsset: 'BTC', baseAssetType: 'alkane', quoteAssetType: 'btc' },
+  'btc-alk2': { baseAsset: 'ALK2', quoteAsset: 'BTC', baseAssetType: 'alkane', quoteAssetType: 'btc' },
+  'rune1-alk1': { baseAsset: 'ALK1', quoteAsset: 'RUNE1', baseAssetType: 'alkane', quoteAssetType: 'rune' },
+  'rune2-alk2': { baseAsset: 'ALK2', quoteAsset: 'RUNE2', baseAssetType: 'alkane', quoteAssetType: 'rune' },
+};
 
-export interface TradeProps {
-  isWalletConnected: boolean;
-  isSDKInitialized: boolean;
-  apiClient: ApiClient;
-  isApiLoading: boolean;
-}
-
-const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiClient, isApiLoading }) => {
-  const [selectedPair, setSelectedPair] = useState<string>('BTC/RUNE:0x123');
+const Trade: React.FC = () => {
+  // Get contexts
+  const { client, isLoading: isApiLoading } = useApi();
+  const { isConnected: isWalletConnected, isInitialized: isSDKInitialized } = useWasmWallet();
+  const { addNotification } = useNotification();
+  
+  // State
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [peerCount, setPeerCount] = useState<number>(0);
   const [orderCount, setOrderCount] = useState<number>(0);
-  const { addNotification } = useNotification();
-
-  // Simulated data for popular pairs
-  const popularPairs = [
-    { id: 'BTC/RUNE:0x123', name: 'BTC/RUNE:0x123', volume: '1.2M', change: '+5.2%', changeType: 'positive' },
-    { id: 'BTC/ALKANE:0x456', name: 'BTC/ALKANE:0x456', volume: '850K', change: '+3.7%', changeType: 'positive' },
-    { id: 'RUNE:0x123/ALKANE:0x456', name: 'RUNE/ALKANE', volume: '420K', change: '-1.2%', changeType: 'negative' },
-    { id: 'BTC/RUNE:0x789', name: 'BTC/RUNE:0x789', volume: '320K', change: '+2.1%', changeType: 'positive' },
-  ];
-
+  const [selectedPairId, setSelectedPairId] = useState<string>('btc-rune1');
+  const [chartType, setChartType] = useState<'price' | 'depth'>('price');
+  
+  // Get selected pair details
+  const selectedPair = tradingPairMap[selectedPairId];
+  
   // Fetch market data from API
   useEffect(() => {
-    if (isSDKInitialized && !isApiLoading) {
+    if (isSDKInitialized && !isApiLoading && selectedPair) {
       setIsLoading(true);
       
       const fetchMarketData = async () => {
         try {
-          // Parse the pair to get base and quote assets
-          const [baseAsset, quoteAsset] = selectedPair.split('/');
-          
           // Fetch market data
-          const marketResponse = await apiClient.getMarketData(baseAsset, quoteAsset);
+          const marketResponse = await client.getMarketData(
+            selectedPair.baseAsset, 
+            selectedPair.quoteAsset
+          );
           
           if (marketResponse.error) {
             addNotification('error', `Failed to fetch market data: ${marketResponse.error}`);
@@ -57,7 +66,11 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiC
             setPeerCount(Math.floor(Math.random() * 50) + 20); // Still random for demo
             
             // Fetch orders to get order count
-            const ordersResponse = await apiClient.getOrders(baseAsset, quoteAsset);
+            const ordersResponse = await client.getOrders(
+              selectedPair.baseAsset, 
+              selectedPair.quoteAsset
+            );
+            
             if (ordersResponse.data) {
               setOrderCount(ordersResponse.data.length);
             }
@@ -73,31 +86,14 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiC
       
       fetchMarketData();
     }
-  }, [isSDKInitialized, selectedPair, apiClient, isApiLoading, addNotification]);
-
-  const handlePairSelect = async (pairId: string) => {
-    setSelectedPair(pairId);
-    setIsLoading(true);
-    
-    try {
-      // Parse the pair to get base and quote assets
-      const [baseAsset, quoteAsset] = pairId.split('/');
-      
-      // Fetch market data for the selected pair
-      const marketResponse = await apiClient.getMarketData(baseAsset, quoteAsset);
-      
-      if (marketResponse.error) {
-        addNotification('error', `Failed to fetch market data: ${marketResponse.error}`);
-      } else {
-        addNotification('success', `Selected trading pair: ${pairId}`);
-      }
-    } catch (error) {
-      addNotification('error', `Error selecting pair: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
+  }, [isSDKInitialized, selectedPair, client, isApiLoading, addNotification]);
+  
+  // Handle pair selection
+  const handlePairSelect = (pairId: string) => {
+    setSelectedPairId(pairId);
+    addNotification('success', `Selected trading pair: ${pairId}`);
   };
-
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -113,7 +109,7 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiC
         
         <PeerStatus peerCount={peerCount} orderCount={orderCount} />
       </div>
-
+      
       {/* Connection Warning */}
       {!isWalletConnected && (
         <motion.div 
@@ -129,7 +125,7 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiC
           </div>
         </motion.div>
       )}
-
+      
       {/* SDK Warning */}
       {isWalletConnected && !isSDKInitialized && (
         <motion.div 
@@ -145,82 +141,96 @@ const Trade: React.FC<TradeProps> = ({ isWalletConnected, isSDKInitialized, apiC
           </div>
         </motion.div>
       )}
-
-      {/* Notification Test */}
-      <NotificationTest />
-
-      {/* Popular Pairs */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-display font-medium">Popular Pairs</h2>
+      
+      {/* Trading Pair Selector */}
+      <div className="card p-4">
+        <div className="mb-2">
+          <h2 className="text-lg font-display font-medium">Select Trading Pair</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Pair</th>
-                <th>24h Volume</th>
-                <th>24h Change</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {popularPairs.map((pair) => (
-                <tr 
-                  key={pair.id}
-                  className={selectedPair === pair.id ? 'bg-twilight-primary bg-opacity-20' : ''}
-                >
-                  <td>{pair.name}</td>
-                  <td>${pair.volume}</td>
-                  <td className={pair.changeType === 'positive' ? 'text-green-400' : 'text-red-400'}>
-                    {pair.change}
-                  </td>
-                  <td className="text-right">
-                    <button
-                      onClick={() => handlePairSelect(pair.id)}
-                      className={`btn btn-sm ${selectedPair === pair.id ? 'btn-primary' : 'btn-secondary'}`}
-                    >
-                      {selectedPair === pair.id ? 'Selected' : 'Select'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TradingPairSelector
+          selectedPair={selectedPairId}
+          onSelectPair={handlePairSelect}
+        />
       </div>
-
-      {/* Price Chart */}
-      <div className="bg-twilight-darker p-4 rounded-lg border border-twilight-dark">
-        <h2 className="text-lg font-display font-medium mb-4">Price Chart</h2>
-        <PriceChart pair={selectedPair} isLoading={isLoading} apiClient={apiClient} />
-      </div>
-
+      
       {/* Main Trading Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Orderbook */}
-        <div className="lg:col-span-2">
-          <Orderbook
-            pair={selectedPair}
-            isLoading={isLoading}
-            isWalletConnected={isWalletConnected}
-            isSDKInitialized={isSDKInitialized}
-            apiClient={apiClient}
-          />
+      {selectedPair && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left column: Chart and Market Data */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Chart Type Selector */}
+            <div className="card p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-display font-medium">
+                  {selectedPair.baseAsset}/{selectedPair.quoteAsset} Chart
+                </h2>
+                <div className="flex rounded-lg overflow-hidden border border-twilight-dark">
+                  <button
+                    onClick={() => setChartType('price')}
+                    className={`px-3 py-1 text-sm ${chartType === 'price' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
+                  >
+                    Price Chart
+                  </button>
+                  <button
+                    onClick={() => setChartType('depth')}
+                    className={`px-3 py-1 text-sm ${chartType === 'depth' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
+                  >
+                    Depth Chart
+                  </button>
+                </div>
+              </div>
+              
+              {chartType === 'price' ? (
+                <CryptoChart
+                  assetId={selectedPair.baseAsset}
+                  assetType={selectedPair.baseAssetType}
+                  height={400}
+                  showControls={true}
+                />
+              ) : (
+                <PriceChart
+                  pair={`${selectedPair.baseAsset}/${selectedPair.quoteAsset}`}
+                  isLoading={isLoading}
+                  apiClient={client}
+                />
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <MarketDataVisualization
+                baseAsset={selectedPair.baseAsset}
+                quoteAsset={selectedPair.quoteAsset}
+              />
+              
+              <RecentTrades
+                baseAsset={selectedPair.baseAsset}
+                quoteAsset={selectedPair.quoteAsset}
+                limit={10}
+              />
+            </div>
+            
+            {/* Asset Info */}
+            <AssetDetails
+              assetId={selectedPair.baseAsset}
+              assetType={selectedPair.baseAssetType}
+            />
+          </div>
+          
+          {/* Right column: Trade Form and Orderbook */}
+          <div className="lg:col-span-4 space-y-6">
+            <AdvancedOrderForm
+              baseAsset={selectedPair.baseAsset}
+              quoteAsset={selectedPair.quoteAsset}
+            />
+            
+            <OrderbookVisualization
+              baseAsset={selectedPair.baseAsset}
+              quoteAsset={selectedPair.quoteAsset}
+            />
+          </div>
         </div>
-
-        {/* Trade Form */}
-        <div className="lg:col-span-1">
-          <TradeForm
-            pair={selectedPair}
-            isLoading={isLoading}
-            isWalletConnected={isWalletConnected}
-            isSDKInitialized={isSDKInitialized}
-            apiClient={apiClient}
-          />
-        </div>
-      </div>
-
+      )}
+      
       {/* Trading Info */}
       <div className="card p-4">
         <div className="flex items-start">

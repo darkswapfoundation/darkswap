@@ -77,56 +77,68 @@ The DarkSwap project will be developed in five phases over approximately 6 month
 - [x] WASM bindings for browser integration
 - [x] Unit tests for all components
 
-## Phase 2: CLI and Daemon Implementation
+## Phase 2: CLI and Daemon Implementation (COMPLETED)
 
 **Goal**: Create a command-line interface and background service for interacting with the DarkSwap SDK.
 
 ### Milestones
 
 #### Week 1-2: CLI Implementation
-- [ ] Set up command-line interface
-- [ ] Implement order creation and management commands
-- [ ] Add wallet integration
-- [ ] Create help documentation
+- [x] Set up command-line interface
+- [x] Implement order creation and management commands
+- [x] Add wallet integration
+- [x] Create help documentation
 
 #### Week 3-4: Daemon Implementation
-- [ ] Set up background service
-- [ ] Implement REST API
-- [ ] Add event system
-- [ ] Create service management
+- [x] Set up background service
+- [x] Implement REST API
+- [x] Add event system
+- [x] Create service management
 
 ### Deliverables
-- [ ] Functional DarkSwap CLI with order management
-- [ ] Background daemon service with REST API
-- [ ] Configuration system for both CLI and daemon
-- [ ] Unit tests for all components
+- [x] Functional DarkSwap CLI with order management
+- [x] Background daemon service with REST API
+- [x] Configuration system for both CLI and daemon
+- [x] Unit tests for all components
 
 ## Phase 3: Web Interface Implementation
 
-**Goal**: Develop a web-based user interface for interacting with the DarkSwap SDK.
+**Goal**: Develop a web-based user interface for interacting with the DarkSwap SDK, implement a relay server for NAT traversal, create WebAssembly bindings, and develop a TypeScript library.
 
 ### Milestones
 
-#### Week 1-2: Project Setup and Component Implementation
+#### Week 1-2: Project Setup, Relay Server, and Core Components
 - [ ] Set up React project with TypeScript and Tailwind CSS
-- [ ] Create core components (header, orderbook, trade form, etc.)
+- [ ] Create core UI components (header, orderbook, trade form, etc.)
 - [ ] Implement responsive design
+- [ ] Set up relay server project structure
+- [ ] Port circuit relay implementation from Subfrost
+- [ ] Implement DTLS/ICE support for WebRTC
 
-#### Week 3-4: State Management and SDK Integration
+#### Week 3-4: WebAssembly Bindings, TypeScript Library, and State Management
+- [ ] Configure wasm-bindgen and wasm-pack
+- [ ] Create JavaScript API for Rust code
+- [ ] Implement browser-native WebRTC support
+- [ ] Set up TypeScript library structure
+- [ ] Create type definitions for core data structures
 - [ ] Set up state management
-- [ ] Implement WASM loading
 - [ ] Add event handling
-- [ ] Create wallet integration
 
-#### Week 5-6: Page Implementation and Testing
+#### Week 5-6: SDK Integration, Page Implementation, and Testing
+- [ ] Integrate WASM with web application
 - [ ] Create trade page
 - [ ] Implement orders page
 - [ ] Add settings page
 - [ ] Create component and integration tests
+- [ ] Optimize performance
+- [ ] Create documentation
 
 ### Deliverables
 - [ ] Functional web interface for DarkSwap
 - [ ] Responsive design for desktop and mobile
+- [ ] Relay server with DTLS/ICE support for NAT traversal
+- [ ] WebAssembly bindings for browser integration
+- [ ] TypeScript library for web applications
 - [ ] Integration with the DarkSwap SDK through WASM
 - [ ] Unit and integration tests for all components
 
@@ -193,26 +205,47 @@ The DarkSwap project will be developed in five phases over approximately 6 month
 - Configuration system
 - Event system
 
+### Relay Server
+- DTLS/ICE connectivity for NAT traversal
+- Circuit relay v2 protocol support
+- Bootstrap nodes for P2P network
+- Connection management
+
+### WebAssembly Bindings
+- JavaScript API for Rust code
+- Event handling for order and trade events
+- Browser-native WebRTC support
+- Promise-based API for asynchronous operations
+
+### TypeScript Library
+- TypeScript API mirroring the Rust SDK
+- Wallet integration for browsers
+- Order management functions
+- Event handling system
+
 ### Web Interface
 - React-based user interface
 - TypeScript and Tailwind CSS
 - Responsive design
-- WASM integration
+- State management
 
 ## Dependencies and Critical Path
 
 The following dependencies exist between components:
 
 1. The CLI and daemon depend on the core SDK
-2. The web interface depends on the SDK's WASM bindings
-3. Runes and alkanes support depend on the Bitcoin utilities module
-4. The trade module depends on the orderbook module
-5. The orderbook module depends on the network module
+2. The web interface depends on the TypeScript library
+3. The TypeScript library depends on the WebAssembly bindings
+4. The WebAssembly bindings depend on the core SDK
+5. The relay server depends on the P2P networking code
+6. Runes and alkanes support depend on the Bitcoin utilities module
+7. The trade module depends on the orderbook module
+8. The orderbook module depends on the network module
 
 The critical path for the project is:
 
 1. ✅ Complete the core SDK implementation
-2. [ ] Create the CLI and daemon
+2. ✅ Create the CLI and daemon
 3. [ ] Develop the web interface
 4. [ ] Conduct comprehensive testing
 5. [ ] Create documentation and prepare for release

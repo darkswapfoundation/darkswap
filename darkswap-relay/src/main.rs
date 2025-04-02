@@ -1,185 +1,182 @@
-//! DarkSwap relay server
+//! DarkSwap Relay Server
 //!
-//! This is the main entry point for the DarkSwap relay server.
-//! It provides relay services for the DarkSwap P2P network, including:
-//! - Circuit relay for NAT traversal
-//! - WebRTC signaling for browser-to-browser communication
-//! - Discovery services for finding peers
+//! This is the main entry point for the DarkSwap Relay Server.
+//! It provides WebRTC signaling and circuit relay functionality for the DarkSwap P2P network.
 
+mod auth;
+mod circuit_relay;
+mod config;
+mod error;
+mod metrics;
+mod rate_limit;
+mod server;
 mod signaling;
+mod utils;
+mod webrtc;
 
-use clap::{Parser, Subcommand};
-use libp2p::{
-    core::upgrade,
-    identity,
-    noise,
-    relay::{self, v2::relay::Config as RelayConfig},
-    swarm::{NetworkBehaviour, SwarmBuilder, SwarmEvent},
-    tcp, yamux, PeerId, Transport,
-};
-use std::{
+use crate::{
+    config::Config,
     error::Error,
-    net::{Ipv4Addr, Ipv6Addr},
-    time::Duration,
+    server::Server,
 };
-use tokio::sync::mpsc;
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+use tracing::{debug, error, info, warn};
+use tracing_subscriber::{
+    fmt,
+    EnvFilter,
+};
 
-use signaling::SignalingServer;
+/// Result type
+pub type Result<T> = std::result::Result<T, Error>;
 
-/// DarkSwap relay server
-#[derive(Parser)]
+/// DarkSwap Relay Server version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// DarkSwap Relay Server git hash
+pub const GIT_HASH: &str = env!("GIT_HASH");
+
+/// DarkSwap Relay Server build date
+pub const BUILD_DATE: &str = env!("BUILD_DATE");
+
+/// Command line arguments
+#[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
-struct Cli {
+struct Args {
+    /// Config file
+    #[clap(short, long, value_parser)]
+    config: Option<PathBuf>,
+    
     /// Subcommand
     #[clap(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 /// Subcommands
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start the relay server
-    Start {
-        /// P2P listen port
-        #[clap(long, default_value = "9000")]
-        p2p_port: u16,
-        
-        /// WebRTC signaling port
-        #[clap(long, default_value = "9001")]
-        signaling_port: u16,
-        
-        /// Bootstrap peers
-        #[clap(long)]
-        bootstrap_peers: Vec<String>,
+    /// Run the relay server
+    Run {
+        /// Config file
+        #[clap(short, long, value_parser)]
+        config: Option<PathBuf>,
     },
-}
-
-/// Network behavior for the relay server
-#[derive(NetworkBehaviour)]
-struct RelayBehaviour {
-    /// Circuit relay behavior
-    relay: relay::v2::relay::Behaviour,
+    /// Generate a default config file
+    GenerateConfig {
+        /// Output file
+        #[clap(short, long, value_parser)]
+        output: PathBuf,
+    },
+    /// Generate a token
+    GenerateToken {
+        /// Peer ID
+        #[clap(short, long, value_parser)]
+        peer_id: String,
+        /// Roles
+        #[clap(short, long, value_parser)]
+        roles: Vec<String>,
+        /// Config file
+        #[clap(short, long, value_parser)]
+        config: Option<PathBuf>,
+    },
 }
 
 /// Main function
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize logging
-    env_logger::init();
-    
+async fn main() -> Result<()> {
     // Parse command line arguments
-    let cli = Cli::parse();
+    let args = Args::parse();
     
-    match cli.command {
-        Commands::Start {
-            p2p_port,
-            signaling_port,
-            bootstrap_peers,
-        } => {
-            // Start the relay server
-            start_relay_server(p2p_port, signaling_port, bootstrap_peers).await?;
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+    
+    // Print version information
+    info!("DarkSwap Relay Server v{} ({}) built on {}", VERSION, GIT_HASH, BUILD_DATE);
+    
+    // Process subcommands
+    match args.command {
+        Some(Commands::Run { config }) => {
+            // Get the config file path
+            let config_path = config.or(args.config);
+            
+            // Load the config
+            let config = match config_path {
+                Some(path) => {
+                    info!("Loading config from {}", path.display());
+                    Config::from_file(path)?
+                }
+                None => {
+                    info!("Using default config");
+                    Config::default()
+                }
+            };
+            
+            // Create the server
+            let server = Server::new(config)?;
+            
+            // Start the server
+            server.start().await?;
+        }
+        Some(Commands::GenerateConfig { output }) => {
+            // Create a default config
+            let config = Config::default();
+            
+            // Serialize the config
+            let toml = toml::to_string_pretty(&config)?;
+            
+            // Write the config to the output file
+            std::fs::write(&output, toml)?;
+            
+            info!("Generated config file: {}", output.display());
+        }
+        Some(Commands::GenerateToken { peer_id, roles, config }) => {
+            // Load the config
+            let config = match config {
+                Some(path) => {
+                    info!("Loading config from {}", path.display());
+                    Config::from_file(path)?
+                }
+                None => {
+                    info!("Using default config");
+                    Config::default()
+                }
+            };
+            
+            // Create the auth manager
+            let auth_manager = auth::AuthManager::new(config)?;
+            
+            // Generate the token
+            let token = auth_manager.generate_token(&peer_id, roles).await?;
+            
+            // Print the token
+            println!("Token: {}", token.value);
+            println!("Expires at: {}", token.expires_at);
+        }
+        None => {
+            // Get the config file path
+            let config_path = args.config;
+            
+            // Load the config
+            let config = match config_path {
+                Some(path) => {
+                    info!("Loading config from {}", path.display());
+                    Config::from_file(path)?
+                }
+                None => {
+                    info!("Using default config");
+                    Config::default()
+                }
+            };
+            
+            // Create the server
+            let server = Server::new(config)?;
+            
+            // Start the server
+            server.start().await?;
         }
     }
     
     Ok(())
-}
-
-/// Start the relay server
-async fn start_relay_server(
-    p2p_port: u16,
-    signaling_port: u16,
-    bootstrap_peers: Vec<String>,
-) -> Result<(), Box<dyn Error>> {
-    // Create a random identity
-    let local_key = identity::Keypair::generate_ed25519();
-    let local_peer_id = PeerId::from(local_key.public());
-    
-    println!("Local peer id: {}", local_peer_id);
-    
-    // Create a transport
-    let tcp_transport = tcp::async_io::Transport::new(tcp::Config::default().nodelay(true))
-        .upgrade(upgrade::Version::V1)
-        .authenticate(noise::Config::new(&local_key).unwrap())
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed();
-    
-    // Create a relay config
-    let relay_config = RelayConfig {
-        max_circuit_duration: Duration::from_secs(3600), // 1 hour
-        max_circuit_bytes: 10 * 1024 * 1024, // 10 MB
-        ..Default::default()
-    };
-    
-    // Create a relay behavior
-    let relay_behavior = relay::v2::relay::Behaviour::new(local_peer_id, relay_config);
-    
-    // Create a network behavior
-    let behavior = RelayBehaviour {
-        relay: relay_behavior,
-    };
-    
-    // Create a swarm
-    let mut swarm = SwarmBuilder::with_tokio_executor(tcp_transport, behavior, local_peer_id).build();
-    
-    // Listen on all interfaces
-    swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{}", p2p_port).parse()?)?;
-    swarm.listen_on(format!("/ip6/::/tcp/{}", p2p_port).parse()?)?;
-    
-    // Connect to bootstrap peers
-    for peer in bootstrap_peers {
-        let addr = peer.parse()?;
-        swarm.dial(addr)?;
-        println!("Dialed bootstrap peer: {}", peer);
-    }
-    
-    // Create a channel for signaling server events
-    let (tx, mut rx) = mpsc::channel(100);
-    
-    // Start the signaling server
-    let signaling_server = SignalingServer::new();
-    let signaling_server_clone = signaling_server;
-    
-    tokio::spawn(async move {
-        if let Err(e) = signaling_server_clone.start(signaling_port).await {
-            eprintln!("Signaling server error: {}", e);
-        }
-    });
-    
-    // Subscribe to client events
-    let mut client_events = signaling_server.subscribe_to_client_events();
-    
-    tokio::spawn(async move {
-        while let Ok(event) = client_events.recv().await {
-            let _ = tx.send(event).await;
-        }
-    });
-    
-    // Main event loop
-    loop {
-        tokio::select! {
-            event = swarm.select_next_some() => {
-                match event {
-                    SwarmEvent::NewListenAddr { address, .. } => {
-                        println!("Listening on {}", address);
-                    }
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        println!("Connection established with {}", peer_id);
-                    }
-                    SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                        println!("Connection closed with {}", peer_id);
-                    }
-                    SwarmEvent::Behaviour(behaviour_event) => {
-                        println!("Behaviour event: {:?}", behaviour_event);
-                    }
-                    _ => {}
-                }
-            }
-            event = rx.recv() => {
-                if let Some(event) = event {
-                    println!("Signaling server event: {:?}", event);
-                }
-            }
-        }
-    }
 }

@@ -16,6 +16,7 @@ export interface TradeFormProps {
   isWalletConnected: boolean;
   isSDKInitialized: boolean;
   apiClient?: ApiClient;
+  selectedPrice?: number;
 }
 
 const TradeForm: React.FC<TradeFormProps> = ({
@@ -23,7 +24,8 @@ const TradeForm: React.FC<TradeFormProps> = ({
   isLoading,
   isWalletConnected,
   isSDKInitialized,
-  apiClient
+  apiClient,
+  selectedPrice
 }) => {
   const { addNotification } = useNotification();
   // Parse pair
@@ -58,6 +60,21 @@ const TradeForm: React.FC<TradeFormProps> = ({
       }
     }
   }, [pair, isSDKInitialized, isLoading]);
+  
+  // Update price when selectedPrice changes
+  useEffect(() => {
+    if (selectedPrice && selectedPrice > 0) {
+      setPrice(selectedPrice.toString());
+      // Show a brief highlight effect on the price input
+      const priceInput = document.querySelector('input[type="number"][value="' + price + '"]');
+      if (priceInput) {
+        priceInput.classList.add('highlight-input');
+        setTimeout(() => {
+          priceInput.classList.remove('highlight-input');
+        }, 1000);
+      }
+    }
+  }, [selectedPrice]);
 
   // Calculate total when amount or price changes
   useEffect(() => {

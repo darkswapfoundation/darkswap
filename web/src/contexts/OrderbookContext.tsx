@@ -1,443 +1,265 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useWebRtc } from './WebRtcContext';
-import { useWallet } from './WalletContext';
+import { useApi } from './ApiContext';
 import { useNotification } from './NotificationContext';
-import {
-  OrderbookUtils,
-  Orderbook,
-  Order,
-  OrderSide,
-  OrderStatus,
-  OrderAsset,
-  OrderbookUpdate,
-  OrderbookSyncMessage,
-  AssetType,
-} from '../utils/OrderbookUtils';
+import { useWasmWallet } from './WasmWalletContext';
 
-/**
- * Orderbook context type
- */
-interface OrderbookContextType {
-  orderbook: Orderbook;
+// Define order types
+export interface Order {
+  id: string;
+  baseAsset: string;
+  quoteAsset: string;
+  side: 'buy' | 'sell';
+  amount: string;
+  price: string;
+  timestamp: number;
+  expiry: number;
+  status: 'open' | 'filled' | 'cancelled' | 'expired';
+  maker: string;
+}
+
+// Define orderbook context type
+export interface OrderbookContextType {
+  orders: Order[];
+  buyOrders: Order[];
+  sellOrders: Order[];
   isLoading: boolean;
   error: Error | null;
-  createOrder: (
-    side: OrderSide,
-    baseAsset: OrderAsset,
-    quoteAsset: OrderAsset,
-    expiresAt?: number,
-    metadata?: { [key: string]: string }
-  ) => Promise<Order>;
-  cancelOrder: (orderId: string) => Promise<Order>;
-  getOpenOrders: () => Order[];
-  getMyOrders: () => Order[];
-  getOrdersByAsset: (assetType: AssetType, assetId?: string) => Order[];
-  getMatchingOrders: (order: Order) => Order[];
-  refreshOrderbook: () => Promise<void>;
-  syncOrderbook: () => Promise<void>;
+  syncOrderbook: (baseAsset?: string, quoteAsset?: string) => Promise<void>;
+  createOrder: (side: 'buy' | 'sell', baseAsset: string, quoteAsset: string, amount: string, price: string, expiry?: number) => Promise<string>;
+  cancelOrder: (orderId: string) => Promise<boolean>;
+  getOrder: (orderId: string) => Order | undefined;
+  midPrice: string | null;
+  spread: string | null;
+  lastUpdated: number | null;
 }
 
-/**
- * Orderbook context
- */
+// Create the context
 const OrderbookContext = createContext<OrderbookContextType | undefined>(undefined);
 
-/**
- * Orderbook provider props
- */
+// Provider props
 interface OrderbookProviderProps {
   children: ReactNode;
+  defaultBaseAsset?: string;
+  defaultQuoteAsset?: string;
 }
 
-/**
- * Orderbook provider
- */
-export const OrderbookProvider: React.FC<OrderbookProviderProps> = ({ children }) => {
-  // Contexts
-  const {
-    isConnected: isWebRtcConnected,
-    localPeerId,
-    connectedPeers,
-    sendString,
-    onMessage,
-    offMessage,
-  } = useWebRtc();
-
-  const { isConnected: isWalletConnected, address } = useWallet();
-  const { addNotification } = useNotification();
-
+// Provider component
+export const OrderbookProvider: React.FC<OrderbookProviderProps> = ({
+  children,
+  defaultBaseAsset = 'BTC',
+  defaultQuoteAsset = 'RUNE:0x123',
+}) => {
   // State
-  const [orderbook, setOrderbook] = useState<Orderbook>(OrderbookUtils.createOrderbook());
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [buyOrders, setBuyOrders] = useState<Order[]>([]);
+  const [sellOrders, setSellOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
-  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
-
-  // Initialize orderbook
-  useEffect(() => {
-    if (isWebRtcConnected && isWalletConnected) {
-      initializeOrderbook();
-    }
-  }, [isWebRtcConnected, isWalletConnected]);
-
-  // Handle incoming messages
-  useEffect(() => {
-    if (!isWebRtcConnected) return;
-
-    const handleMessage = (peerId: string, data: any) => {
-      try {
-        // Parse the message
-        const message = typeof data === 'string' ? JSON.parse(data) : data;
-
-        // Check if it's an orderbook sync message
-        if (
-          message &&
-          message.type &&
-          ['sync_request', 'sync_response', 'update'].includes(message.type)
-        ) {
-          handleOrderbookSyncMessage(message, peerId);
-        }
-      } catch (error) {
-        console.error('Error handling message:', error);
-      }
-    };
-
-    onMessage(handleMessage);
-
-    return () => {
-      offMessage(handleMessage);
-    };
-  }, [isWebRtcConnected, onMessage, offMessage, orderbook]);
-
-  // Clean up expired orders periodically
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      if (isWebRtcConnected && isWalletConnected) {
-        const cleanedOrderbook = OrderbookUtils.cleanupExpiredOrders(orderbook);
-        if (cleanedOrderbook.version !== orderbook.version) {
-          setOrderbook(cleanedOrderbook);
-        }
-      }
-    }, 60000); // Check every minute
-
-    return () => {
-      clearInterval(cleanupInterval);
-    };
-  }, [isWebRtcConnected, isWalletConnected, orderbook]);
-
-  // Sync orderbook periodically
-  useEffect(() => {
-    const syncInterval = setInterval(() => {
-      if (isWebRtcConnected && isWalletConnected && connectedPeers.length > 0) {
-        // Only sync if it's been more than 5 minutes since the last sync
-        if (Date.now() - lastSyncTime > 300000) {
-          syncOrderbook();
-        }
-      }
-    }, 300000); // Sync every 5 minutes
-
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, [isWebRtcConnected, isWalletConnected, connectedPeers, lastSyncTime]);
-
-  // Initialize orderbook
-  const initializeOrderbook = async () => {
+  const [midPrice, setMidPrice] = useState<string | null>(null);
+  const [spread, setSpread] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  
+  // Get API client
+  const { client } = useApi();
+  
+  // Get notification context
+  const { addNotification } = useNotification();
+  
+  // Get wallet context
+  const wasmWallet = useWasmWallet();
+  
+  // Sync orderbook
+  const syncOrderbook = async (baseAsset: string = defaultBaseAsset, quoteAsset: string = defaultQuoteAsset): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
-
-      // Load orderbook from local storage
-      const savedOrderbook = localStorage.getItem('darkswap-orderbook');
-      if (savedOrderbook) {
-        try {
-          const parsedOrderbook = JSON.parse(savedOrderbook);
-          setOrderbook(parsedOrderbook);
-        } catch (error) {
-          console.error('Error parsing saved orderbook:', error);
-          // If there's an error parsing the saved orderbook, create a new one
-          setOrderbook(OrderbookUtils.createOrderbook());
-        }
+      
+      // Fetch orders from API
+      const response = await client.getOrders(baseAsset, quoteAsset);
+      
+      // Parse orders and map to our Order type
+      const fetchedOrders: Order[] = (response.data || []).map(apiOrder => ({
+        id: apiOrder.id,
+        baseAsset: apiOrder.base_asset,
+        quoteAsset: apiOrder.quote_asset,
+        side: apiOrder.side,
+        amount: apiOrder.amount,
+        price: apiOrder.price,
+        timestamp: apiOrder.timestamp,
+        expiry: apiOrder.expiry || (apiOrder.timestamp + 24 * 60 * 60 * 1000),
+        status: apiOrder.status === 'canceled' ? 'cancelled' : apiOrder.status,
+        maker: apiOrder.maker_peer_id,
+      }));
+      
+      // Update orders
+      setOrders(fetchedOrders);
+      
+      // Update buy and sell orders
+      const buys = fetchedOrders.filter(order => order.side === 'buy');
+      const sells = fetchedOrders.filter(order => order.side === 'sell');
+      
+      setBuyOrders(buys);
+      setSellOrders(sells);
+      
+      // Calculate mid price and spread
+      if (buys.length > 0 && sells.length > 0) {
+        // Sort buy orders by price (descending)
+        const sortedBuys = [...buys].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        
+        // Sort sell orders by price (ascending)
+        const sortedSells = [...sells].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        
+        // Get best buy and sell prices
+        const bestBuyPrice = parseFloat(sortedBuys[0].price);
+        const bestSellPrice = parseFloat(sortedSells[0].price);
+        
+        // Calculate mid price
+        const mid = (bestBuyPrice + bestSellPrice) / 2;
+        setMidPrice(mid.toFixed(8));
+        
+        // Calculate spread
+        const spreadValue = bestSellPrice - bestBuyPrice;
+        setSpread(spreadValue.toFixed(8));
+      } else {
+        setMidPrice(null);
+        setSpread(null);
       }
-
-      // Sync with peers
-      if (connectedPeers.length > 0) {
-        await syncOrderbook();
-      }
-    } catch (error) {
-      console.error('Error initializing orderbook:', error);
-      setError(error instanceof Error ? error : new Error('Unknown error'));
-    } finally {
+      
+      // Update last updated timestamp
+      setLastUpdated(Date.now());
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Failed to sync orderbook:', err);
+      setError(err instanceof Error ? err : new Error('Failed to sync orderbook'));
       setIsLoading(false);
     }
   };
-
-  // Handle orderbook sync message
-  const handleOrderbookSyncMessage = (message: OrderbookSyncMessage, peerId: string) => {
-    try {
-      switch (message.type) {
-        case 'sync_request':
-          // Send our orderbook to the peer
-          sendOrderbookToPeer(peerId);
-          break;
-        case 'sync_response':
-          // Merge the received orderbook with our orderbook
-          if ('orders' in message.data) {
-            const receivedOrderbook = message.data as Orderbook;
-            const mergedOrderbook = OrderbookUtils.mergeOrderbooks(orderbook, receivedOrderbook);
-            setOrderbook(mergedOrderbook);
-            saveOrderbook(mergedOrderbook);
-          }
-          break;
-        case 'update':
-          // Apply the update to our orderbook
-          if ('order' in message.data) {
-            const update = message.data as OrderbookUpdate;
-            const updatedOrderbook = OrderbookUtils.applyOrderbookUpdate(orderbook, update);
-            setOrderbook(updatedOrderbook);
-            saveOrderbook(updatedOrderbook);
-          }
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling orderbook sync message:', error);
-    }
-  };
-
-  // Send orderbook to peer
-  const sendOrderbookToPeer = (peerId: string) => {
-    try {
-      const syncMessage = OrderbookUtils.createOrderbookSyncMessage(
-        'sync_response',
-        orderbook,
-        localPeerId || ''
-      );
-      sendString(peerId, JSON.stringify(syncMessage));
-    } catch (error) {
-      console.error('Error sending orderbook to peer:', error);
-    }
-  };
-
-  // Save orderbook to local storage
-  const saveOrderbook = (orderbook: Orderbook) => {
-    try {
-      localStorage.setItem('darkswap-orderbook', JSON.stringify(orderbook));
-    } catch (error) {
-      console.error('Error saving orderbook:', error);
-    }
-  };
-
+  
   // Create order
   const createOrder = async (
-    side: OrderSide,
-    baseAsset: OrderAsset,
-    quoteAsset: OrderAsset,
-    expiresAt?: number,
-    metadata?: { [key: string]: string }
-  ): Promise<Order> => {
-    if (!isWebRtcConnected || !isWalletConnected || !address || !localPeerId) {
-      throw new Error('Not connected');
-    }
-
+    side: 'buy' | 'sell',
+    baseAsset: string,
+    quoteAsset: string,
+    amount: string,
+    price: string,
+    expiry: number = 24 * 60 * 60 * 1000
+  ): Promise<string> => {
     try {
-      // Create the order
-      const order = OrderbookUtils.createOrder(
-        localPeerId,
-        address,
-        side,
+      // Check if wallet is connected
+      if (!wasmWallet.isConnected) {
+        throw new Error('Wallet not connected');
+      }
+      
+      // Get wallet address
+      const address = wasmWallet.address;
+      
+      // Create order
+      const order: Order = {
+        id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         baseAsset,
         quoteAsset,
-        expiresAt,
-        metadata
+        side,
+        amount,
+        price,
+        timestamp: Date.now(),
+        expiry: Date.now() + expiry,
+        status: 'open',
+        maker: address,
+      };
+      
+      // Send order to API
+      const response = await client.createOrder(
+        baseAsset,
+        quoteAsset,
+        side,
+        amount,
+        price,
+        expiry
       );
-
-      // Add the order to the orderbook
-      const updatedOrderbook = OrderbookUtils.addOrder(orderbook, order);
-      setOrderbook(updatedOrderbook);
-      saveOrderbook(updatedOrderbook);
-
-      // Broadcast the order to peers
-      broadcastOrderUpdate('add', order);
-
-      addNotification('success', 'Order created successfully');
-
-      return order;
-    } catch (error) {
-      console.error('Error creating order:', error);
-      addNotification('error', `Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
+      
+      // Get created order
+      const createdOrder = response.data;
+      
+      if (!createdOrder) {
+        throw new Error('Failed to create order: No order returned');
+      }
+      
+      // Add notification
+      addNotification('success', `Order created: ${createdOrder.id}`);
+      
+      // Sync orderbook
+      await syncOrderbook(baseAsset, quoteAsset);
+      
+      return createdOrder.id;
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      addNotification('error', `Failed to create order: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      throw err;
     }
   };
-
+  
   // Cancel order
-  const cancelOrder = async (orderId: string): Promise<Order> => {
-    if (!isWebRtcConnected || !isWalletConnected || !localPeerId) {
-      throw new Error('Not connected');
-    }
-
+  const cancelOrder = async (orderId: string): Promise<boolean> => {
     try {
-      // Find the order
-      const order = orderbook.orders.find((o) => o.id === orderId);
-      if (!order) {
-        throw new Error('Order not found');
-      }
-
-      // Check if the order belongs to the user
-      if (order.creatorId !== localPeerId) {
-        throw new Error('Cannot cancel order: not the creator');
-      }
-
-      // Cancel the order
-      const cancelledOrder = OrderbookUtils.cancelOrder(order);
-
-      // Update the orderbook
-      const updatedOrderbook = OrderbookUtils.updateOrderInOrderbook(
-        orderbook,
-        orderId,
-        cancelledOrder
-      );
-      setOrderbook(updatedOrderbook);
-      saveOrderbook(updatedOrderbook);
-
-      // Broadcast the order update to peers
-      broadcastOrderUpdate('update', cancelledOrder);
-
-      addNotification('success', 'Order cancelled successfully');
-
-      return cancelledOrder;
-    } catch (error) {
-      console.error('Error cancelling order:', error);
-      addNotification('error', `Failed to cancel order: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
+      // Send cancel request to API
+      await client.cancelOrder(orderId);
+      
+      // Add notification
+      addNotification('success', `Order cancelled: ${orderId}`);
+      
+      // Sync orderbook
+      await syncOrderbook();
+      
+      return true;
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      addNotification('error', `Failed to cancel order: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return false;
     }
   };
-
-  // Broadcast order update to peers
-  const broadcastOrderUpdate = (type: 'add' | 'update' | 'remove', order: Order) => {
-    if (!isWebRtcConnected || !localPeerId) return;
-
-    try {
-      // Create the update
-      const update = OrderbookUtils.createOrderbookUpdate(type, order, localPeerId);
-
-      // Create the sync message
-      const syncMessage = OrderbookUtils.createOrderbookSyncMessage(
-        'update',
-        update,
-        localPeerId
-      );
-
-      // Send to all connected peers
-      connectedPeers.forEach((peerId) => {
-        sendString(peerId, JSON.stringify(syncMessage));
-      });
-    } catch (error) {
-      console.error('Error broadcasting order update:', error);
-    }
+  
+  // Get order by ID
+  const getOrder = (orderId: string): Order | undefined => {
+    return orders.find(order => order.id === orderId);
   };
-
-  // Get open orders
-  const getOpenOrders = (): Order[] => {
-    return OrderbookUtils.getOpenOrders(orderbook);
+  
+  // Sync orderbook on mount
+  useEffect(() => {
+    syncOrderbook();
+  }, []);
+  
+  // Context value
+  const value: OrderbookContextType = {
+    orders,
+    buyOrders,
+    sellOrders,
+    isLoading,
+    error,
+    syncOrderbook,
+    createOrder,
+    cancelOrder,
+    getOrder,
+    midPrice,
+    spread,
+    lastUpdated,
   };
-
-  // Get my orders
-  const getMyOrders = (): Order[] => {
-    if (!localPeerId) return [];
-    return OrderbookUtils.getOrdersByCreator(orderbook, localPeerId);
-  };
-
-  // Get orders by asset
-  const getOrdersByAsset = (assetType: AssetType, assetId?: string): Order[] => {
-    return OrderbookUtils.getOrdersByAsset(orderbook, assetType, assetId);
-  };
-
-  // Get matching orders
-  const getMatchingOrders = (order: Order): Order[] => {
-    return OrderbookUtils.getMatchingOrders(orderbook, order);
-  };
-
-  // Refresh orderbook
-  const refreshOrderbook = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Clean up expired orders
-      const cleanedOrderbook = OrderbookUtils.cleanupExpiredOrders(orderbook);
-      setOrderbook(cleanedOrderbook);
-      saveOrderbook(cleanedOrderbook);
-
-      // Sync with peers
-      if (connectedPeers.length > 0) {
-        await syncOrderbook();
-      }
-
-      addNotification('success', 'Orderbook refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing orderbook:', error);
-      setError(error instanceof Error ? error : new Error('Unknown error'));
-      addNotification('error', `Failed to refresh orderbook: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Sync orderbook with peers
-  const syncOrderbook = async (): Promise<void> => {
-    if (!isWebRtcConnected || !localPeerId || connectedPeers.length === 0) {
-      return;
-    }
-
-    try {
-      // Create a sync request message
-      const syncMessage = OrderbookUtils.createOrderbookSyncMessage(
-        'sync_request',
-        orderbook,
-        localPeerId
-      );
-
-      // Send to all connected peers
-      connectedPeers.forEach((peerId) => {
-        sendString(peerId, JSON.stringify(syncMessage));
-      });
-
-      // Update last sync time
-      setLastSyncTime(Date.now());
-    } catch (error) {
-      console.error('Error syncing orderbook:', error);
-      throw error;
-    }
-  };
-
+  
   return (
-    <OrderbookContext.Provider
-      value={{
-        orderbook,
-        isLoading,
-        error,
-        createOrder,
-        cancelOrder,
-        getOpenOrders,
-        getMyOrders,
-        getOrdersByAsset,
-        getMatchingOrders,
-        refreshOrderbook,
-        syncOrderbook,
-      }}
-    >
+    <OrderbookContext.Provider value={value}>
       {children}
     </OrderbookContext.Provider>
   );
 };
 
-/**
- * Use orderbook hook
- */
+// Hook for using the orderbook context
 export const useOrderbook = (): OrderbookContextType => {
   const context = useContext(OrderbookContext);
+  
   if (context === undefined) {
     throw new Error('useOrderbook must be used within an OrderbookProvider');
   }
+  
   return context;
 };
 

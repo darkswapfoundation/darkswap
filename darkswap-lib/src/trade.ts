@@ -1,364 +1,367 @@
 /**
- * Trade functionality for darkswap-lib
+ * Trade implementation for the DarkSwap TypeScript Library
  */
 
-import { Network } from './network';
-import { Orderbook } from './orderbook';
-import {
-  Order,
-  PartiallySignedTransaction,
-  PeerId,
-  TradeAccept,
-  TradeComplete,
-  TradeIntent,
-  TradeMessage,
-  TradeReject,
+import { EventEmitter } from 'eventemitter3';
+import { 
+  EventData, 
+  EventHandler, 
+  EventType, 
+  Order, 
+  OrderSide, 
+  TradeExecution, 
+  TradeOptions, 
+  TradeStatus, 
+  TxInput, 
+  TxOutput 
 } from './types';
+import { DarkSwapClient } from './client';
+import { Wallet } from './wallet';
+import { DEFAULT_TRADE_TIMEOUT } from './constants';
+import { generateRandomId } from './utils';
 
 /**
  * Trade class
  */
-export class Trade {
-  private topic = 'darkswap/trade/v1';
-  private pendingTrades: Map<string, {
-    order: Order;
-    intent?: TradeIntent;
-    accept?: TradeAccept;
-    psbt?: PartiallySignedTransaction;
-    complete?: TradeComplete;
-  }> = new Map();
-
+export class Trade extends EventEmitter {
+  /** DarkSwap client */
+  private client: DarkSwapClient;
+  
+  /** Wallet */
+  private wallet: Wallet;
+  
+  /** Auto finalize */
+  private autoFinalize: boolean;
+  
+  /** Auto broadcast */
+  private autoBroadcast: boolean;
+  
+  /** Trades */
+  private trades: Map<string, TradeExecution> = new Map();
+  
   /**
-   * Create a new Trade
-   * @param network Network instance
-   * @param orderbook Orderbook instance
+   * Create a new trade
+   * @param client DarkSwap client
+   * @param wallet Wallet
+   * @param options Trade options
    */
-  constructor(private network: Network, private orderbook: Orderbook) {
-    this.setupEventListeners();
+  constructor(client: DarkSwapClient, wallet: Wallet, options: TradeOptions = {}) {
+    super();
+    
+    this.client = client;
+    this.wallet = wallet;
+    this.autoFinalize = options.autoFinalize !== undefined ? options.autoFinalize : true;
+    this.autoBroadcast = options.autoBroadcast !== undefined ? options.autoBroadcast : true;
+    
+    // Set up event listeners
+    this.client.on(EventType.TRADE_CREATED, this.handleTradeCreated.bind(this));
+    this.client.on(EventType.TRADE_EXECUTED, this.handleTradeExecuted.bind(this));
+    this.client.on(EventType.TRADE_FAILED, this.handleTradeFailed.bind(this));
   }
-
+  
   /**
-   * Set up event listeners
+   * Create a trade
+   * @param makerOrder Maker order
+   * @param takerOrder Taker order
+   * @returns Promise that resolves with the trade execution
    */
-  private setupEventListeners(): void {
-    this.network.addEventListener('messageReceived', (event) => {
-      if (event.type === 'messageReceived' && event.topic === this.topic) {
-        try {
-          const message = JSON.parse(new TextDecoder().decode(event.message)) as TradeMessage;
-          this.handleTradeMessage(message, event.peerId);
-        } catch (error) {
-          console.error('Failed to parse trade message:', error);
-        }
-      }
-    });
-  }
-
-  /**
-   * Handle a trade message
-   * @param message Trade message
-   * @param peerId Peer ID
-   */
-  private handleTradeMessage(message: TradeMessage, peerId: PeerId): void {
-    switch (message.type) {
-      case 'intent':
-        this.handleTradeIntent(message.intent, peerId);
-        break;
-      case 'accept':
-        this.handleTradeAccept(message.accept, peerId);
-        break;
-      case 'reject':
-        this.handleTradeReject(message.reject, peerId);
-        break;
-      case 'psbt':
-        this.handlePsbt(message.psbt, peerId);
-        break;
-      case 'complete':
-        this.handleTradeComplete(message.complete, peerId);
-        break;
+  public async createTrade(makerOrder: Order, takerOrder: Order): Promise<TradeExecution> {
+    // Check if the wallet is connected
+    if (!this.wallet.isConnected()) {
+      throw new Error('Wallet not connected');
     }
-  }
-
-  /**
-   * Handle a trade intent
-   * @param intent Trade intent
-   * @param peerId Peer ID
-   */
-  private handleTradeIntent(intent: TradeIntent, peerId: PeerId): void {
-    // Get the order
-    const order = this.orderbook.getOrder(intent.orderId);
-    if (!order) {
-      this.rejectTrade(intent.orderId, peerId, 'Order not found');
-      return;
+    
+    // Check if the orders are compatible
+    if (makerOrder.baseAsset !== takerOrder.baseAsset || makerOrder.quoteAsset !== takerOrder.quoteAsset) {
+      throw new Error('Orders are not compatible');
     }
-
-    // Check if the order is from this peer
-    if (order.makerPeerId === this.network.getLocalPeerId()) {
-      // This is an intent to take our order
-      this.pendingTrades.set(intent.orderId, {
-        order,
-        intent,
+    
+    // Check if the orders are on opposite sides
+    if (makerOrder.side === takerOrder.side) {
+      throw new Error('Orders are on the same side');
+    }
+    
+    // Create the trade execution
+    const tradeExecution: TradeExecution = {
+      id: generateRandomId(),
+      makerOrder,
+      takerOrder,
+      status: TradeStatus.PENDING,
+      timestamp: Date.now(),
+    };
+    
+    // Send the trade to the server
+    const trade = await this.client.post<TradeExecution>('/trades', tradeExecution);
+    
+    // Store the trade
+    this.trades.set(trade.id, trade);
+    
+    // Auto execute the trade if enabled
+    if (this.autoFinalize) {
+      this.executeTrade(trade.id).catch((error) => {
+        console.error('Failed to execute trade:', error);
       });
-
-      // In a real implementation, we would check if we want to accept the trade
-      // For now, we'll just accept it
-      this.acceptTrade(intent.orderId, peerId, intent.amount);
     }
+    
+    return trade;
   }
-
+  
   /**
-   * Handle a trade accept
-   * @param accept Trade accept
-   * @param peerId Peer ID
+   * Execute a trade
+   * @param tradeId Trade ID
+   * @returns Promise that resolves when the trade is executed
    */
-  private handleTradeAccept(accept: TradeAccept, peerId: PeerId): void {
-    // Check if we have a pending trade for this order
-    const pendingTrade = this.pendingTrades.get(accept.orderId);
-    if (!pendingTrade) {
+  public async executeTrade(tradeId: string): Promise<void> {
+    // Get the trade
+    const trade = this.trades.get(tradeId);
+    
+    if (!trade) {
+      throw new Error(`Trade not found: ${tradeId}`);
+    }
+    
+    // Check if the trade is already executed
+    if (trade.status === TradeStatus.COMPLETED) {
       return;
     }
-
-    // Update the pending trade
-    pendingTrade.accept = accept;
-    this.pendingTrades.set(accept.orderId, pendingTrade);
-
-    // In a real implementation, we would create a PSBT and send it
-    // For now, we'll just create a dummy PSBT
-    const psbt: PartiallySignedTransaction = {
-      psbt: new Uint8Array(0),
-      timestamp: Date.now(),
-      signature: new Uint8Array(0),
-    };
-
-    this.sendPsbt(accept.orderId, psbt);
+    
+    // Check if the wallet is connected
+    if (!this.wallet.isConnected()) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      // Get the trade inputs and outputs
+      const { inputs, outputs } = await this.getTradeInputsAndOutputs(trade);
+      
+      // Create the PSBT
+      const psbtBase64 = await this.wallet.createPsbt(inputs, outputs);
+      
+      // Sign the PSBT
+      const signedPsbtBase64 = await this.wallet.signPsbt(psbtBase64);
+      
+      // Finalize the PSBT
+      const finalizedPsbtBase64 = await this.wallet.finalizePsbt(signedPsbtBase64);
+      
+      // Extract the transaction
+      const txHex = await this.wallet.extractTx(finalizedPsbtBase64);
+      
+      // Broadcast the transaction if auto broadcast is enabled
+      if (this.autoBroadcast) {
+        const txid = await this.wallet.broadcastTx(txHex);
+        
+        // Update the trade status
+        await this.client.put<TradeExecution>(`/trades/${tradeId}`, {
+          status: TradeStatus.COMPLETED,
+          txid,
+        });
+      } else {
+        // Update the trade status
+        await this.client.put<TradeExecution>(`/trades/${tradeId}`, {
+          status: TradeStatus.COMPLETED,
+        });
+      }
+    } catch (error) {
+      // Update the trade status
+      await this.client.put<TradeExecution>(`/trades/${tradeId}`, {
+        status: TradeStatus.FAILED,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      
+      throw error;
+    }
   }
-
+  
   /**
-   * Handle a trade reject
-   * @param reject Trade reject
-   * @param peerId Peer ID
+   * Get trade inputs and outputs
+   * @param trade Trade execution
+   * @returns Trade inputs and outputs
    */
-  private handleTradeReject(reject: TradeReject, _peerId: PeerId): void {
-    // Remove the pending trade
-    this.pendingTrades.delete(reject.orderId);
-
-    // Notify the user
-    console.log(`Trade rejected: ${reject.reason}`);
+  private async getTradeInputsAndOutputs(trade: TradeExecution): Promise<{ inputs: TxInput[]; outputs: TxOutput[] }> {
+    // This is a simplified implementation
+    // In a real implementation, this would calculate the inputs and outputs based on the trade
+    
+    // Get the wallet address
+    const address = this.wallet.getAddress();
+    
+    // Create a dummy input
+    const inputs: TxInput[] = [
+      {
+        txid: '0000000000000000000000000000000000000000000000000000000000000000',
+        vout: 0,
+        value: 100000000,
+      },
+    ];
+    
+    // Create a dummy output
+    const outputs: TxOutput[] = [
+      {
+        address,
+        value: 100000000,
+      },
+    ];
+    
+    return { inputs, outputs };
   }
-
+  
   /**
-   * Handle a PSBT
-   * @param psbt PSBT
-   * @param peerId Peer ID
+   * Handle trade created event
+   * @param data Event data
    */
-  private handlePsbt(psbt: PartiallySignedTransaction, peerId: PeerId): void {
-    // Find the pending trade
-    const pendingTrade = Array.from(this.pendingTrades.entries()).find(
-      ([_, trade]) => trade.accept?.makerPeerId === peerId || trade.intent?.takerPeerId === peerId
-    );
-
-    if (!pendingTrade) {
+  private handleTradeCreated(data: EventData): void {
+    const trade = data.trade as TradeExecution;
+    
+    // Store the trade
+    this.trades.set(trade.id, trade);
+    
+    // Emit event
+    this.emit(EventType.TRADE_CREATED, { trade });
+  }
+  
+  /**
+   * Handle trade executed event
+   * @param data Event data
+   */
+  private handleTradeExecuted(data: EventData): void {
+    const tradeId = data.tradeId as string;
+    
+    // Get the trade
+    const trade = this.trades.get(tradeId);
+    
+    if (!trade) {
       return;
     }
-
-    const [orderId, trade] = pendingTrade;
-
-    // Update the pending trade
-    trade.psbt = psbt;
-    this.pendingTrades.set(orderId, trade);
-
-    // In a real implementation, we would sign the PSBT and broadcast the transaction
-    // For now, we'll just complete the trade
-    const complete: TradeComplete = {
-      orderId,
-      makerPeerId: trade.order.makerPeerId,
-      takerPeerId: trade.intent?.takerPeerId || this.network.getLocalPeerId(),
-      txid: '0x' + Math.random().toString(16).substring(2),
-      timestamp: Date.now(),
-      signature: new Uint8Array(0),
-    };
-
-    this.completeTrade(orderId, complete);
+    
+    // Update the trade status
+    trade.status = TradeStatus.COMPLETED;
+    trade.completedAt = Date.now();
+    
+    // Emit event
+    this.emit(EventType.TRADE_EXECUTED, { trade });
   }
-
+  
   /**
-   * Handle a trade complete
-   * @param complete Trade complete
-   * @param peerId Peer ID
+   * Handle trade failed event
+   * @param data Event data
    */
-  private handleTradeComplete(complete: TradeComplete, _peerId: PeerId): void {
-    // Remove the pending trade
-    this.pendingTrades.delete(complete.orderId);
-
-    // Remove the order from the orderbook
-    this.orderbook.removeOrder(complete.orderId);
-
-    // Notify the user
-    console.log(`Trade completed: ${complete.txid}`);
-  }
-
-  /**
-   * Take an order
-   * @param orderId Order ID to take
-   * @param amount Amount to take
-   */
-  async takeOrder(orderId: string, amount: string): Promise<void> {
-    // Get the order
-    const order = this.orderbook.getOrder(orderId);
-    if (!order) {
-      throw new Error(`Order not found: ${orderId}`);
+  private handleTradeFailed(data: EventData): void {
+    const tradeId = data.tradeId as string;
+    
+    // Get the trade
+    const trade = this.trades.get(tradeId);
+    
+    if (!trade) {
+      return;
     }
-
-    // Create a trade intent
-    const intent: TradeIntent = {
-      orderId,
-      takerPeerId: this.network.getLocalPeerId(),
-      amount,
-      timestamp: Date.now(),
-      signature: new Uint8Array(0),
-    };
-
-    // Add to pending trades
-    this.pendingTrades.set(orderId, {
-      order,
-      intent,
+    
+    // Update the trade status
+    trade.status = TradeStatus.FAILED;
+    
+    // Emit event
+    this.emit(EventType.TRADE_FAILED, { trade });
+  }
+  
+  /**
+   * Get all trades
+   * @returns All trades
+   */
+  public getTrades(): TradeExecution[] {
+    return Array.from(this.trades.values());
+  }
+  
+  /**
+   * Get a trade by ID
+   * @param tradeId Trade ID
+   * @returns Trade or undefined if not found
+   */
+  public getTrade(tradeId: string): TradeExecution | undefined {
+    return this.trades.get(tradeId);
+  }
+  
+  /**
+   * Wait for a trade to complete
+   * @param tradeId Trade ID
+   * @param timeout Timeout in milliseconds
+   * @returns Promise that resolves with the trade execution
+   */
+  public async waitForTradeCompletion(tradeId: string, timeout: number = DEFAULT_TRADE_TIMEOUT): Promise<TradeExecution> {
+    return new Promise<TradeExecution>((resolve, reject) => {
+      // Get the trade
+      const trade = this.trades.get(tradeId);
+      
+      if (!trade) {
+        reject(new Error(`Trade not found: ${tradeId}`));
+        return;
+      }
+      
+      // Check if the trade is already completed
+      if (trade.status === TradeStatus.COMPLETED) {
+        resolve(trade);
+        return;
+      }
+      
+      // Check if the trade has failed
+      if (trade.status === TradeStatus.FAILED) {
+        reject(new Error(`Trade failed: ${tradeId}`));
+        return;
+      }
+      
+      // Set up event listeners
+      const onTradeExecuted = (data: EventData) => {
+        const executedTrade = data.trade as TradeExecution;
+        
+        if (executedTrade.id === tradeId) {
+          // Remove event listeners
+          this.off(EventType.TRADE_EXECUTED, onTradeExecuted);
+          this.off(EventType.TRADE_FAILED, onTradeFailed);
+          
+          // Clear timeout
+          clearTimeout(timeoutId);
+          
+          // Resolve with the trade
+          resolve(executedTrade);
+        }
+      };
+      
+      const onTradeFailed = (data: EventData) => {
+        const failedTrade = data.trade as TradeExecution;
+        
+        if (failedTrade.id === tradeId) {
+          // Remove event listeners
+          this.off(EventType.TRADE_EXECUTED, onTradeExecuted);
+          this.off(EventType.TRADE_FAILED, onTradeFailed);
+          
+          // Clear timeout
+          clearTimeout(timeoutId);
+          
+          // Reject with an error
+          reject(new Error(`Trade failed: ${tradeId}`));
+        }
+      };
+      
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        // Remove event listeners
+        this.off(EventType.TRADE_EXECUTED, onTradeExecuted);
+        this.off(EventType.TRADE_FAILED, onTradeFailed);
+        
+        // Reject with a timeout error
+        reject(new Error(`Trade timed out: ${tradeId}`));
+      }, timeout);
+      
+      // Add event listeners
+      this.on(EventType.TRADE_EXECUTED, onTradeExecuted);
+      this.on(EventType.TRADE_FAILED, onTradeFailed);
     });
-
-    // Send the trade intent
-    await this.sendTradeIntent(intent);
   }
+}
 
-  /**
-   * Accept a trade
-   * @param orderId Order ID
-   * @param takerPeerId Taker peer ID
-   * @param amount Amount
-   */
-  private async acceptTrade(orderId: string, takerPeerId: PeerId, amount: string): Promise<void> {
-    // Create a trade accept
-    const accept: TradeAccept = {
-      orderId,
-      makerPeerId: this.network.getLocalPeerId(),
-      takerPeerId,
-      amount,
-      timestamp: Date.now(),
-      signature: new Uint8Array(0),
-    };
-
-    // Send the trade accept
-    await this.sendTradeAccept(accept);
-  }
-
-  /**
-   * Reject a trade
-   * @param orderId Order ID
-   * @param takerPeerId Taker peer ID
-   * @param reason Reason for rejection
-   */
-  private async rejectTrade(orderId: string, takerPeerId: PeerId, reason: string): Promise<void> {
-    // Create a trade reject
-    const reject: TradeReject = {
-      orderId,
-      makerPeerId: this.network.getLocalPeerId(),
-      takerPeerId,
-      reason,
-      timestamp: Date.now(),
-      signature: new Uint8Array(0),
-    };
-
-    // Send the trade reject
-    await this.sendTradeReject(reject);
-  }
-
-  /**
-   * Complete a trade
-   * @param orderId Order ID
-   * @param complete Trade complete
-   */
-  private async completeTrade(orderId: string, complete: TradeComplete): Promise<void> {
-    // Send the trade complete
-    await this.sendTradeComplete(complete);
-
-    // Remove the order from the orderbook
-    this.orderbook.removeOrder(orderId);
-
-    // Remove the pending trade
-    this.pendingTrades.delete(orderId);
-  }
-
-  /**
-   * Send a trade intent
-   * @param intent Trade intent
-   */
-  private async sendTradeIntent(intent: TradeIntent): Promise<void> {
-    const message: TradeMessage = {
-      type: 'intent',
-      intent,
-    };
-
-    await this.sendTradeMessage(message);
-  }
-
-  /**
-   * Send a trade accept
-   * @param accept Trade accept
-   */
-  private async sendTradeAccept(accept: TradeAccept): Promise<void> {
-    const message: TradeMessage = {
-      type: 'accept',
-      accept,
-    };
-
-    await this.sendTradeMessage(message);
-  }
-
-  /**
-   * Send a trade reject
-   * @param reject Trade reject
-   */
-  private async sendTradeReject(reject: TradeReject): Promise<void> {
-    const message: TradeMessage = {
-      type: 'reject',
-      reject,
-    };
-
-    await this.sendTradeMessage(message);
-  }
-
-  /**
-   * Send a PSBT
-   * @param orderId Order ID
-   * @param psbt PSBT
-   */
-  private async sendPsbt(orderId: string, psbt: PartiallySignedTransaction): Promise<void> {
-    const message: TradeMessage = {
-      type: 'psbt',
-      psbt,
-    };
-
-    await this.sendTradeMessage(message);
-  }
-
-  /**
-   * Send a trade complete
-   * @param complete Trade complete
-   */
-  private async sendTradeComplete(complete: TradeComplete): Promise<void> {
-    const message: TradeMessage = {
-      type: 'complete',
-      complete,
-    };
-
-    await this.sendTradeMessage(message);
-  }
-
-  /**
-   * Send a trade message
-   * @param message Trade message
-   */
-  private async sendTradeMessage(message: TradeMessage): Promise<void> {
-    const encoder = new TextEncoder();
-    const messageBytes = encoder.encode(JSON.stringify(message));
-
-    await this.network.publish(this.topic, messageBytes);
-  }
+/**
+ * Create a new trade
+ * @param client DarkSwap client
+ * @param wallet Wallet
+ * @param options Trade options
+ * @returns Trade instance
+ */
+export function createTrade(client: DarkSwapClient, wallet: Wallet, options: TradeOptions = {}): Trade {
+  return new Trade(client, wallet, options);
 }

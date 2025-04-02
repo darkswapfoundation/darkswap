@@ -1,12 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import ApiClient from '../utils/ApiClient';
 import { useNotification } from './NotificationContext';
+import { Peer } from './WebSocketContext';
+
+export interface RelayInfo {
+  id: string;
+  address: string;
+  connected: boolean;
+  latency: number;
+  connectedPeers: string[];
+}
+
+export interface RelayStatus {
+  relays: RelayInfo[];
+  timestamp: number;
+}
 
 interface ApiContextType {
   client: ApiClient;
   isLoading: boolean;
   error: string | null;
   setBaseUrl: (url: string) => void;
+  getRelayStatus: () => Promise<RelayStatus>;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -57,6 +72,39 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({
     client.setBaseUrl(url);
   };
 
+  // Get relay status
+  const getRelayStatus = async (): Promise<RelayStatus> => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await client.getRelayStatus();
+      
+      if (response.error) {
+        setError(`API error: ${response.error}`);
+        throw new Error(response.error);
+      }
+      
+      if (!response.data) {
+        throw new Error('No data returned from API');
+      }
+      
+      // Create a default relay status if the API doesn't return one
+      const relayStatus: RelayStatus = {
+        relays: response.data.relays || [],
+        timestamp: response.data.timestamp || Date.now(),
+      };
+      
+      return relayStatus;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`API error: ${errorMessage}`);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <ApiContext.Provider
       value={{
@@ -64,6 +112,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({
         isLoading,
         error,
         setBaseUrl,
+        getRelayStatus,
       }}
     >
       {children}

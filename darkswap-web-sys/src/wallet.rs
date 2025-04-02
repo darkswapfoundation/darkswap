@@ -1,432 +1,339 @@
-//! WebAssembly bindings for wallet functionality
+//! WebAssembly bindings for the DarkSwap wallet functionality
 //!
-//! This module provides WebAssembly bindings for wallet functionality,
-//! allowing it to be used in web browsers.
+//! This module provides WebAssembly bindings for the DarkSwap wallet functionality.
 
 use wasm_bindgen::prelude::*;
-use web_sys::console;
-use std::sync::{Arc, Mutex};
+use wasm_bindgen_futures::future_to_promise;
+use js_sys::{Array, Object, Promise, Reflect};
+use web_sys::{console, window};
 use serde::{Serialize, Deserialize};
-
-#[cfg(feature = "bitcoin")]
-use bitcoin::{Address, Network, PrivateKey, PublicKey, Script};
-use rand::rngs::OsRng;
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use darkswap_sdk::wallet::{Wallet as SdkWallet, WalletConfig};
+use bitcoin::{Address, Network, Transaction};
+use bitcoin::psbt::PartiallySignedTransaction as Psbt;
 
-/// Wallet error
-#[wasm_bindgen]
-pub struct WalletError {
-    message: String,
+use crate::{to_js_error, from_js_value, to_js_value};
+
+// Global wallet instance
+static WALLET: Mutex<Option<Arc<Mutex<SdkWallet>>>> = Mutex::new(None);
+
+/// Initialize the wallet module
+pub async fn initialize() -> Result<(), JsValue> {
+    log::info!("Initializing wallet module");
+    
+    // Initialize the wallet with default configuration
+    let config = WalletConfig::default();
+    let wallet = SdkWallet::new(config).map_err(to_js_error)?;
+    
+    // Store the wallet instance
+    let mut global_wallet = WALLET.lock().unwrap();
+    *global_wallet = Some(Arc::new(Mutex::new(wallet)));
+    
+    log::info!("Wallet module initialized successfully");
+    Ok(())
 }
 
-#[wasm_bindgen]
-impl WalletError {
-    /// Get error message
-    #[wasm_bindgen(getter)]
-    pub fn message(&self) -> String {
-        self.message.clone()
-    }
+/// Check if the wallet module is initialized
+pub fn is_initialized() -> bool {
+    WALLET.lock().unwrap().is_some()
 }
 
-/// Asset type
-#[wasm_bindgen]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum AssetType {
-    Bitcoin,
-    Rune,
-    Alkane,
+/// Get the wallet instance
+fn get_wallet() -> Result<Arc<Mutex<SdkWallet>>, JsValue> {
+    WALLET.lock().unwrap()
+        .clone()
+        .ok_or_else(|| JsValue::from_str("Wallet not initialized"))
 }
 
-/// Asset
-#[wasm_bindgen]
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Asset {
-    asset_type: AssetType,
-    id: Option<String>,
-}
-
-#[wasm_bindgen]
-impl Asset {
-    /// Create a new Bitcoin asset
-    #[wasm_bindgen(constructor)]
-    pub fn new(asset_type: AssetType, id: Option<String>) -> Self {
-        Self { asset_type, id }
-    }
-
-    /// Create a new Bitcoin asset
-    #[wasm_bindgen(js_name = "bitcoin")]
-    pub fn bitcoin() -> Self {
-        Self {
-            asset_type: AssetType::Bitcoin,
-            id: None,
-        }
-    }
-
-    /// Create a new Rune asset
-    #[wasm_bindgen(js_name = "rune")]
-    pub fn rune(id: String) -> Self {
-        Self {
-            asset_type: AssetType::Rune,
-            id: Some(id),
-        }
-    }
-
-    /// Create a new Alkane asset
-    #[wasm_bindgen(js_name = "alkane")]
-    pub fn alkane(id: String) -> Self {
-        Self {
-            asset_type: AssetType::Alkane,
-            id: Some(id),
-        }
-    }
-
-    /// Get asset type
-    #[wasm_bindgen(getter)]
-    pub fn asset_type(&self) -> AssetType {
-        self.asset_type.clone()
-    }
-
-    /// Get asset ID
-    #[wasm_bindgen(getter)]
-    pub fn id(&self) -> Option<String> {
-        self.id.clone()
-    }
-}
-
-/// Wallet configuration
-#[wasm_bindgen]
+/// Wallet balance information
 #[derive(Serialize, Deserialize)]
-pub struct WalletConfig {
-    /// Network (mainnet, testnet, regtest, signet)
-    network: String,
-    /// Private key (WIF format)
-    private_key: Option<String>,
-    /// Mnemonic phrase
-    mnemonic: Option<String>,
-    /// Derivation path
-    derivation_path: Option<String>,
+pub struct Balance {
+    pub btc: String,
+    pub runes: Vec<RuneBalance>,
+    pub alkanes: Vec<AlkaneBalance>,
 }
 
-#[wasm_bindgen]
-impl WalletConfig {
-    /// Create a new wallet configuration
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self {
-            network: "testnet".to_string(),
-            private_key: None,
-            mnemonic: None,
-            derivation_path: None,
-        }
-    }
-
-    /// Set network
-    #[wasm_bindgen(setter)]
-    pub fn set_network(&mut self, network: String) {
-        self.network = network;
-    }
-
-    /// Get network
-    #[wasm_bindgen(getter)]
-    pub fn network(&self) -> String {
-        self.network.clone()
-    }
-
-    /// Set private key
-    #[wasm_bindgen(setter)]
-    pub fn set_private_key(&mut self, private_key: Option<String>) {
-        self.private_key = private_key;
-    }
-
-    /// Get private key
-    #[wasm_bindgen(getter)]
-    pub fn private_key(&self) -> Option<String> {
-        self.private_key.clone()
-    }
-
-    /// Set mnemonic
-    #[wasm_bindgen(setter)]
-    pub fn set_mnemonic(&mut self, mnemonic: Option<String>) {
-        self.mnemonic = mnemonic;
-    }
-
-    /// Get mnemonic
-    #[wasm_bindgen(getter)]
-    pub fn mnemonic(&self) -> Option<String> {
-        self.mnemonic.clone()
-    }
-
-    /// Set derivation path
-    #[wasm_bindgen(setter)]
-    pub fn set_derivation_path(&mut self, derivation_path: Option<String>) {
-        self.derivation_path = derivation_path;
-    }
-
-    /// Get derivation path
-    #[wasm_bindgen(getter)]
-    pub fn derivation_path(&self) -> Option<String> {
-        self.derivation_path.clone()
-    }
+/// Rune balance information
+#[derive(Serialize, Deserialize)]
+pub struct RuneBalance {
+    pub id: String,
+    pub ticker: String,
+    pub amount: String,
 }
 
-/// Simple wallet implementation for WebAssembly
+/// Alkane balance information
+#[derive(Serialize, Deserialize)]
+pub struct AlkaneBalance {
+    pub id: String,
+    pub ticker: String,
+    pub amount: String,
+}
+
+/// Transaction input
+#[derive(Serialize, Deserialize)]
+pub struct TxInput {
+    pub txid: String,
+    pub vout: u32,
+    pub value: u64,
+    pub address: Option<String>,
+    pub script_pubkey: Option<String>,
+}
+
+/// Transaction output
+#[derive(Serialize, Deserialize)]
+pub struct TxOutput {
+    pub address: String,
+    pub value: u64,
+    pub script: Option<String>,
+}
+
+/// Wallet class for JavaScript
 #[wasm_bindgen]
 pub struct Wallet {
-    #[cfg(feature = "bitcoin")]
-    private_key: PrivateKey,
-    #[cfg(feature = "bitcoin")]
-    public_key: PublicKey,
-    #[cfg(feature = "bitcoin")]
-    network: Network,
-    balances: Arc<Mutex<HashMap<String, u64>>>,
+    inner: Arc<Mutex<SdkWallet>>,
 }
 
-#[cfg(feature = "bitcoin")]
 #[wasm_bindgen]
 impl Wallet {
-    /// Create a new wallet
+    /// Create a new wallet instance
     #[wasm_bindgen(constructor)]
-    pub fn new(config: WalletConfig) -> Result<Wallet, JsValue> {
-        console::log_1(&JsValue::from_str("Creating new wallet..."));
-
-        // Convert network string to bitcoin::Network
-        let bitcoin_network = match config.network.as_str() {
-            "mainnet" => Network::Bitcoin,
-            "testnet" => Network::Testnet,
-            "regtest" => Network::Regtest,
-            "signet" => Network::Signet,
-            _ => return Err(JsValue::from_str(&format!("Invalid network: {}", config.network))),
-        };
-
-        // Generate or use provided private key
-        let private_key = if let Some(wif) = config.private_key {
-            match PrivateKey::from_wif(&wif) {
-                Ok(pk) => pk,
-                Err(e) => return Err(JsValue::from_str(&format!("Invalid private key WIF format: {}", e))),
-            }
-        } else {
-            let secp = bitcoin::secp256k1::Secp256k1::new();
-            let (secret_key, _) = secp.generate_keypair(&mut OsRng);
-            PrivateKey::new(secret_key, bitcoin_network)
-        };
-
-        // Derive public key
-        let secp = bitcoin::secp256k1::Secp256k1::new();
-        let public_key = PublicKey::from_private_key(&secp, &private_key);
-
-        // Initialize balances
-        let mut balances = HashMap::new();
-        balances.insert("BTC".to_string(), 100_000_000); // 1 BTC
-        balances.insert("RUNE:0x123".to_string(), 1000); // 1000 RUNE:0x123
-        balances.insert("ALKANE:0x456".to_string(), 500); // 500 ALKANE:0x456
-
-        console::log_1(&JsValue::from_str("Wallet created successfully"));
-
-        Ok(Wallet {
-            private_key,
-            public_key,
-            network: bitcoin_network,
-            balances: Arc::new(Mutex::new(balances)),
+    pub fn new() -> Result<Wallet, JsValue> {
+        let inner = get_wallet()?;
+        Ok(Wallet { inner })
+    }
+    
+    /// Connect to the wallet
+    #[wasm_bindgen]
+    pub fn connect(&self) -> Promise {
+        let wallet = self.inner.clone();
+        
+        future_to_promise(async move {
+            let mut wallet = wallet.lock().unwrap();
+            wallet.connect().await.map_err(to_js_error)?;
+            Ok(JsValue::from_bool(true))
         })
     }
-
-    /// Get wallet address
+    
+    /// Disconnect from the wallet
     #[wasm_bindgen]
-    pub fn get_address(&self) -> Result<String, JsValue> {
-        // Create a P2WPKH address from the public key
-        match Address::p2wpkh(&self.public_key, self.network) {
-            Ok(address) => Ok(address.to_string()),
-            Err(e) => Err(JsValue::from_str(&format!("Failed to create P2WPKH address: {}", e))),
-        }
+    pub fn disconnect(&self) {
+        let wallet = self.inner.lock().unwrap();
+        wallet.disconnect();
     }
-
-    /// Get wallet balance
+    
+    /// Check if the wallet is connected
     #[wasm_bindgen]
-    pub fn get_balance(&self) -> u64 {
-        let balances = self.balances.lock().unwrap();
-        *balances.get("BTC").unwrap_or(&0)
+    pub fn is_connected(&self) -> bool {
+        let wallet = self.inner.lock().unwrap();
+        wallet.is_connected()
     }
-
-    /// Get asset balance
+    
+    /// Get the wallet address
     #[wasm_bindgen]
-    pub fn get_asset_balance(&self, asset: &Asset) -> u64 {
-        let balances = self.balances.lock().unwrap();
-        let key = match asset.asset_type {
-            AssetType::Bitcoin => "BTC".to_string(),
-            AssetType::Rune => {
-                if let Some(id) = &asset.id {
-                    format!("RUNE:{}", id)
-                } else {
-                    return 0;
-                }
-            },
-            AssetType::Alkane => {
-                if let Some(id) = &asset.id {
-                    format!("ALKANE:{}", id)
-                } else {
-                    return 0;
-                }
-            },
-        };
-        *balances.get(&key).unwrap_or(&0)
+    pub fn get_address(&self) -> String {
+        let wallet = self.inner.lock().unwrap();
+        wallet.get_address().to_string()
     }
-
-    /// Create and sign a PSBT for an order
+    
+    /// Get the wallet balance
     #[wasm_bindgen]
-    pub fn create_order_psbt(
-        &self,
-        order_id: String,
-        base_asset: &Asset,
-        quote_asset: &Asset,
-        amount: u64,
-        price: u64,
-    ) -> Result<String, JsValue> {
-        // Check if we have enough balance
-        let balances = self.balances.lock().unwrap();
-        let base_key = match base_asset.asset_type {
-            AssetType::Bitcoin => "BTC".to_string(),
-            AssetType::Rune => {
-                if let Some(id) = &base_asset.id {
-                    format!("RUNE:{}", id)
-                } else {
-                    return Err(JsValue::from_str("Rune asset must have an ID"));
-                }
-            },
-            AssetType::Alkane => {
-                if let Some(id) = &base_asset.id {
-                    format!("ALKANE:{}", id)
-                } else {
-                    return Err(JsValue::from_str("Alkane asset must have an ID"));
-                }
-            },
-        };
-        let base_balance = *balances.get(&base_key).unwrap_or(&0);
+    pub fn get_balance(&self) -> Promise {
+        let wallet = self.inner.clone();
         
-        if base_balance < amount {
-            return Err(JsValue::from_str("Insufficient funds"));
-        }
-        
-        // In a real implementation, we would create a PSBT
-        // For now, just return a dummy PSBT
-        Ok("dummy_psbt_base64_string")
+        future_to_promise(async move {
+            let wallet = wallet.lock().unwrap();
+            
+            // Get BTC balance
+            let btc_balance = wallet.get_btc_balance().await.map_err(to_js_error)?;
+            
+            // Get rune balances
+            let rune_balances = wallet.get_rune_balances().await.map_err(to_js_error)?;
+            let runes = rune_balances.iter().map(|(id, balance)| {
+                RuneBalance {
+                    id: id.to_string(),
+                    ticker: balance.ticker.clone(),
+                    amount: balance.amount.to_string(),
+                }
+            }).collect::<Vec<_>>();
+            
+            // Get alkane balances
+            let alkane_balances = wallet.get_alkane_balances().await.map_err(to_js_error)?;
+            let alkanes = alkane_balances.iter().map(|(id, balance)| {
+                AlkaneBalance {
+                    id: id.to_string(),
+                    ticker: balance.ticker.clone(),
+                    amount: balance.amount.to_string(),
+                }
+            }).collect::<Vec<_>>();
+            
+            // Create balance object
+            let balance = Balance {
+                btc: btc_balance.to_string(),
+                runes,
+                alkanes,
+            };
+            
+            to_js_value(&balance)
+        })
     }
-
+    
+    /// Sign a message
+    #[wasm_bindgen]
+    pub fn sign_message(&self, message: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let message = message.to_string();
+        
+        future_to_promise(async move {
+            let wallet = wallet.lock().unwrap();
+            let signature = wallet.sign_message(&message).await.map_err(to_js_error)?;
+            Ok(JsValue::from_str(&signature))
+        })
+    }
+    
+    /// Sign a transaction
+    #[wasm_bindgen]
+    pub fn sign_transaction(&self, tx_hex: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let tx_hex = tx_hex.to_string();
+        
+        future_to_promise(async move {
+            let wallet = wallet.lock().unwrap();
+            
+            // Parse transaction hex
+            let tx = Transaction::from_hex(&tx_hex).map_err(to_js_error)?;
+            
+            // Sign transaction
+            let signed_tx = wallet.sign_transaction(tx).await.map_err(to_js_error)?;
+            
+            // Convert to hex
+            let signed_tx_hex = signed_tx.to_hex();
+            
+            Ok(JsValue::from_str(&signed_tx_hex))
+        })
+    }
+    
+    /// Create a PSBT
+    #[wasm_bindgen]
+    pub fn create_psbt(&self, inputs: JsValue, outputs: JsValue) -> Promise {
+        let wallet = self.inner.clone();
+        
+        future_to_promise(async move {
+            // Parse inputs
+            let inputs: Vec<TxInput> = from_js_value(&inputs)?;
+            
+            // Parse outputs
+            let outputs: Vec<TxOutput> = from_js_value(&outputs)?;
+            
+            // Convert inputs to SDK format
+            let sdk_inputs = inputs.iter().map(|input| {
+                darkswap_sdk::wallet::TxInput {
+                    txid: input.txid.clone(),
+                    vout: input.vout,
+                    value: input.value,
+                    address: input.address.clone(),
+                    script_pubkey: input.script_pubkey.clone(),
+                }
+            }).collect::<Vec<_>>();
+            
+            // Convert outputs to SDK format
+            let sdk_outputs = outputs.iter().map(|output| {
+                darkswap_sdk::wallet::TxOutput {
+                    address: output.address.clone(),
+                    value: output.value,
+                    script: output.script.clone(),
+                }
+            }).collect::<Vec<_>>();
+            
+            // Create PSBT
+            let wallet = wallet.lock().unwrap();
+            let psbt = wallet.create_psbt(&sdk_inputs, &sdk_outputs).await.map_err(to_js_error)?;
+            
+            // Convert to base64
+            let psbt_base64 = psbt.to_string();
+            
+            Ok(JsValue::from_str(&psbt_base64))
+        })
+    }
+    
     /// Sign a PSBT
     #[wasm_bindgen]
-    pub fn sign_psbt(&self, psbt_base64: String) -> Result<String, JsValue> {
-        // In a real implementation, we would sign the PSBT
-        // For now, just return the same PSBT
-        Ok(psbt_base64)
+    pub fn sign_psbt(&self, psbt_base64: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let psbt_base64 = psbt_base64.to_string();
+        
+        future_to_promise(async move {
+            // Parse PSBT
+            let psbt = Psbt::from_str(&psbt_base64).map_err(to_js_error)?;
+            
+            // Sign PSBT
+            let wallet = wallet.lock().unwrap();
+            let signed_psbt = wallet.sign_psbt(psbt).await.map_err(to_js_error)?;
+            
+            // Convert to base64
+            let signed_psbt_base64 = signed_psbt.to_string();
+            
+            Ok(JsValue::from_str(&signed_psbt_base64))
+        })
     }
     
-    #[cfg(not(feature = "bitcoin"))]
+    /// Finalize a PSBT
     #[wasm_bindgen]
-    impl Wallet {
-        /// Create a new wallet
-        #[wasm_bindgen(constructor)]
-        pub fn new(_config: WalletConfig) -> Result<Wallet, JsValue> {
-            console::log_1(&JsValue::from_str("Creating new wallet (mock)..."));
-    
-            // Initialize balances
-            let mut balances = HashMap::new();
-            balances.insert("BTC".to_string(), 100_000_000); // 1 BTC
-            balances.insert("RUNE:0x123".to_string(), 1000); // 1000 RUNE:0x123
-            balances.insert("ALKANE:0x456".to_string(), 500); // 500 ALKANE:0x456
-    
-            console::log_1(&JsValue::from_str("Wallet created successfully (mock)"));
-    
-            Ok(Wallet {
-                balances: Arc::new(Mutex::new(balances)),
-            })
-        }
-    
-        /// Get wallet address
-        #[wasm_bindgen]
-        pub fn get_address(&self) -> Result<String, JsValue> {
-            // Return a dummy address
-            Ok("bc1qmock000000000000000000000000000000000000".to_string())
-        }
-    
-        /// Get wallet balance
-        #[wasm_bindgen]
-        pub fn get_balance(&self) -> u64 {
-            let balances = self.balances.lock().unwrap();
-            *balances.get("BTC").unwrap_or(&0)
-        }
-    
-        /// Get asset balance
-        #[wasm_bindgen]
-        pub fn get_asset_balance(&self, asset: &Asset) -> u64 {
-            let balances = self.balances.lock().unwrap();
-            let key = match asset.asset_type {
-                AssetType::Bitcoin => "BTC".to_string(),
-                AssetType::Rune => {
-                    if let Some(id) = &asset.id {
-                        format!("RUNE:{}", id)
-                    } else {
-                        return 0;
-                    }
-                },
-                AssetType::Alkane => {
-                    if let Some(id) = &asset.id {
-                        format!("ALKANE:{}", id)
-                    } else {
-                        return 0;
-                    }
-                },
-            };
-            *balances.get(&key).unwrap_or(&0)
-        }
-    
-        /// Create and sign a PSBT for an order
-        #[wasm_bindgen]
-        pub fn create_order_psbt(
-            &self,
-            _order_id: String,
-            _base_asset: &Asset,
-            _quote_asset: &Asset,
-            _amount: u64,
-            _price: u64,
-        ) -> Result<String, JsValue> {
-            // Return a dummy PSBT
-            Ok("dummy_psbt_base64_string".to_string())
-        }
-    
-        /// Sign a PSBT
-        #[wasm_bindgen]
-        pub fn sign_psbt(&self, psbt_base64: String) -> Result<String, JsValue> {
-            // Return the same PSBT
-            Ok(psbt_base64)
-        }
-    
-        /// Finalize and broadcast a PSBT
-        #[wasm_bindgen]
-        pub fn finalize_and_broadcast_psbt(&self, _psbt_base64: String) -> Result<String, JsValue> {
-            // Return a dummy txid
-            Ok("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string())
-        }
-    
-        /// Verify a PSBT
-        #[wasm_bindgen]
-        pub fn verify_psbt(&self, _psbt_base64: String) -> Result<bool, JsValue> {
-            // Return true
-            Ok(true)
-        }
+    pub fn finalize_psbt(&self, psbt_base64: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let psbt_base64 = psbt_base64.to_string();
+        
+        future_to_promise(async move {
+            // Parse PSBT
+            let psbt = Psbt::from_str(&psbt_base64).map_err(to_js_error)?;
+            
+            // Finalize PSBT
+            let wallet = wallet.lock().unwrap();
+            let finalized_psbt = wallet.finalize_psbt(psbt).await.map_err(to_js_error)?;
+            
+            // Convert to base64
+            let finalized_psbt_base64 = finalized_psbt.to_string();
+            
+            Ok(JsValue::from_str(&finalized_psbt_base64))
+        })
     }
-
-    /// Finalize and broadcast a PSBT
+    
+    /// Extract transaction from a PSBT
     #[wasm_bindgen]
-    pub fn finalize_and_broadcast_psbt(&self, psbt_base64: String) -> Result<String, JsValue> {
-        // In a real implementation, we would finalize and broadcast the PSBT
-        // For now, just return a dummy txid
-        Ok("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string())
+    pub fn extract_tx(&self, psbt_base64: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let psbt_base64 = psbt_base64.to_string();
+        
+        future_to_promise(async move {
+            // Parse PSBT
+            let psbt = Psbt::from_str(&psbt_base64).map_err(to_js_error)?;
+            
+            // Extract transaction
+            let wallet = wallet.lock().unwrap();
+            let tx = wallet.extract_tx(psbt).await.map_err(to_js_error)?;
+            
+            // Convert to hex
+            let tx_hex = tx.to_hex();
+            
+            Ok(JsValue::from_str(&tx_hex))
+        })
     }
-
-    /// Verify a PSBT
+    
+    /// Broadcast a transaction
     #[wasm_bindgen]
-    pub fn verify_psbt(&self, psbt_base64: String) -> Result<bool, JsValue> {
-        // In a real implementation, we would verify the PSBT
-        // For now, just return true
-        Ok(true)
+    pub fn broadcast_tx(&self, tx_hex: &str) -> Promise {
+        let wallet = self.inner.clone();
+        let tx_hex = tx_hex.to_string();
+        
+        future_to_promise(async move {
+            // Parse transaction hex
+            let tx = Transaction::from_hex(&tx_hex).map_err(to_js_error)?;
+            
+            // Broadcast transaction
+            let wallet = wallet.lock().unwrap();
+            let txid = wallet.broadcast_tx(tx).await.map_err(to_js_error)?;
+            
+            Ok(JsValue::from_str(&txid.to_string()))
+        })
     }
 }

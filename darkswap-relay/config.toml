@@ -1,0 +1,85 @@
+# DarkSwap Relay Server Configuration
+
+# WebRTC configuration
+[webrtc]
+# STUN servers
+stun_servers = [
+    "stun:stun.l.google.com:19302",
+    "stun:stun1.l.google.com:19302"
+]
+
+# TURN servers
+# Example:
+# [[webrtc.turn_servers]]
+# url = "turn:turn.example.com:3478"
+# username = "username"
+# credential = "password"
+
+# ICE gathering timeout in seconds
+ice_gathering_timeout = 10
+
+# Connection establishment timeout in seconds
+connection_establishment_timeout = 30
+
+# Data channel establishment timeout in seconds
+data_channel_establishment_timeout = 10
+
+# Network configuration
+[network]
+# Listen address
+listen_address = "0.0.0.0"
+
+# Signaling port
+signaling_port = 9002
+
+# WebRTC port
+webrtc_port = 9003
+
+# Metrics port
+metrics_port = 9090
+
+# External address (optional)
+# external_address = "relay.darkswap.xyz"
+
+# Security configuration
+[security]
+# TLS certificate path (optional)
+# cert_path = "certs/cert.pem"
+
+# TLS key path (optional)
+# key_path = "certs/key.pem"
+
+# Peer timeout in seconds
+peer_timeout = 300
+
+# Connection timeout in seconds
+connection_timeout = 60
+
+# Relay configuration
+[relay]
+# Maximum circuit duration in seconds
+max_circuit_duration = 3600
+
+# Maximum circuit bytes
+max_circuit_bytes = 10485760
+
+# Maximum circuits
+max_circuits = 1000
+
+# Maximum circuits per peer
+max_circuits_per_peer = 10
+
+# Maximum bandwidth per circuit in bytes per second
+max_bandwidth_per_circuit = 1048576
+
+# Reservation duration in seconds
+reservation_duration = 3600
+
+# Circuit cleanup interval in seconds
+circuit_cleanup_interval = 60
+
+# Reservation cleanup interval in seconds
+reservation_cleanup_interval = 300
+
+# Enable metrics
+enable_metrics = true

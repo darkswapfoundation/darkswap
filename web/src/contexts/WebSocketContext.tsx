@@ -3,9 +3,21 @@ import WebSocketClient, { WebSocketMessage } from '../utils/WebSocketClient';
 import { useSDK } from './SDKContext';
 import { useNotification } from './NotificationContext';
 
+export interface Peer {
+  id: string;
+  address: string;
+  connected: boolean;
+  latency: number;
+  isRelay: boolean;
+  protocols: string[];
+  connectedAt: number;
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   isConnecting: boolean;
+  peerId: string | null;
+  peers: Peer[];
   connect: () => void;
   disconnect: () => void;
   send: (type: string, payload: any) => void;
@@ -28,11 +40,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const { addNotification } = useNotification();
   const [client, setClient] = useState<WebSocketClient | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [peerId, setPeerId] = useState<string | null>(null);
+  const [peers, setPeers] = useState<Peer[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed'>('disconnected');
 
-  // Initialize WebSocket client
+  // Initialize WebSocket client and set up event handlers
   useEffect(() => {
     const wsClient = new WebSocketClient(url);
     setClient(wsClient);
@@ -63,6 +77,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     wsClient.on('message', (message: WebSocketMessage) => {
       setLastMessage(message);
+      
+      // Handle peer-related messages
+      if (message.type === 'peer_id') {
+        setPeerId(message.payload.id);
+      } else if (message.type === 'peers_update') {
+        setPeers(message.payload.peers);
+      }
       
       // Handle specific message types
       switch (message.type) {
@@ -129,6 +150,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       value={{
         isConnected,
         isConnecting,
+        peerId,
+        peers,
         connect,
         disconnect,
         send,

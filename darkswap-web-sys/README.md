@@ -1,127 +1,217 @@
-# DarkSwap Web-Sys
+# DarkSwap WebAssembly Bindings
 
-This crate provides WebAssembly bindings for the DarkSwap P2P networking functionality. It allows the DarkSwap P2P network to be used in web browsers.
+TypeScript bindings for the DarkSwap SDK WebAssembly module.
+
+## Overview
+
+This package provides TypeScript bindings for the DarkSwap SDK WebAssembly module, enabling browser applications to interact with the DarkSwap P2P network, manage orders, and execute trades.
 
 ## Features
 
-- **WebAssembly Bindings**: Compile the Rust code to WebAssembly for use in browsers
-- **JavaScript API**: Provide a JavaScript API for interacting with the P2P network
-- **Browser Integration**: Use the browser's native WebRTC support for P2P communication
-- **Event System**: Provide callbacks for network events
+- **P2P Networking**: Connect to the DarkSwap P2P network, discover peers, and establish connections
+- **Orderbook Management**: Create, cancel, and browse orders
+- **Trade Execution**: Execute trades with other peers
+- **Wallet Integration**: Connect to wallets and manage assets
+- **Runes and Alkanes Support**: Work with Bitcoin, runes, and alkanes
+- **Predicate Alkanes**: Create and manage predicate alkanes for conditional trading
+- **Event System**: Subscribe to network, order, trade, and wallet events
+
+## Installation
+
+```bash
+npm install darkswap-web-sys
+```
 
 ## Usage
 
-### Building
+### Basic Usage
 
-To build the WebAssembly bindings, you need to have `wasm-pack` installed:
+```typescript
+import darkswap from 'darkswap-web-sys';
 
-```bash
-cargo install wasm-pack
+// Initialize the SDK
+await darkswap.initialize();
+
+// Connect to the P2P network
+await darkswap.connect();
+
+// Create an order
+const order = {
+  baseAsset: 'BTC',
+  quoteAsset: 'RUNE1',
+  side: 'buy',
+  type: 'limit',
+  price: '0.0001',
+  amount: '1.0',
+};
+
+const orderId = await darkswap.createOrder(order);
+console.log(`Order created with ID: ${orderId}`);
+
+// Get all orders
+const orders = await darkswap.getOrders();
+console.log('Orders:', orders);
+
+// Subscribe to order events
+darkswap.on('order', (event) => {
+  console.log('Order event:', event);
+});
 ```
 
-Then, build the crate:
+### Advanced Configuration
 
-```bash
-wasm-pack build --target web
+```typescript
+import darkswap from 'darkswap-web-sys';
+
+// Initialize with custom configuration
+await darkswap.initialize({
+  network: {
+    bootstrapPeers: ['peer-id-1', 'peer-id-2'],
+    relays: ['ws://relay1.darkswap.io/ws', 'ws://relay2.darkswap.io/ws'],
+    maxPeers: 20,
+    enableDht: true,
+    enableMdns: false,
+    enableWebRtc: true,
+  },
+  orderbook: {
+    maxOrders: 2000,
+    orderExpiryTime: 172800, // 48 hours
+    enableGossip: true,
+  },
+  trade: {
+    maxTrades: 200,
+    tradeTimeout: 600, // 10 minutes
+    enableAutoRetry: true,
+    maxRetries: 5,
+  },
+  wallet: {
+    type: 'external',
+    provider: 'metamask',
+    network: 'testnet',
+    enableRunes: true,
+    enableAlkanes: true,
+  },
+});
 ```
 
-This will generate a `pkg` directory containing the WebAssembly module and JavaScript bindings.
+### Working with Runes and Alkanes
 
-### Using in a Web Application
+```typescript
+import darkswap from 'darkswap-web-sys';
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>DarkSwap WebAssembly Example</title>
-</head>
-<body>
-    <script type="module">
-        import init, { DarkSwapNetwork } from './pkg/darkswap_web_sys.js';
+// Get information about a rune
+const runeInfo = await darkswap.getRuneInfo('rune-id');
+console.log('Rune info:', runeInfo);
 
-        async function run() {
-            await init();
-            
-            // Create a new DarkSwap network
-            const network = new DarkSwapNetwork();
-            
-            // Get the local peer ID
-            const peerId = network.local_peer_id();
-            console.log(`Local peer ID: ${peerId}`);
-            
-            // Set up event listeners
-            network.on_peer_connected((peerId) => {
-                console.log(`Peer connected: ${peerId}`);
-            });
-            
-            network.on_peer_disconnected((peerId) => {
-                console.log(`Peer disconnected: ${peerId}`);
-            });
-            
-            network.on_message((peerId, topic, message) => {
-                const decoder = new TextDecoder();
-                const messageText = decoder.decode(message);
-                console.log(`Message from ${peerId} on ${topic}: ${messageText}`);
-            });
-            
-            // Subscribe to topics
-            network.subscribe('darkswap/orderbook/v1');
-            network.subscribe('darkswap/trade/v1');
-            
-            // Listen for connections
-            await network.listen_on('/ip4/0.0.0.0/tcp/0/ws');
-            
-            // Connect to a peer
-            try {
-                await network.connect('/ip4/127.0.0.1/tcp/8000/p2p/QmExample');
-                console.log('Connected to peer');
-            } catch (error) {
-                console.error(`Failed to connect: ${error}`);
-            }
-            
-            // Publish a message
-            const encoder = new TextEncoder();
-            const message = encoder.encode('Hello, DarkSwap!');
-            await network.publish('darkswap/test', message);
-        }
-        
-        run();
-    </script>
-</body>
-</html>
+// Get information about an alkane
+const alkaneInfo = await darkswap.getAlkaneInfo('alkane-id');
+console.log('Alkane info:', alkaneInfo);
+
+// Create a predicate alkane
+const predicateInfo = {
+  name: 'Price Above 20000',
+  type: 'equality',
+  description: 'Checks if the price is above 20000',
+  parameters: {
+    variable: 'price',
+    condition: 'greater-than',
+    value: '20000',
+  },
+};
+
+const predicateId = await darkswap.createPredicate(predicateInfo);
+console.log(`Predicate created with ID: ${predicateId}`);
+```
+
+### Event Handling
+
+```typescript
+import darkswap from 'darkswap-web-sys';
+
+// Subscribe to network events
+darkswap.on('network', (event) => {
+  console.log('Network event:', event);
+});
+
+// Subscribe to specific network events
+darkswap.on('network:peer_connected', (event) => {
+  console.log('Peer connected:', event);
+});
+
+// Subscribe to order events
+darkswap.on('order', (event) => {
+  console.log('Order event:', event);
+});
+
+// Subscribe to specific order events
+darkswap.on('order:order_filled', (event) => {
+  console.log('Order filled:', event);
+});
+
+// Subscribe to trade events
+darkswap.on('trade', (event) => {
+  console.log('Trade event:', event);
+});
+
+// Subscribe to wallet events
+darkswap.on('wallet', (event) => {
+  console.log('Wallet event:', event);
+});
 ```
 
 ## API Reference
 
-### `DarkSwapNetwork`
+### Initialization
 
-The main class for interacting with the DarkSwap P2P network.
+- `initialize(config?: Partial<DarkSwapConfig>): Promise<void>` - Initialize the SDK
+- `isInitialized(): boolean` - Check if the SDK is initialized
+- `getConfig(): DarkSwapConfig` - Get the current configuration
 
-#### Constructor
+### Network
 
-```javascript
-const network = new DarkSwapNetwork();
-```
+- `connect(): Promise<void>` - Connect to the P2P network
+- `disconnect(): Promise<void>` - Disconnect from the P2P network
+- `isConnected(): boolean` - Check if connected to the P2P network
+- `getPeers(): Promise<Peer[]>` - Get the list of connected peers
+- `connectToPeer(peerId: string): Promise<void>` - Connect to a specific peer
+- `connectToRelay(relayAddress: string): Promise<void>` - Connect to a relay server
 
-#### Methods
+### Orders
 
-- `local_peer_id()`: Get the local peer ID
-- `connect(addr)`: Connect to a peer
-- `connect_through_relay(relayPeerId, dstPeerId)`: Connect to a peer through a relay
-- `listen_on(addr)`: Listen on the given address
-- `subscribe(topic)`: Subscribe to a topic
-- `unsubscribe(topic)`: Unsubscribe from a topic
-- `publish(topic, message)`: Publish a message to a topic
+- `createOrder(order: Order): Promise<string>` - Create a new order
+- `cancelOrder(orderId: string): Promise<void>` - Cancel an order
+- `getOrders(): Promise<OrderbookEntry[]>` - Get all orders
+- `getOrdersForPair(baseAsset: string, quoteAsset: string): Promise<OrderbookEntry[]>` - Get orders for a specific trading pair
 
-#### Event Callbacks
+### Trades
 
-- `on_peer_connected(callback)`: Register a callback for peer connection events
-- `on_peer_disconnected(callback)`: Register a callback for peer disconnection events
-- `on_message(callback)`: Register a callback for message events
-- `on_relay_reserved(callback)`: Register a callback for relay reservation events
-- `on_connected_through_relay(callback)`: Register a callback for connected through relay events
+- `takeOrder(orderId: string, amount: string): Promise<string>` - Take an order
+- `getTrades(): Promise<Trade[]>` - Get all trades
+- `getTrade(tradeId: string): Promise<Trade | null>` - Get a specific trade
+- `getTradeStatus(tradeId: string): Promise<TradeStatus>` - Get the status of a trade
 
-## Examples
+### Wallet
 
-See the `examples` directory for more examples of how to use this crate.
+- `connectWallet(walletConfig: WalletConfig): Promise<void>` - Connect a wallet
+- `disconnectWallet(): Promise<void>` - Disconnect the wallet
+- `isWalletConnected(): boolean` - Check if a wallet is connected
+- `getWalletInfo(): Promise<WalletInfo | null>` - Get wallet information
+- `getBalances(): Promise<Balance[]>` - Get wallet balances
+
+### Runes and Alkanes
+
+- `getRuneInfo(runeId: string): Promise<RuneInfo | null>` - Get information about a rune
+- `getAlkaneInfo(alkaneId: string): Promise<AlkaneInfo | null>` - Get information about an alkane
+- `createPredicate(predicateInfo: PredicateInfo): Promise<string>` - Create a predicate alkane
+- `getPredicateInfo(predicateId: string): Promise<PredicateInfo | null>` - Get information about a predicate
+
+### Events
+
+- `on(event: string, listener: Function): this` - Subscribe to an event
+- `off(event: string, listener: Function): this` - Unsubscribe from an event
+- `once(event: string, listener: Function): this` - Subscribe to an event once
+- `emit(event: string, ...args: any[]): boolean` - Emit an event
+
+## License
+
+MIT

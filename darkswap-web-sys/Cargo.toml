@@ -2,38 +2,47 @@
 name = "darkswap-web-sys"
 version = "0.1.0"
 edition = "2021"
+description = "WebAssembly bindings for the DarkSwap SDK"
+authors = ["DarkSwap Team"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-default = []
-wasm = []
-
 [dependencies]
-darkswap-support = { path = "../darkswap-support" }
-darkswap-p2p = { path = "../darkswap-p2p", features = ["wasm"] }
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = [
+wasm-bindgen = "0.2.87"
+wasm-bindgen-futures = "0.4.37"
+js-sys = "0.3.64"
+web-sys = { version = "0.3.64", features = [
     "console",
     "Window",
     "Document",
     "Element",
     "HtmlElement",
-    "RtcPeerConnection",
-    "RtcSessionDescription",
-    "RtcIceCandidate",
-    "RtcDataChannel",
-    "MediaStream",
-    "Navigator",
-    "MediaDevices",
+    "Storage",
+    "Location",
+    "Headers",
+    "Request",
+    "RequestInit",
+    "RequestMode",
+    "Response",
+    "Crypto",
+    "SubtleCrypto",
+    "CryptoKey",
+    "JsonWebKey",
 ] }
 serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.4"
-futures = "0.3"
-log = "0.4"
-console_log = "0.2"
-rand = "0.8"
+serde_json = "1.0"
+serde-wasm-bindgen = "0.5"
 console_error_panic_hook = "0.1.7"
+getrandom = { version = "0.2", features = ["js"] }
+darkswap-sdk = { path = "../darkswap-sdk" }
+bitcoin = "0.30.0"
+log = "0.4"
+wasm-logger = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.37"
+
+[profile.release]
+opt-level = "s"
+lto = true

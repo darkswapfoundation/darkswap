@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOrderbook } from '../contexts/OrderbookContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useNotification } from '../contexts/NotificationContext';
+import TradeExecutionModal from './TradeExecutionModal';
 import {
   Order,
   OrderSide,
@@ -42,6 +43,8 @@ const P2POrderbook: React.FC = () => {
   const [newOrderQuoteAssetId, setNewOrderQuoteAssetId] = useState<string>('');
   const [newOrderQuoteAmount, setNewOrderQuoteAmount] = useState<string>('');
   const [newOrderExpiry, setNewOrderExpiry] = useState<number>(0); // 0 means no expiry
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState<boolean>(false);
+  const [selectedTradeOrder, setSelectedTradeOrder] = useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Get orders based on active tab
@@ -568,17 +571,18 @@ const P2POrderbook: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          // TODO: Implement order matching and trade execution
-                          addNotification('info', 'Trade execution not implemented yet');
+                          // Open trade modal with the selected order
+                          setSelectedTradeOrder(order);
+                          setIsTradeModalOpen(true);
                         }}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !isWalletConnected}
                         style={{
                           padding: '4px 8px',
-                          backgroundColor: isSubmitting ? '#333' : '#90be6d',
+                          backgroundColor: isSubmitting || !isWalletConnected ? '#333' : '#90be6d',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                          cursor: isSubmitting || !isWalletConnected ? 'not-allowed' : 'pointer',
                         }}
                       >
                         Trade
@@ -671,6 +675,30 @@ const P2POrderbook: React.FC = () => {
           )}
         </div>
       )}
+      
+      {/* Trade Execution Modal */}
+      <TradeExecutionModal
+        isOpen={isTradeModalOpen}
+        onClose={() => {
+          setIsTradeModalOpen(false);
+          setSelectedTradeOrder(null);
+          // Refresh the orderbook after closing the modal
+          refreshOrderbook();
+        }}
+        order={selectedTradeOrder ? {
+          id: selectedTradeOrder.id,
+          maker_peer_id: selectedTradeOrder.creatorId,
+          base_asset: selectedTradeOrder.baseAsset.type.toString() + (selectedTradeOrder.baseAsset.id ? `:${selectedTradeOrder.baseAsset.id}` : ''),
+          quote_asset: selectedTradeOrder.quoteAsset.type.toString() + (selectedTradeOrder.quoteAsset.id ? `:${selectedTradeOrder.quoteAsset.id}` : ''),
+          side: selectedTradeOrder.side === OrderSide.Buy ? 'buy' : 'sell',
+          amount: selectedTradeOrder.baseAsset.amount,
+          price: (parseFloat(selectedTradeOrder.quoteAsset.amount) / parseFloat(selectedTradeOrder.baseAsset.amount)).toString(),
+          timestamp: selectedTradeOrder.createdAt,
+          status: selectedTradeOrder.status === OrderStatus.Open ? 'open' :
+                 selectedTradeOrder.status === OrderStatus.Filled ? 'filled' :
+                 selectedTradeOrder.status === OrderStatus.Cancelled ? 'canceled' : 'expired',
+        } : undefined}
+      />
     </div>
   );
 };

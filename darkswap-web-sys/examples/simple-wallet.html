@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarkSwap WebAssembly Wallet Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+        }
+        h1, h2, h3 {
+            color: #4cc9f0;
+        }
+        button {
+            background-color: #4361ee;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3a0ca3;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        .card {
+            background-color: #16213e;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background-color: rgba(39, 174, 96, 0.2);
+            border: 1px solid #27ae60;
+        }
+        .error {
+            background-color: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+        .info {
+            background-color: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .asset-card {
+            background-color: #0f3460;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background-color: #2a2a4a;
+            color: #e6e6e6;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            color: #4cc9f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>DarkSwap WebAssembly Wallet Example</h1>
+    
+    <div class="card">
+        <h2>Initialization</h2>
+        <div id="init-status" class="status info">Initializing WebAssembly module...</div>
+        <button id="init-button" disabled>Initialize</button>
+    </div>
+    
+    <div class="card">
+        <h2>Wallet</h2>
+        <div id="wallet-status" class="status info">Wallet not connected</div>
+        <button id="connect-button" disabled>Connect Wallet</button>
+        <button id="disconnect-button" disabled>Disconnect Wallet</button>
+        
+        <div id="wallet-info" style="display: none;">
+            <h3>Wallet Information</h3>
+            <p><strong>Address:</strong> <span id="wallet-address"></span></p>
+            <p><strong>BTC Balance:</strong> <span id="btc-balance"></span></p>
+            
+            <h3>Runes</h3>
+            <div id="runes-container" class="grid"></div>
+            
+            <h3>Alkanes</h3>
+            <div id="alkanes-container" class="grid"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Sign Message</h2>
+        <label for="message-input">Message:</label>
+        <textarea id="message-input" rows="3" placeholder="Enter a message to sign"></textarea>
+        <button id="sign-message-button" disabled>Sign Message</button>
+        <div id="signature-result" style="display: none;">
+            <h3>Signature</h3>
+            <div class="status info">
+                <p id="signature-text" style="word-break: break-all;"></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Bitcoin Price</h2>
+        <button id="get-price-button" disabled>Get Bitcoin Price</button>
+        <div id="price-result" style="display: none;">
+            <h3>Current Price</h3>
+            <div class="status info">
+                <p>$<span id="btc-price"></span> USD</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the WebAssembly bindings
+        import * as wasm from '../web/src/wasm-bindings/index.js';
+        
+        // DOM elements
+        const initStatus = document.getElementById('init-status');
+        const initButton = document.getElementById('init-button');
+        const walletStatus = document.getElementById('wallet-status');
+        const connectButton = document.getElementById('connect-button');
+        const disconnectButton = document.getElementById('disconnect-button');
+        const walletInfo = document.getElementById('wallet-info');
+        const walletAddress = document.getElementById('wallet-address');
+        const btcBalance = document.getElementById('btc-balance');
+        const runesContainer = document.getElementById('runes-container');
+        const alkanesContainer = document.getElementById('alkanes-container');
+        const messageInput = document.getElementById('message-input');
+        const signMessageButton = document.getElementById('sign-message-button');
+        const signatureResult = document.getElementById('signature-result');
+        const signatureText = document.getElementById('signature-text');
+        const getPriceButton = document.getElementById('get-price-button');
+        const priceResult = document.getElementById('price-result');
+        const btcPrice = document.getElementById('btc-price');
+        
+        // Global variables
+        let wallet = null;
+        
+        // Initialize the WebAssembly module
+        async function initializeWasm() {
+            try {
+                initStatus.textContent = 'Initializing WebAssembly module...';
+                initStatus.className = 'status info';
+                
+                await wasm.initialize();
+                
+                initStatus.textContent = 'WebAssembly module initialized successfully!';
+                initStatus.className = 'status success';
+                
+                // Enable buttons
+                connectButton.disabled = false;
+                getPriceButton.disabled = false;
+                
+                // Create wallet instance
+                wallet = new wasm.Wallet();
+            } catch (error) {
+                console.error('Failed to initialize WebAssembly module:', error);
+                initStatus.textContent = `Failed to initialize WebAssembly module: ${error.message}`;
+                initStatus.className = 'status error';
+            }
+        }
+        
+        // Connect to the wallet
+        async function connectWallet() {
+            try {
+                walletStatus.textContent = 'Connecting to wallet...';
+                walletStatus.className = 'status info';
+                
+                const connected = await wallet.connect();
+                
+                if (connected) {
+                    walletStatus.textContent = 'Wallet connected successfully!';
+                    walletStatus.className = 'status success';
+                    
+                    // Update UI
+                    connectButton.disabled = true;
+                    disconnectButton.disabled = false;
+                    signMessageButton.disabled = false;
+                    
+                    // Get wallet information
+                    await updateWalletInfo();
+                } else {
+                    walletStatus.textContent = 'Failed to connect wallet';
+                    walletStatus.className = 'status error';
+                }
+            } catch (error) {
+                console.error('Failed to connect wallet:', error);
+                walletStatus.textContent = `Failed to connect wallet: ${error.message}`;
+                walletStatus.className = 'status error';
+            }
+        }
+        
+        // Disconnect from the wallet
+        function disconnectWallet() {
+            try {
+                wallet.disconnect();
+                
+                walletStatus.textContent = 'Wallet disconnected';
+                walletStatus.className = 'status info';
+                
+                // Update UI
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                signMessageButton.disabled = true;
+                walletInfo.style.display = 'none';
+            } catch (error) {
+                console.error('Failed to disconnect wallet:', error);
+                walletStatus.textContent = `Failed to disconnect wallet: ${error.message}`;
+                walletStatus.className = 'status error';
+            }
+        }
+        
+        // Update wallet information
+        async function updateWalletInfo() {
+            try {
+                // Get wallet address
+                const address = wallet.getAddress();
+                walletAddress.textContent = address;
+                
+                // Get wallet balance
+                const balance = await wallet.getBalance();
+                btcBalance.textContent = balance.btc;
+                
+                // Display runes
+                runesContainer.innerHTML = '';
+                if (balance.runes.length === 0) {
+                    runesContainer.innerHTML = '<p>No runes found</p>';
+                } else {
+                    balance.runes.forEach(rune => {
+                        const runeCard = document.createElement('div');
+                        runeCard.className = 'asset-card';
+                        runeCard.innerHTML = `
+                            <h4>${rune.ticker}</h4>
+                            <p><strong>ID:</strong> ${rune.id}</p>
+                            <p><strong>Amount:</strong> ${rune.amount}</p>
+                        `;
+                        runesContainer.appendChild(runeCard);
+                    });
+                }
+                
+                // Display alkanes
+                alkanesContainer.innerHTML = '';
+                if (balance.alkanes.length === 0) {
+                    alkanesContainer.innerHTML = '<p>No alkanes found</p>';
+                } else {
+                    balance.alkanes.forEach(alkane => {
+                        const alkaneCard = document.createElement('div');
+                        alkaneCard.className = 'asset-card';
+                        alkaneCard.innerHTML = `
+                            <h4>${alkane.ticker}</h4>
+                            <p><strong>ID:</strong> ${alkane.id}</p>
+                            <p><strong>Amount:</strong> ${alkane.amount}</p>
+                        `;
+                        alkanesContainer.appendChild(alkaneCard);
+                    });
+                }
+                
+                // Show wallet info
+                walletInfo.style.display = 'block';
+            } catch (error) {
+                console.error('Failed to update wallet info:', error);
+                walletStatus.textContent = `Failed to update wallet info: ${error.message}`;
+                walletStatus.className = 'status error';
+            }
+        }
+        
+        // Sign a message
+        async function signMessage() {
+            try {
+                const message = messageInput.value.trim();
+                
+                if (!message) {
+                    alert('Please enter a message to sign');
+                    return;
+                }
+                
+                const signature = await wallet.signMessage(message);
+                
+                signatureText.textContent = signature;
+                signatureResult.style.display = 'block';
+            } catch (error) {
+                console.error('Failed to sign message:', error);
+                alert(`Failed to sign message: ${error.message}`);
+            }
+        }
+        
+        // Get Bitcoin price
+        async function getBitcoinPrice() {
+            try {
+                const price = await wasm.get_bitcoin_price();
+                
+                btcPrice.textContent = price.toLocaleString();
+                priceResult.style.display = 'block';
+            } catch (error) {
+                console.error('Failed to get Bitcoin price:', error);
+                alert(`Failed to get Bitcoin price: ${error.message}`);
+            }
+        }
+        
+        // Event listeners
+        initButton.addEventListener('click', initializeWasm);
+        connectButton.addEventListener('click', connectWallet);
+        disconnectButton.addEventListener('click', disconnectWallet);
+        signMessageButton.addEventListener('click', signMessage);
+        getPriceButton.addEventListener('click', getBitcoinPrice);
+        
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            initButton.disabled = false;
+            await initializeWasm();
+        });
+    </script>
+</body>
+</html>

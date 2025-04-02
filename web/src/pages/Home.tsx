@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { useWallet } from '../contexts/WalletContext';
-import { useSDK } from '../contexts/SDKContext';
+import { useWasmWallet } from '../contexts/WasmWalletContext';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import WebSocketStatus from '../components/WebSocketStatus';
+import NetworkStats from '../components/NetworkStats';
+import CryptoMarketOverview from '../components/CryptoMarketOverview';
+import MarketSummary from '../components/MarketSummary';
 
 // Icons
 import {
@@ -17,8 +19,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Home: React.FC = () => {
-  const { isConnected, connect } = useWallet();
-  const { isInitialized } = useSDK();
+  const { isConnected, connect, isInitialized } = useWasmWallet();
   const { connectionStatus } = useWebSocket();
 
   // Features list
@@ -116,46 +117,54 @@ const Home: React.FC = () => {
       </section>
 
       {/* Network Status */}
-      <section className="card p-6">
+      <section>
         <h2 className="text-2xl font-display font-bold mb-6">Network Status</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-center p-4 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <div className="mr-4">
-              <WebSocketStatus />
-            </div>
-            <div>
-              <h3 className="font-medium">Connection Status</h3>
-              <p className="text-sm text-gray-400">
-                {connectionStatus === 'connected' ? 'Connected to the network' : 
-                 connectionStatus === 'connecting' ? 'Connecting to the network...' :
-                 connectionStatus === 'reconnecting' ? 'Reconnecting to the network...' :
-                 'Disconnected from the network'}
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
+            <div className="card p-6">
+              <div className="flex items-center mb-4">
+                <div className="mr-4">
+                  <WebSocketStatus />
+                </div>
+                <div>
+                  <h3 className="font-medium">Connection Status</h3>
+                  <p className="text-sm text-gray-400">
+                    {connectionStatus === 'connected' ? 'Connected to the network' :
+                     connectionStatus === 'connecting' ? 'Connecting to the network...' :
+                     connectionStatus === 'reconnecting' ? 'Reconnecting to the network...' :
+                     'Disconnected from the network'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
+                  <UserGroupIcon className="w-6 h-6 text-twilight-neon-blue" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Active Peers</h3>
+                  <p className="text-sm text-gray-400">
+                    {isInitialized ? '32 peers online' : 'Initializing...'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
+                  <CurrencyDollarIcon className="w-6 h-6 text-twilight-neon-green" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Open Orders</h3>
+                  <p className="text-sm text-gray-400">
+                    {isInitialized ? '156 orders available' : 'Initializing...'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center p-4 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
-              <UserGroupIcon className="w-6 h-6 text-twilight-neon-blue" />
-            </div>
-            <div>
-              <h3 className="font-medium">Active Peers</h3>
-              <p className="text-sm text-gray-400">
-                {isInitialized ? '32 peers online' : 'Initializing...'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-4 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
-              <CurrencyDollarIcon className="w-6 h-6 text-twilight-neon-green" />
-            </div>
-            <div>
-              <h3 className="font-medium">Open Orders</h3>
-              <p className="text-sm text-gray-400">
-                {isInitialized ? '156 orders available' : 'Initializing...'}
-              </p>
-            </div>
+          <div className="lg:col-span-3">
+            <NetworkStats refreshInterval={30000} />
           </div>
         </div>
       </section>
@@ -179,6 +188,14 @@ const Home: React.FC = () => {
               <p className="text-gray-400">{feature.description}</p>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* Market Data */}
+      <section className="mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MarketSummary />
+          <CryptoMarketOverview />
         </div>
       </section>
 
