@@ -1,0 +1,58 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+      working-directory: ./web
+    
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps
+      working-directory: ./web
+    
+    - name: Create .env.test file
+      run: |
+        cat > .env.test << EOL
+        REACT_APP_API_URL=http://localhost:8000/api
+        REACT_APP_WS_URL=ws://localhost:8000/ws
+        REACT_APP_ENV=test
+        REACT_APP_DEBUG=true
+        REACT_APP_VERSION=0.1.0
+        EOL
+      working-directory: ./web
+    
+    - name: Start mock API server
+      run: |
+        npm install -g json-server
+        json-server --watch mock-api/db.json --port 8000 --routes mock-api/routes.json &
+      working-directory: ./web
+    
+    - name: Run Playwright tests
+      run: npx playwright test
+      working-directory: ./web
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: playwright-report
+        path: web/playwright-report/
+        retention-days: 30
