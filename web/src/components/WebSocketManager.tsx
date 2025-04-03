@@ -1,113 +1,127 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { useNotification } from '../contexts/NotificationContext';
 
 interface WebSocketManagerProps {
-  children?: React.ReactNode;
+  onConnected?: () => void;
+  onDisconnected?: () => void;
+  onError?: (error: Error) => void;
 }
 
 /**
- * WebSocketManager component
- * 
- * This component manages WebSocket connections and events.
- * It subscribes to events and displays notifications when events are received.
+ * WebSocket manager component
+ * @param props Component props
+ * @returns WebSocket manager component
  */
-const WebSocketManager: React.FC<WebSocketManagerProps> = ({ children }) => {
-  const { isConnected, send, lastMessage, connectionStatus } = useWebSocket();
-  const { addNotification } = useNotification();
+export const WebSocketManager: React.FC<WebSocketManagerProps> = ({
+  onConnected,
+  onDisconnected,
+  onError,
+}) => {
+  const { isConnected, isConnecting, error, connect } = useWebSocket();
+  const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
 
-  // Subscribe to events when connected
+  // Update status when connection state changes
   useEffect(() => {
     if (isConnected) {
-      // Subscribe to all events
-      send('Subscribe', {
-        events: [
-          'order_created',
-          'order_canceled',
-          'order_filled',
-          'order_expired',
-          'trade_started',
-          'trade_completed',
-          'trade_failed',
-          'peer_connected',
-          'peer_disconnected',
-          'error',
-        ],
-      });
-
-      // Show notification
-      addNotification('success', 'Connected to DarkSwap network');
+      setStatus('connected');
+      onConnected?.();
+    } else if (isConnecting) {
+      setStatus('connecting');
+    } else {
+      setStatus('disconnected');
+      onDisconnected?.();
     }
-  }, [isConnected, send, addNotification]);
+  }, [isConnected, isConnecting, onConnected, onDisconnected]);
 
-  // Handle WebSocket messages
+  // Call onError when error changes
   useEffect(() => {
-    if (!lastMessage) return;
-
-    try {
-      // Handle different event types
-      switch (lastMessage.type) {
-        case 'order_created':
-          addNotification('info', 'New order created');
-          break;
-        case 'order_canceled':
-          addNotification('info', 'Order canceled');
-          break;
-        case 'order_filled':
-          addNotification('success', 'Order filled');
-          break;
-        case 'order_expired':
-          addNotification('warning', 'Order expired');
-          break;
-        case 'trade_started':
-          addNotification('info', 'Trade started');
-          break;
-        case 'trade_completed':
-          addNotification('success', 'Trade completed successfully');
-          break;
-        case 'trade_failed':
-          addNotification('error', 'Trade failed');
-          break;
-        case 'peer_connected':
-          addNotification('info', 'New peer connected');
-          break;
-        case 'peer_disconnected':
-          addNotification('info', 'Peer disconnected');
-          break;
-        case 'error':
-          addNotification('error', `Error: ${lastMessage.payload?.message || 'Unknown error'}`);
-          break;
-        case 'subscribed':
-          console.log('Subscribed to events:', lastMessage.payload?.events);
-          break;
-        case 'unsubscribed':
-          console.log('Unsubscribed from events:', lastMessage.payload?.events);
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+    if (error) {
+      onError?.(error);
     }
-  }, [lastMessage, addNotification]);
+  }, [error, onError]);
 
-  // Show connection status changes
+  // Reconnect when disconnected
   useEffect(() => {
-    switch (connectionStatus) {
-      case 'connected':
-        // Already handled in the first useEffect
-        break;
-      case 'disconnected':
-        addNotification('warning', 'Disconnected from DarkSwap network');
-        break;
-      case 'reconnecting':
-        addNotification('info', 'Reconnecting to DarkSwap network...');
-        break;
-      case 'failed':
-        addNotification('error', 'Failed to connect to DarkSwap network');
-        break;
-    }
-  }, [connectionStatus, addNotification]);
+    if (status === 'disconnected') {
+      const reconnectTimeout = setTimeout(() => {
+        connect();
+      }, 5000);
 
-  return <>{children}</>;
+      return () => {
+        clearTimeout(reconnectTimeout);
+      };
+    }
+  }, [status, connect]);
+
+  return (
+    <div className="websocket-manager">
+      <div className={`websocket-status ${status}`}>
+        <div className="status-indicator"></div>
+        <div className="status-text">
+          {status === 'connected' && 'Connected'}
+          {status === 'connecting' && 'Connecting...'}
+          {status === 'disconnected' && 'Disconnected'}
+        </div>
+      </div>
+
+      <style>
+        {`
+          .websocket-manager {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+          }
+          
+          .websocket-status {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 20px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          
+          .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+          
+          .status-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+          }
+          
+          .connected .status-indicator {
+            background-color: #28a745;
+          }
+          
+          .connecting .status-indicator {
+            background-color: #ffc107;
+            animation: pulse 1.5s infinite;
+          }
+          
+          .disconnected .status-indicator {
+            background-color: #dc3545;
+          }
+          
+          @keyframes pulse {
+            0% {
+              opacity: 0.5;
+            }
+            50% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 0.5;
+            }
+          }
+        `}
+      </style>
+    </div>
+  );
 };
 
 export default WebSocketManager;

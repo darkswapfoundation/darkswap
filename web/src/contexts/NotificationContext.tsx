@@ -1,85 +1,75 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
-// Icons
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-  XCircleIcon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline';
+// Define notification types
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-export type NotificationCategory = 'system' | 'trade' | 'wallet' | 'p2p' | 'other';
-
+// Define notification interface
 export interface Notification {
   id: string;
   type: NotificationType;
-  title?: string;
   message: string;
+  duration?: number;
   timestamp: number;
-  duration: number;
-  category?: NotificationCategory;
-  read?: boolean;
-  actionable?: boolean;
-  action?: {
-    label: string;
-    handler: () => void;
-  };
 }
 
+// Define notification context type
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (type: NotificationType, message: string, title?: string, category?: NotificationCategory, duration?: number) => void;
+  addNotification: (type: NotificationType, message: string, duration?: number) => string;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  removeAllNotifications: () => void;
 }
 
+// Create notification context
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+// Define notification provider props
 interface NotificationProviderProps {
   children: ReactNode;
   maxNotifications?: number;
+  defaultDuration?: number;
 }
 
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ 
-  children, 
-  maxNotifications = 5 
+/**
+ * Notification provider component
+ * @param props Component props
+ * @returns Notification provider component
+ */
+export const NotificationProvider: React.FC<NotificationProviderProps> = ({
+  children,
+  maxNotifications = 5,
+  defaultDuration = 5000,
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [notificationHistory, setNotificationHistory] = useState<Notification[]>([]);
 
   // Add a notification
   const addNotification = (
     type: NotificationType,
     message: string,
-    title?: string,
-    category: NotificationCategory = 'other',
-    duration: number = 5000
-  ) => {
-    const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    duration: number = defaultDuration
+  ): string => {
+    const id = `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     
-    const newNotification: Notification = {
+    const notification: Notification = {
       id,
       type,
-      title: title || type.charAt(0).toUpperCase() + type.slice(1),
       message,
-      timestamp: Date.now(),
       duration,
-      category,
-      read: false,
-      actionable: false,
+      timestamp: Date.now(),
     };
-    
+
     setNotifications(prev => {
-      // Add new notification and limit to maxNotifications
-      const updated = [newNotification, ...prev].slice(0, maxNotifications);
-      return updated;
+      // Remove oldest notifications if we exceed the maximum
+      const newNotifications = [...prev, notification];
+      
+      if (newNotifications.length > maxNotifications) {
+        return newNotifications.slice(newNotifications.length - maxNotifications);
+      }
+      
+      return newNotifications;
     });
+
+    return id;
   };
 
   // Remove a notification
@@ -91,141 +81,54 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   const clearNotifications = () => {
     setNotifications([]);
   };
-  
-  // Mark a notification as read
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
-  };
-  
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
-  };
-  
-  // Remove all notifications
-  const removeAllNotifications = () => {
-    // Add current notifications to history before clearing
-    setNotificationHistory(prev => [...notifications, ...prev].slice(0, 100));
-    setNotifications([]);
-  };
 
   // Auto-remove notifications after their duration
   useEffect(() => {
-    const timers: NodeJS.Timeout[] = [];
-    
+    const timeouts: NodeJS.Timeout[] = [];
+
     notifications.forEach(notification => {
-      if (notification.duration > 0) {
-        const timer = setTimeout(() => {
+      if (notification.duration && notification.duration > 0) {
+        const timeout = setTimeout(() => {
           removeNotification(notification.id);
         }, notification.duration);
-        
-        timers.push(timer);
+
+        timeouts.push(timeout);
       }
     });
-    
+
     return () => {
-      timers.forEach(timer => clearTimeout(timer));
+      timeouts.forEach(timeout => clearTimeout(timeout));
     };
   }, [notifications]);
 
-  return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        addNotification,
-        removeNotification,
-        clearNotifications,
-        markAsRead,
-        markAllAsRead,
-        removeAllNotifications,
-      }}
-    >
-      {children}
-      <NotificationDisplay 
-        notifications={notifications} 
-        removeNotification={removeNotification} 
-      />
-    </NotificationContext.Provider>
+  // Create context value
+  const contextValue: NotificationContextType = {
+    notifications,
+    addNotification,
+    removeNotification,
+    clearNotifications,
+  };
+
+  // Return notification provider
+  return React.createElement(
+    NotificationContext.Provider,
+    { value: contextValue },
+    children
   );
 };
 
-interface NotificationDisplayProps {
-  notifications: Notification[];
-  removeNotification: (id: string) => void;
-}
-
-const NotificationDisplay: React.FC<NotificationDisplayProps> = ({ 
-  notifications, 
-  removeNotification 
-}) => {
-  return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 w-80">
-      <AnimatePresence>
-        {notifications.map(notification => (
-          <motion.div
-            key={notification.id}
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-            className={`
-              rounded-lg shadow-lg p-4 flex items-start
-              ${notification.type === 'success' ? 'bg-ui-success bg-opacity-10 border border-ui-success' : ''}
-              ${notification.type === 'error' ? 'bg-ui-error bg-opacity-10 border border-ui-error' : ''}
-              ${notification.type === 'warning' ? 'bg-ui-warning bg-opacity-10 border border-ui-warning' : ''}
-              ${notification.type === 'info' ? 'bg-ui-info bg-opacity-10 border border-ui-info' : ''}
-            `}
-          >
-            <div className="flex-shrink-0 mr-2">
-              {notification.type === 'success' && (
-                <CheckCircleIcon className="w-5 h-5 text-ui-success" />
-              )}
-              {notification.type === 'error' && (
-                <XCircleIcon className="w-5 h-5 text-ui-error" />
-              )}
-              {notification.type === 'warning' && (
-                <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning" />
-              )}
-              {notification.type === 'info' && (
-                <InformationCircleIcon className="w-5 h-5 text-ui-info" />
-              )}
-            </div>
-            <div className="flex-1">
-              <p className={`text-sm font-medium
-                ${notification.type === 'success' ? 'text-ui-success' : ''}
-                ${notification.type === 'error' ? 'text-ui-error' : ''}
-                ${notification.type === 'warning' ? 'text-ui-warning' : ''}
-                ${notification.type === 'info' ? 'text-ui-info' : ''}
-              `}>
-                {notification.message}
-              </p>
-            </div>
-            <button
-              onClick={() => removeNotification(notification.id)}
-              className="ml-2 flex-shrink-0 text-gray-400 hover:text-white transition-colors duration-200"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-export const useNotification = (): NotificationContextType => {
+/**
+ * Hook to use notifications
+ * @returns Notification context
+ */
+export const useNotifications = (): NotificationContextType => {
   const context = useContext(NotificationContext);
+
   if (context === undefined) {
-    throw new Error('useNotification must be used within a NotificationProvider');
+    throw new Error('useNotifications must be used within a NotificationProvider');
   }
+
   return context;
 };
 
-export default NotificationProvider;
+export default NotificationContext;

@@ -1,131 +1,191 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import ApiClient from '../utils/ApiClient';
-import { useNotification } from './NotificationContext';
-import { Peer } from './WebSocketContext';
+import ApiClient, { ApiClientOptions } from '../utils/ApiClient';
 
-export interface RelayInfo {
-  id: string;
-  address: string;
-  connected: boolean;
-  latency: number;
-  connectedPeers: string[];
-}
-
-export interface RelayStatus {
-  relays: RelayInfo[];
-  timestamp: number;
-}
-
+// Define the API context type
 interface ApiContextType {
-  client: ApiClient;
-  isLoading: boolean;
-  error: string | null;
-  setBaseUrl: (url: string) => void;
-  getRelayStatus: () => Promise<RelayStatus>;
+  apiClient: ApiClient;
+  isInitialized: boolean;
+  error: Error | null;
 }
 
+// Create the API context
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
 
+// Define the API provider props
 interface ApiProviderProps {
   children: ReactNode;
-  baseUrl?: string;
+  options: ApiClientOptions;
 }
 
-export const ApiProvider: React.FC<ApiProviderProps> = ({ 
-  children, 
-  baseUrl = 'http://localhost:3000' 
-}) => {
-  const [client] = useState<ApiClient>(new ApiClient(baseUrl));
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const { addNotification } = useNotification();
+/**
+ * API provider component
+ * @param props Component props
+ * @returns API provider component
+ */
+export const ApiProvider: React.FC<ApiProviderProps> = ({ children, options }) => {
+  const [apiClient, setApiClient] = useState<ApiClient | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-  // Check API health on mount
+  // Initialize the API client
   useEffect(() => {
-    const checkHealth = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const response = await client.getHealth();
-        
-        if (response.error) {
-          setError(`API error: ${response.error}`);
-          addNotification('error', `Failed to connect to API: ${response.error}`);
-        } else {
-          addNotification('success', `Connected to DarkSwap API v${response.data?.version}`);
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(`API error: ${errorMessage}`);
-        addNotification('error', `Failed to connect to API: ${errorMessage}`);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    checkHealth();
-  }, [baseUrl, client, addNotification]);
+    try {
+      const client = new ApiClient(options);
+      setApiClient(client);
+      setIsInitialized(true);
+    } catch (err) {
+      console.error('Failed to initialize API client:', err);
+      setError(err instanceof Error ? err : new Error('Failed to initialize API client'));
+    }
+  }, [options]);
 
-  // Set base URL
-  const setBaseUrl = (url: string) => {
-    client.setBaseUrl(url);
+  // Return null if the API client is not initialized
+  if (!apiClient) {
+    return null;
+  }
+
+  // Create the context value
+  const contextValue: ApiContextType = {
+    apiClient,
+    isInitialized,
+    error,
   };
 
-  // Get relay status
-  const getRelayStatus = async (): Promise<RelayStatus> => {
+  // Return the API provider
+  return React.createElement(
+    ApiContext.Provider,
+    { value: contextValue },
+    children
+  );
+};
+
+/**
+ * Hook to use the API client
+ * @returns API client
+ */
+export const useApi = (): ApiContextType => {
+  const context = useContext(ApiContext);
+
+  if (context === undefined) {
+    throw new Error('useApi must be used within an ApiProvider');
+  }
+
+  return context;
+};
+
+/**
+ * Hook to use the API client for a specific endpoint
+ * @param endpoint API endpoint
+ * @returns API client methods for the endpoint
+ */
+export const useApiEndpoint = <T extends {}>(endpoint: string) => {
+  const { apiClient } = useApi();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<T | null>(null);
+
+  // Get data from the endpoint
+  const getData = async (params?: Record<string, string>): Promise<T | null> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await client.getRelayStatus();
-      
-      if (response.error) {
-        setError(`API error: ${response.error}`);
-        throw new Error(response.error);
+      const response = await apiClient.get<T>(endpoint, params);
+
+      if (!response.success) {
+        setError(response.error || 'Failed to fetch data');
+        return null;
       }
-      
-      if (!response.data) {
-        throw new Error('No data returned from API');
-      }
-      
-      // Create a default relay status if the API doesn't return one
-      const relayStatus: RelayStatus = {
-        relays: response.data.relays || [],
-        timestamp: response.data.timestamp || Date.now(),
-      };
-      
-      return relayStatus;
+
+      setData(response.data || null);
+      return response.data || null;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(`API error: ${errorMessage}`);
-      throw new Error(errorMessage);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <ApiContext.Provider
-      value={{
-        client,
-        isLoading,
-        error,
-        setBaseUrl,
-        getRelayStatus,
-      }}
-    >
-      {children}
-    </ApiContext.Provider>
-  );
+  // Create data at the endpoint
+  const createData = async (data: Partial<T>): Promise<T | null> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.post<T>(endpoint, data);
+
+      if (!response.success) {
+        setError(response.error || 'Failed to create data');
+        return null;
+      }
+
+      return response.data || null;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update data at the endpoint
+  const updateData = async (id: string, data: Partial<T>): Promise<T | null> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.put<T>(`${endpoint}/${id}`, data);
+
+      if (!response.success) {
+        setError(response.error || 'Failed to update data');
+        return null;
+      }
+
+      return response.data || null;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete data at the endpoint
+  const deleteData = async (id: string): Promise<boolean> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.delete<T>(`${endpoint}/${id}`);
+
+      if (!response.success) {
+        setError(response.error || 'Failed to delete data');
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    data,
+    isLoading,
+    error,
+    getData,
+    createData,
+    updateData,
+    deleteData,
+  };
 };
 
-export const useApi = (): ApiContextType => {
-  const context = useContext(ApiContext);
-  if (context === undefined) {
-    throw new Error('useApi must be used within an ApiProvider');
-  }
-  return context;
-};
-
-export default ApiProvider;
+export default ApiContext;

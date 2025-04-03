@@ -1,255 +1,360 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { useWasmWallet } from '../contexts/WasmWalletContext';
-import { useWebSocket } from '../contexts/WebSocketContext';
-import WebSocketStatus from '../components/WebSocketStatus';
-import NetworkStats from '../components/NetworkStats';
-import CryptoMarketOverview from '../components/CryptoMarketOverview';
-import MarketSummary from '../components/MarketSummary';
 
-// Icons
-import {
-  ArrowRightIcon,
-  ShieldCheckIcon,
-  CurrencyDollarIcon,
-  LockClosedIcon,
-  UserGroupIcon,
-  GlobeAltIcon,
-} from '@heroicons/react/24/outline';
-
-const Home: React.FC = () => {
-  const { isConnected, connect, isInitialized } = useWasmWallet();
-  const { connectionStatus } = useWebSocket();
-
-  // Features list
-  const features = [
-    {
-      icon: <ShieldCheckIcon className="w-8 h-8 text-twilight-neon-blue" />,
-      title: 'Secure Trading',
-      description: 'Trade with confidence using Partially Signed Bitcoin Transactions (PSBTs) for maximum security.',
-    },
-    {
-      icon: <CurrencyDollarIcon className="w-8 h-8 text-twilight-neon-green" />,
-      title: 'Bitcoin, Runes & Alkanes',
-      description: 'Trade Bitcoin, runes, and alkanes in a decentralized peer-to-peer marketplace.',
-    },
-    {
-      icon: <LockClosedIcon className="w-8 h-8 text-twilight-neon-purple" />,
-      title: 'Self-Custody',
-      description: 'Your keys, your coins. Always maintain full control of your assets.',
-    },
-    {
-      icon: <UserGroupIcon className="w-8 h-8 text-twilight-neon-orange" />,
-      title: 'Peer-to-Peer',
-      description: 'Trade directly with other users without intermediaries or centralized exchanges.',
-    },
-    {
-      icon: <GlobeAltIcon className="w-8 h-8 text-twilight-neon-yellow" />,
-      title: 'Global Access',
-      description: 'Access the marketplace from anywhere in the world, with no restrictions.',
-    },
-  ];
-
-  // Stats
-  const stats = [
-    { label: 'Active Users', value: '1,234+' },
-    { label: 'Total Volume', value: '$12.3M+' },
-    { label: 'Available Pairs', value: '50+' },
-    { label: 'Countries', value: '120+' },
-  ];
-
+export const Home: React.FC = () => {
   return (
-    <div className="space-y-12">
-      {/* Hero Section */}
-      <section className="relative">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-twilight-primary to-twilight-darker opacity-20 rounded-3xl" />
-        
-        {/* Content */}
-        <div className="relative z-10 py-16 px-8 md:px-16 rounded-3xl border border-twilight-dark">
-          <div className="max-w-3xl">
-            <motion.h1 
-              className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="text-white">Decentralized Trading</span>
-              <br />
-              <span className="text-twilight-neon-blue">for Bitcoin, Runes & Alkanes</span>
-            </motion.h1>
-            
-            <motion.p 
-              className="text-xl text-gray-300 mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              DarkSwap is a peer-to-peer trading platform that enables secure, 
-              non-custodial trading of Bitcoin, runes, and alkanes.
-            </motion.p>
-            
-            <motion.div 
-              className="flex flex-wrap gap-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              {isConnected ? (
-                <Link to="/trade" className="btn btn-primary btn-lg">
-                  Start Trading
-                  <ArrowRightIcon className="w-5 h-5 ml-2" />
-                </Link>
-              ) : (
-                <button onClick={connect} className="btn btn-primary btn-lg">
-                  Connect Wallet
-                  <ArrowRightIcon className="w-5 h-5 ml-2" />
-                </button>
-              )}
-              
-              <Link to="/about" className="btn btn-outline btn-lg">
-                Learn More
-              </Link>
-            </motion.div>
+    <div className="home-page">
+      <div className="hero-section">
+        <div className="hero-content">
+          <h1>DarkSwap</h1>
+          <p className="hero-subtitle">Decentralized P2P Trading for Bitcoin, Runes, and Alkanes</p>
+          <div className="hero-actions">
+            <Link to="/trade" className="trade-button">Start Trading</Link>
+            <Link to="/about" className="learn-button">Learn More</Link>
           </div>
         </div>
-      </section>
-
-      {/* Network Status */}
-      <section>
-        <h2 className="text-2xl font-display font-bold mb-6">Network Status</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
-            <div className="card p-6">
-              <div className="flex items-center mb-4">
-                <div className="mr-4">
-                  <WebSocketStatus />
-                </div>
-                <div>
-                  <h3 className="font-medium">Connection Status</h3>
-                  <p className="text-sm text-gray-400">
-                    {connectionStatus === 'connected' ? 'Connected to the network' :
-                     connectionStatus === 'connecting' ? 'Connecting to the network...' :
-                     connectionStatus === 'reconnecting' ? 'Reconnecting to the network...' :
-                     'Disconnected from the network'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
-                  <UserGroupIcon className="w-6 h-6 text-twilight-neon-blue" />
-                </div>
-                <div>
-                  <h3 className="font-medium">Active Peers</h3>
-                  <p className="text-sm text-gray-400">
-                    {isInitialized ? '32 peers online' : 'Initializing...'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-full bg-twilight-primary flex items-center justify-center mr-4">
-                  <CurrencyDollarIcon className="w-6 h-6 text-twilight-neon-green" />
-                </div>
-                <div>
-                  <h3 className="font-medium">Open Orders</h3>
-                  <p className="text-sm text-gray-400">
-                    {isInitialized ? '156 orders available' : 'Initializing...'}
-                  </p>
-                </div>
-              </div>
-            </div>
+      </div>
+      
+      <div className="features-section">
+        <h2>Features</h2>
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon">🔒</div>
+            <h3>Secure</h3>
+            <p>
+              Trade directly with peers using atomic swaps and PSBTs.
+              No intermediaries, no custody of funds.
+            </p>
           </div>
+          <div className="feature-card">
+            <div className="feature-icon">🌐</div>
+            <h3>Decentralized</h3>
+            <p>
+              Fully peer-to-peer with WebRTC connections.
+              No central servers or points of failure.
+            </p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">🔍</div>
+            <h3>Private</h3>
+            <p>
+              No KYC, no registration, no personal information.
+              Trade with complete privacy.
+            </p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">⚡</div>
+            <h3>Fast</h3>
+            <p>
+              Direct peer-to-peer connections for low latency.
+              Quick trade execution and settlement.
+            </p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">💰</div>
+            <h3>Multi-Asset</h3>
+            <p>
+              Trade Bitcoin, runes, and alkanes seamlessly.
+              Support for more assets coming soon.
+            </p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">🛠️</div>
+            <h3>Open Source</h3>
+            <p>
+              Fully open source and transparent.
+              Audit the code, contribute, and build on top.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="how-it-works-section">
+        <h2>How It Works</h2>
+        <div className="steps">
+          <div className="step">
+            <div className="step-number">1</div>
+            <h3>Connect</h3>
+            <p>
+              Connect to the DarkSwap network using WebRTC.
+              Find peers through the distributed network.
+            </p>
+          </div>
+          <div className="step">
+            <div className="step-number">2</div>
+            <h3>Create or Accept</h3>
+            <p>
+              Create a trade offer or accept an existing one.
+              Specify the assets and amounts you want to trade.
+            </p>
+          </div>
+          <div className="step">
+            <div className="step-number">3</div>
+            <h3>Sign</h3>
+            <p>
+              Sign the transaction with your wallet.
+              Verify the counterparty's signature.
+            </p>
+          </div>
+          <div className="step">
+            <div className="step-number">4</div>
+            <h3>Broadcast</h3>
+            <p>
+              Broadcast the transaction to the Bitcoin network.
+              Wait for confirmation and enjoy your new assets.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="cta-section">
+        <h2>Ready to Start Trading?</h2>
+        <p>
+          Join the decentralized trading revolution today.
+          No registration, no KYC, just pure peer-to-peer trading.
+        </p>
+        <Link to="/trade" className="cta-button">Start Trading Now</Link>
+      </div>
+      
+      <style>
+        {`
+          .home-page {
+            padding: 0;
+            max-width: 100%;
+          }
           
-          <div className="lg:col-span-3">
-            <NetworkStats refreshInterval={30000} />
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="card p-6">
-        <h2 className="text-2xl font-display font-bold mb-6">Key Features</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <motion.div 
-              key={index}
-              className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <div className="mb-4">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-display font-medium mb-2">{feature.title}</h3>
-              <p className="text-gray-400">{feature.description}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Market Data */}
-      <section className="mb-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MarketSummary />
-          <CryptoMarketOverview />
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="card p-6">
-        <h2 className="text-2xl font-display font-bold mb-6">Platform Statistics</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <motion.div 
-              key={index}
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <div className="text-3xl font-display font-bold text-twilight-neon-blue mb-2">
-                {stat.value}
-              </div>
-              <div className="text-gray-400">{stat.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="card p-8 bg-gradient-to-br from-twilight-primary to-twilight-darker">
-        <div className="text-center max-w-2xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-            Ready to start trading?
-          </h2>
-          <p className="text-gray-300 mb-6">
-            Join the DarkSwap community and start trading Bitcoin, runes, and alkanes today.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            {isConnected ? (
-              <Link to="/trade" className="btn btn-primary btn-lg">
-                Start Trading
-                <ArrowRightIcon className="w-5 h-5 ml-2" />
-              </Link>
-            ) : (
-              <button onClick={connect} className="btn btn-primary btn-lg">
-                Connect Wallet
-                <ArrowRightIcon className="w-5 h-5 ml-2" />
-              </button>
-            )}
+          .hero-section {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 100px 20px;
+            text-align: center;
+          }
+          
+          .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          
+          .hero-content h1 {
+            font-size: 4rem;
+            margin: 0 0 20px 0;
+            color: #fff;
+          }
+          
+          .hero-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            color: #e2e2e2;
+          }
+          
+          .hero-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+          }
+          
+          .trade-button, .learn-button, .cta-button {
+            display: inline-block;
+            padding: 15px 30px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+          }
+          
+          .trade-button {
+            background-color: #28a745;
+            color: #fff;
+          }
+          
+          .trade-button:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+          }
+          
+          .learn-button {
+            background-color: transparent;
+            color: #fff;
+            border: 2px solid #fff;
+          }
+          
+          .learn-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+          }
+          
+          .features-section {
+            padding: 80px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+          }
+          
+          .features-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            color: #333;
+          }
+          
+          .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+          }
+          
+          .feature-card {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+          }
+          
+          .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+          }
+          
+          .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+          }
+          
+          .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #333;
+          }
+          
+          .feature-card p {
+            color: #555;
+            line-height: 1.6;
+          }
+          
+          .how-it-works-section {
+            padding: 80px 20px;
+            background-color: #f8f9fa;
+            text-align: center;
+          }
+          
+          .how-it-works-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            color: #333;
+          }
+          
+          .steps {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+          }
+          
+          .step {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            flex: 1;
+            min-width: 250px;
+            max-width: 300px;
+            position: relative;
+          }
+          
+          .step-number {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+          }
+          
+          .step h3 {
+            font-size: 1.5rem;
+            margin: 20px 0 15px 0;
+            color: #333;
+          }
+          
+          .step p {
+            color: #555;
+            line-height: 1.6;
+          }
+          
+          .cta-section {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+            color: #fff;
+            text-align: center;
+          }
+          
+          .cta-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+          }
+          
+          .cta-section p {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            color: #e2e2e2;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          
+          .cta-button {
+            background-color: #28a745;
+            color: #fff;
+            padding: 15px 40px;
+          }
+          
+          .cta-button:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+          }
+          
+          @media (max-width: 768px) {
+            .hero-content h1 {
+              font-size: 3rem;
+            }
             
-            <Link to="/about" className="btn btn-outline btn-lg">
-              Learn More
-            </Link>
-          </div>
-        </div>
-      </section>
+            .hero-subtitle {
+              font-size: 1.2rem;
+            }
+            
+            .hero-actions {
+              flex-direction: column;
+              gap: 15px;
+            }
+            
+            .features-grid {
+              grid-template-columns: 1fr;
+            }
+            
+            .steps {
+              flex-direction: column;
+              align-items: center;
+            }
+            
+            .step {
+              width: 100%;
+              max-width: 100%;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-export default Home;

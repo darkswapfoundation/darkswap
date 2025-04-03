@@ -1,118 +1,99 @@
 # DarkSwap Web Interface
 
-A decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes.
-
-## Overview
-
-DarkSwap is a decentralized trading platform that enables direct peer-to-peer trading of Bitcoin, runes, and alkanes without intermediaries. The platform uses WebRTC for peer-to-peer communication and Bitcoin's Partially Signed Bitcoin Transactions (PSBTs) for secure, atomic swaps between different assets.
+This is the web interface for DarkSwap, a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes.
 
 ## Features
 
-- **P2P Trading**: Direct peer-to-peer trading without intermediaries
-- **Secure Transactions**: Built on Bitcoin's secure blockchain with PSBTs
-- **Asset Management**: Manage your Bitcoin, runes, and alkanes in one place
-- **Order Management**: Track your open orders and trade history
-- **Responsive Design**: Works on desktop and mobile devices
-
-## Tech Stack
-
-- **Frontend**: React, TypeScript, Tailwind CSS, Framer Motion
-- **Networking**: WebRTC, libp2p (Rust implementation)
-- **Blockchain**: Bitcoin, PSBTs, Runes, Alkanes
+- Decentralized peer-to-peer trading
+- Support for Bitcoin, runes, and alkanes
+- Direct WebRTC connections
+- Circuit relay for NAT traversal
+- Atomic swaps using PSBTs
+- No KYC or registration required
+- Open source and transparent
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v16+)
-- npm or yarn
+- Node.js 16+
+- npm 8+
+- Rust 1.60+
+- wasm-pack
 
 ### Installation
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/darkswap.git
-   cd darkswap/web
-   ```
-
-2. Run the setup script to install dependencies:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open your browser and navigate to `http://localhost:3000`
-
-### Building for Production
 
 ```bash
+git clone https://github.com/darkswap/darkswap.git
+cd darkswap
+```
+
+2. Install dependencies:
+
+```bash
+# Install Rust dependencies
+./install-bitcoin-deps.sh
+
+# Install web dependencies
+cd web
+npm install
+```
+
+3. Build the WebAssembly bindings:
+
+```bash
+cd ../darkswap-web-sys
+wasm-pack build --target web
+```
+
+4. Build the TypeScript library:
+
+```bash
+cd ../darkswap-lib
+npm install
 npm run build
 ```
 
-The build artifacts will be stored in the `dist/` directory.
+5. Start the development server:
+
+```bash
+cd ../web
+npm start
+```
+
+6. Open your browser and navigate to `http://localhost:3000`
 
 ## Project Structure
 
-```
-darkswap/web/
-├── index.html                # HTML template
-├── package.json              # Project dependencies and scripts
-├── postcss.config.js         # PostCSS configuration
-├── tailwind.config.js        # Tailwind CSS configuration
-├── tsconfig.json             # TypeScript configuration
-├── tsconfig.node.json        # Node-specific TypeScript configuration
-├── vite.config.ts            # Vite configuration
-├── public/                   # Static assets
-│   └── favicon.svg           # Application favicon
-└── src/
-    ├── App.tsx               # Main application component
-    ├── main.tsx              # Application entry point
-    ├── index.css             # Global styles and Tailwind imports
-    ├── components/           # Reusable components
-    │   ├── Footer.tsx        # Page footer
-    │   ├── Header.tsx        # Navigation header
-    │   ├── Layout.tsx        # Page layout wrapper
-    │   ├── Orderbook.tsx     # Trading orderbook component
-    │   ├── PeerStatus.tsx    # P2P network status component
-    │   ├── TradeForm.tsx     # Trading form component
-    │   └── WalletConnect.tsx # Wallet connection component
-    ├── contexts/             # React contexts
-    │   ├── SDKContext.tsx    # DarkSwap SDK integration
-    │   ├── ThemeContext.tsx  # Theme management
-    │   └── WalletContext.tsx # Wallet connection management
-    ├── pages/                # Application pages
-    │   ├── About.tsx         # About page
-    │   ├── Home.tsx          # Landing page
-    │   ├── NotFound.tsx      # 404 page
-    │   ├── Orders.tsx        # Orders management page
-    │   ├── Settings.tsx      # User settings page
-    │   ├── Trade.tsx         # Trading interface
-    │   └── Vault.tsx         # Asset vault page
-    ├── hooks/                # Custom React hooks
-    └── utils/                # Utility functions
-```
+- `src/components`: React components
+- `src/pages`: Page components
+- `src/hooks`: React hooks
+- `src/utils`: Utility functions
+- `src/styles`: CSS files
+- `public`: Static assets
 
-## Integration with DarkSwap SDK
+## Available Scripts
 
-The web interface integrates with the DarkSwap SDK, which provides the following functionality:
+In the project directory, you can run:
 
-- P2P network communication
-- Order management
-- Trade execution
-- Wallet integration
+### `npm start`
+
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+
+### `npm test`
+
+Launches the test runner in the interactive watch mode.
+
+### `npm run build`
+
+Builds the app for production to the `build` folder.
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

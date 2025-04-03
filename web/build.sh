@@ -1,66 +1,48 @@
 #!/bin/bash
 
-# Colors for terminal output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# Build script for DarkSwap web interface
 
-# Function to check if a command exists
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
+# Exit on error
+set -e
+
+echo "Building DarkSwap web interface..."
 
 # Check if Node.js is installed
-if ! command_exists node; then
-  echo -e "${RED}Error: Node.js is not installed.${NC}"
-  echo -e "Please install Node.js from https://nodejs.org/"
-  exit 1
+if ! command -v node &> /dev/null; then
+    echo "Node.js is not installed. Please install Node.js 16+ and try again."
+    exit 1
 fi
 
 # Check if npm is installed
-if ! command_exists npm; then
-  echo -e "${RED}Error: npm is not installed.${NC}"
-  echo -e "Please install npm (it usually comes with Node.js)"
-  exit 1
-fi
-
-# Check if dependencies are installed
-if [ ! -d "node_modules" ]; then
-  echo -e "${YELLOW}Dependencies not found. Installing...${NC}"
-  npm install
-  
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to install dependencies.${NC}"
+if ! command -v npm &> /dev/null; then
+    echo "npm is not installed. Please install npm 8+ and try again."
     exit 1
-  fi
-  
-  echo -e "${GREEN}Dependencies installed successfully.${NC}"
 fi
 
-# Clean the dist directory if it exists
-if [ -d "dist" ]; then
-  echo -e "${YELLOW}Cleaning previous build...${NC}"
-  rm -rf dist
+# Check if wasm-pack is installed
+if ! command -v wasm-pack &> /dev/null; then
+    echo "wasm-pack is not installed. Installing wasm-pack..."
+    cargo install wasm-pack
 fi
 
-# Build the application
-echo -e "${BLUE}Building the application...${NC}"
+# Build the WebAssembly bindings
+echo "Building WebAssembly bindings..."
+cd ../darkswap-web-sys
+wasm-pack build --target web
+
+# Build the TypeScript library
+echo "Building TypeScript library..."
+cd ../darkswap-lib
+npm install
 npm run build
 
-if [ $? -ne 0 ]; then
-  echo -e "${RED}Build failed.${NC}"
-  exit 1
-fi
+# Build the web interface
+echo "Building web interface..."
+cd ../web
+npm install
+npm run build
 
-echo -e "${GREEN}Build completed successfully.${NC}"
-echo -e "${BLUE}The build output is in the 'dist' directory.${NC}"
-
-# Optional: Preview the build
-read -p "Do you want to preview the build? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  echo -e "${BLUE}Starting preview server...${NC}"
-  npm run preview
-fi
+echo "Build completed successfully!"
+echo "The build artifacts are in the 'build' directory."
+echo "You can serve the build with a static server:"
+echo "  npx serve -s build"

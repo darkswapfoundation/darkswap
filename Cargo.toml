@@ -31,7 +31,7 @@ env_logger = "0.10"
 bitcoin = { version = "0.30", features = ["rand", "serde"] }
 
 # P2P networking dependencies
-libp2p = { version = "0.52", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "webrtc", "mdns", "relay"] }
+libp2p = { version = "0.51", features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "mdns", "relay"] }
 prost = "0.11"
 prost-build = "0.11"
 bytes = "1.4"

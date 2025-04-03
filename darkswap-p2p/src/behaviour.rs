@@ -1,194 +1,165 @@
-//! Network behaviour for darkswap-p2p
-//!
-//! This module provides the network behaviour for darkswap-p2p,
-//! combining various libp2p protocols into a single behaviour.
+//! Network behaviour for the DarkSwap P2P network.
 
-use crate::circuit_relay::{CircuitRelayBehaviour, CircuitRelayEvent, RelayConfig};
-use darkswap_support::types::PeerId;
+use crate::config::Config;
+use crate::message::Message;
+use crate::protocol::{create_request_response, DarkSwapProtocol};
 use libp2p::{
-    gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, ValidationMode},
-    identify::{Identify, IdentifyConfig, IdentifyEvent},
+    gossipsub::{self, Gossipsub, GossipsubConfig, IdentTopic, MessageAuthenticity},
+    identify::{self, Identify, IdentifyConfig},
     kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent},
-    ping::{Ping, PingConfig, PingEvent},
+    mdns::{self, Mdns, MdnsConfig},
+    ping::{self, Ping, PingConfig},
+    request_response::{self, RequestResponse},
     swarm::NetworkBehaviour,
+    Multiaddr, PeerId,
 };
+use std::collections::HashSet;
 use std::time::Duration;
 
-/// Combined network behaviour for darkswap-p2p
+/// Network behaviour for the DarkSwap P2P network.
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "DarkSwapEvent")]
 pub struct DarkSwapBehaviour {
-    /// Ping protocol
-    pub ping: Ping,
-    /// Identify protocol
-    pub identify: Identify,
-    /// Kademlia DHT
-    pub kademlia: Kademlia<MemoryStore>,
-    /// GossipSub protocol
-    pub gossipsub: Gossipsub,
-    /// Circuit relay protocol
-    pub circuit_relay: CircuitRelayBehaviour,
+    /// Ping protocol for keeping connections alive.
+    ping: Ping,
+    /// Identify protocol for exchanging peer information.
+    identify: Identify,
+    /// Kademlia DHT for peer discovery.
+    kademlia: Kademlia<MemoryStore>,
+    /// mDNS for local peer discovery.
+    mdns: Mdns,
+    /// Gossipsub for pubsub messaging.
+    gossipsub: Gossipsub,
+    /// Request-response protocol for direct messaging.
+    request_response: RequestResponse<DarkSwapProtocol, Message, Message>,
 }
 
-/// Events emitted by the network behaviour
+/// Events emitted by the DarkSwap network behaviour.
 #[derive(Debug)]
 pub enum DarkSwapEvent {
-    /// Ping event
-    Ping(PingEvent),
-    /// Identify event
-    Identify(IdentifyEvent),
-    /// Kademlia event
+    /// Ping event.
+    Ping(ping::Event),
+    /// Identify event.
+    Identify(identify::Event),
+    /// Kademlia event.
     Kademlia(KademliaEvent),
-    /// GossipSub event
-    Gossipsub(GossipsubEvent),
-    /// Circuit relay event
-    CircuitRelay(CircuitRelayEvent),
+    /// mDNS event.
+    Mdns(mdns::Event),
+    /// Gossipsub event.
+    Gossipsub(gossipsub::Event),
+    /// Request-response event.
+    RequestResponse(request_response::Event<Message, Message>),
 }
 
-impl From<PingEvent> for DarkSwapEvent {
-    fn from(event: PingEvent) -> Self {
-        DarkSwapEvent::Ping(event)
+impl From<ping::Event> for DarkSwapEvent {
+    fn from(event: ping::Event) -> Self {
+        Self::Ping(event)
     }
 }
 
-impl From<IdentifyEvent> for DarkSwapEvent {
-    fn from(event: IdentifyEvent) -> Self {
-        DarkSwapEvent::Identify(event)
+impl From<identify::Event> for DarkSwapEvent {
+    fn from(event: identify::Event) -> Self {
+        Self::Identify(event)
     }
 }
 
 impl From<KademliaEvent> for DarkSwapEvent {
     fn from(event: KademliaEvent) -> Self {
-        DarkSwapEvent::Kademlia(event)
+        Self::Kademlia(event)
     }
 }
 
-impl From<GossipsubEvent> for DarkSwapEvent {
-    fn from(event: GossipsubEvent) -> Self {
-        DarkSwapEvent::Gossipsub(event)
+impl From<mdns::Event> for DarkSwapEvent {
+    fn from(event: mdns::Event) -> Self {
+        Self::Mdns(event)
     }
 }
 
-impl From<CircuitRelayEvent> for DarkSwapEvent {
-    fn from(event: CircuitRelayEvent) -> Self {
-        DarkSwapEvent::CircuitRelay(event)
+impl From<gossipsub::Event> for DarkSwapEvent {
+    fn from(event: gossipsub::Event) -> Self {
+        Self::Gossipsub(event)
     }
 }
 
-impl NetworkBehaviour for DarkSwapBehaviour {
-    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler;
-    type OutEvent = DarkSwapEvent;
-
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        libp2p::swarm::dummy::ConnectionHandler
+impl From<request_response::Event<Message, Message>> for DarkSwapEvent {
+    fn from(event: request_response::Event<Message, Message>) -> Self {
+        Self::RequestResponse(event)
     }
-
-    fn addresses_of_peer(&mut self, peer_id: &libp2p::PeerId) -> Vec<libp2p::Multiaddr> {
-        let mut addresses = Vec::new();
-        addresses.extend(self.kademlia.addresses_of_peer(peer_id));
-        addresses.extend(self.identify.addresses_of_peer(peer_id));
-        addresses
-    }
-
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &libp2p::PeerId,
-        connection_id: &libp2p::swarm::ConnectionId,
-        endpoint: &libp2p::core::ConnectedPoint,
-        _failed_addresses: Option<&Vec<libp2p::Multiaddr>>,
-        _other_established: usize,
-    ) {
-        // We need to handle this differently since we can't pass our dummy handler to the sub-behaviors
-        // Instead, we'll use the on_connection_established method which is the newer approach
-        
-        // For now, we'll just log the connection established event
-        log::debug!("Connection established with peer: {}", peer_id);
-    }
-fn inject_connection_closed(
-    &mut self,
-    peer_id: &libp2p::PeerId,
-    connection_id: &libp2p::swarm::ConnectionId,
-    endpoint: &libp2p::core::ConnectedPoint,
-    _handler: Self::ConnectionHandler,
-    remaining_established: usize,
-) {
-    // We need to handle this differently since we can't pass our dummy handler to the sub-behaviors
-    // Instead, we'll use the on_connection_closed method which is the newer approach
-    
-    // For now, we'll just log the connection closed event
-    log::debug!("Connection closed with peer: {}", peer_id);
 }
+
+impl DarkSwapBehaviour {
+    /// Create a new DarkSwap network behaviour.
+    pub async fn new(
+        local_peer_id: PeerId,
+        config: &Config,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Create a Ping protocol
+        let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(30)));
+
+        // Create an Identify protocol
+        let identify = Identify::new(IdentifyConfig::new(
+            "/darkswap/1.0.0".to_string(),
+            local_peer_id,
+        ));
+
+        // Create a Kademlia DHT
+        let store = MemoryStore::new(local_peer_id);
+        let mut kademlia_config = KademliaConfig::default();
+        kademlia_config.set_query_timeout(Duration::from_secs(5 * 60));
+        let mut kademlia = Kademlia::with_config(local_peer_id, store, kademlia_config);
+
+        // Create an mDNS discovery service
+        let mdns = Mdns::new(MdnsConfig::default()).await?;
+
+        // Create a Gossipsub protocol
+        let gossipsub_config = GossipsubConfig::default();
+        let gossipsub = Gossipsub::new(
+            MessageAuthenticity::Signed(local_peer_id),
+            gossipsub_config,
+        )?;
+
+        // Create a request-response protocol
+        let request_response = create_request_response(local_peer_id);
+
+        Ok(Self {
+            ping,
+            identify,
+            kademlia,
+            mdns,
+            gossipsub,
+            request_response,
+        })
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-        params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<libp2p::swarm::NetworkBehaviourAction<DarkSwapEvent, libp2p::swarm::dummy::ConnectionHandler>> {
-        use std::task::Poll;
-        
-        // Poll each protocol and convert the events
-        // For now, we'll just return Pending since we can't easily convert between the different handler types
-        // In a real implementation, we would need to handle each protocol's events separately
-
-        // Check if any protocol has events
-        if self.ping.poll(cx, params).is_ready() ||
-           self.identify.poll(cx, params).is_ready() ||
-           self.kademlia.poll(cx, params).is_ready() ||
-           self.gossipsub.poll(cx, params).is_ready() ||
-           self.circuit_relay.poll(cx, params).is_ready() {
-            // For now, we'll just log that we received an event
-            log::debug!("Received an event from a sub-protocol");
-        }
-
-        Poll::Pending
+    /// Subscribe to a topic.
+    pub fn subscribe(&mut self, topic: &str) -> Result<bool, gossipsub::error::SubscriptionError> {
+        let topic = IdentTopic::new(topic);
+        self.gossipsub.subscribe(&topic)
     }
 
-/// Create a new DarkSwapBehaviour
-pub fn new_behaviour(
-    local_peer_id: &PeerId,
-    keypair: &libp2p::identity::Keypair,
-) -> Result<DarkSwapBehaviour, Box<dyn std::error::Error>> {
-    let peer_id = libp2p::PeerId::from_public_key(&keypair.public());
-    
-    // Create ping behaviour
-    let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(30)));
-    
-    // Create identify behaviour
-    let identify = Identify::new(IdentifyConfig::new(
-        "/darkswap/1.0.0".to_string(),
-        keypair.public(),
-    ));
-    
-    // Create Kademlia behaviour
-    let store = MemoryStore::new(peer_id);
-    let kademlia = Kademlia::new(peer_id, store);
-    
-    // Create GossipSub behaviour
-    let message_id_fn = |message: &libp2p::gossipsub::Message| {
-        use std::hash::{Hash, Hasher};
-        let mut s = std::collections::hash_map::DefaultHasher::new();
-        message.data.hash(&mut s);
-        libp2p::gossipsub::MessageId::from(s.finish().to_string())
-    };
-    
-    // Create GossipSub config
-    let gossipsub_config = GossipsubConfig::default();
-    
-    let gossipsub = Gossipsub::new(
-        MessageAuthenticity::Signed(keypair.clone()),
-        gossipsub_config,
-    )?;
-    
-    // Create circuit relay behaviour
-    let circuit_relay = CircuitRelayBehaviour::new(
-        local_peer_id.clone(),
-        RelayConfig::default(),
-    );
-    
-    Ok(DarkSwapBehaviour {
-        ping,
-        identify,
-        kademlia,
-        gossipsub,
-        circuit_relay,
-    })
+    /// Publish a message to a topic.
+    pub fn publish(&mut self, topic: &str, data: impl Into<Vec<u8>>) -> Result<gossipsub::MessageId, gossipsub::error::PublishError> {
+        let topic = IdentTopic::new(topic);
+        self.gossipsub.publish(topic, data)
+    }
+
+    /// Send a request to a peer.
+    pub fn send_request(&mut self, peer_id: &PeerId, request: Message) {
+        self.request_response.send_request(peer_id, request);
+    }
+
+    /// Send a response to a request.
+    pub fn send_response(&mut self, channel: request_response::ResponseChannel<Message>, response: Message) -> Result<(), request_response::OutboundFailure> {
+        self.request_response.send_response(channel, response)
+    }
+
+    /// Add a known peer to the DHT.
+    pub fn add_address(&mut self, peer_id: &PeerId, addr: &Multiaddr) {
+        self.kademlia.add_address(peer_id, addr.clone());
+    }
+
+    /// Bootstrap the DHT.
+    pub fn bootstrap(&mut self) -> Result<libp2p::kad::QueryId, libp2p::kad::NoKnownPeers> {
+        self.kademlia.bootstrap()
+    }
 }

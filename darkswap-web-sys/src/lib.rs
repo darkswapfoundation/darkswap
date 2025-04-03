@@ -1,88 +1,235 @@
-//! WebAssembly bindings for the DarkSwap SDK
+//! WebAssembly bindings for DarkSwap
 //!
-//! This crate provides WebAssembly bindings for the DarkSwap SDK, allowing it to be used in web applications.
+//! This crate provides WebAssembly bindings for the DarkSwap SDK.
+
+mod trade;
+mod wallet;
+mod p2p;
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::future_to_promise;
-use js_sys::{Array, Object, Promise, Reflect};
-use web_sys::{console, window};
-use serde::{Serialize, Deserialize};
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use darkswap_sdk::{
+    DarkSwap,
+    config::Config,
+    p2p::PeerId,
+    types::Event,
+};
 
-// Re-export modules
-pub mod wallet;
-pub mod orderbook;
-pub mod trade;
-pub mod webrtc;
-pub mod utils;
+// Re-export types
+pub use trade::{
+    AlkaneHandlerWasm,
+    PsbtHandlerWasm,
+    RuneHandlerWasm,
+    TradeProtocolWasm,
+};
+pub use wallet::WalletWasm;
+pub use p2p::P2PNetworkWasm;
 
-// Initialize panic hook and logger
-#[wasm_bindgen(start)]
-pub fn start() {
-    console_error_panic_hook::set_once();
-    wasm_logger::init(wasm_logger::Config::default());
-    log::info!("DarkSwap WebAssembly bindings initialized");
-}
-
-/// Initialize the WebAssembly bindings
+/// WebAssembly bindings for DarkSwap
 #[wasm_bindgen]
-pub async fn initialize() -> Result<(), JsValue> {
-    log::info!("Initializing DarkSwap WebAssembly bindings");
-    
-    // Initialize the wallet module
-    wallet::initialize().await?;
-    
-    // Initialize the orderbook module
-    orderbook::initialize().await?;
-    
-    // Initialize the trade module
-    trade::initialize().await?;
-    
-    // Initialize the WebRTC module
-    webrtc::initialize().await?;
-    
-    log::info!("DarkSwap WebAssembly bindings initialized successfully");
-    Ok(())
+pub struct DarkSwapWasm {
+    /// Inner DarkSwap instance
+    inner: DarkSwap,
+    /// Event callback
+    callback: js_sys::Function,
 }
 
-/// Check if the WebAssembly bindings are initialized
 #[wasm_bindgen]
-pub fn is_initialized() -> bool {
-    wallet::is_initialized() && orderbook::is_initialized() && trade::is_initialized() && webrtc::is_initialized()
-}
-
-/// Get the version of the WebAssembly bindings
-#[wasm_bindgen]
-pub fn version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
-}
-
-/// Get the name of the WebAssembly bindings
-#[wasm_bindgen]
-pub fn name() -> String {
-    env!("CARGO_PKG_NAME").to_string()
-}
-
-/// Get the description of the WebAssembly bindings
-#[wasm_bindgen]
-pub fn description() -> String {
-    env!("CARGO_PKG_DESCRIPTION").to_string()
-}
-
-/// Convert a Rust error to a JavaScript error
-pub fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
-    JsValue::from_str(&format!("{}", error))
-}
-
-/// Convert a JavaScript value to a Rust value
-pub fn from_js_value<T: for<'a> Deserialize<'a>>(value: &JsValue) -> Result<T, JsValue> {
-    serde_wasm_bindgen::from_value(value.clone())
-        .map_err(|e| to_js_error(e))
-}
-
-/// Convert a Rust value to a JavaScript value
-pub fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    serde_wasm_bindgen::to_value(value)
-        .map_err(|e| to_js_error(e))
+impl DarkSwapWasm {
+    /// Create a new DarkSwap instance
+    #[wasm_bindgen(constructor)]
+    pub fn new(config_json: &str, callback: js_sys::Function) -> Result<DarkSwapWasm, JsValue> {
+        // Set up panic hook
+        console_error_panic_hook::set_once();
+        
+        // Parse the configuration
+        let config: Config = serde_json::from_str(config_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse config: {}", e)))?;
+        
+        // Create the event channel
+        let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+        
+        // Create the DarkSwap instance
+        let darkswap = DarkSwap::new(config, tx)
+            .map_err(|e| JsValue::from_str(&format!("Failed to create DarkSwap: {}", e)))?;
+        
+        // Create the wrapper
+        let wrapper = DarkSwapWasm {
+            inner: darkswap,
+            callback,
+        };
+        
+        // Spawn a task to handle events
+        let callback = wrapper.callback.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            while let Some(event) = rx.recv().await {
+                // Convert the event to JSON
+                let event_json = serde_json::to_string(&event)
+                    .unwrap_or_else(|e| format!("{{\"error\": \"Failed to serialize event: {}\"}}", e));
+                
+                // Call the callback
+                let _ = callback.call1(
+                    &JsValue::NULL,
+                    &JsValue::from_str(&event_json),
+                );
+            }
+        });
+        
+        Ok(wrapper)
+    }
+    
+    /// Start the DarkSwap instance
+    #[wasm_bindgen]
+    pub async fn start(&mut self) -> Result<(), JsValue> {
+        self.inner.start().await
+            .map_err(|e| JsValue::from_str(&format!("Failed to start DarkSwap: {}", e)))
+    }
+    
+    /// Stop the DarkSwap instance
+    #[wasm_bindgen]
+    pub async fn stop(&mut self) -> Result<(), JsValue> {
+        self.inner.stop().await
+            .map_err(|e| JsValue::from_str(&format!("Failed to stop DarkSwap: {}", e)))
+    }
+    
+    /// Get the local peer ID
+    #[wasm_bindgen]
+    pub fn local_peer_id(&self) -> String {
+        self.inner.local_peer_id().to_string()
+    }
+    
+    /// Connect to a peer
+    #[wasm_bindgen]
+    pub async fn connect_to_peer(&mut self, peer_id: &str) -> Result<(), JsValue> {
+        // Parse the peer ID
+        let peer_id = PeerId::from_str(peer_id)
+            .map_err(|e| JsValue::from_str(&format!("Invalid peer ID: {}", e)))?;
+        
+        // Connect to the peer
+        self.inner.connect_to_peer(peer_id).await
+            .map_err(|e| JsValue::from_str(&format!("Failed to connect to peer: {}", e)))
+    }
+    
+    /// Connect to a peer via relay
+    #[wasm_bindgen]
+    pub async fn connect_via_relay(&mut self, peer_id: &str) -> Result<String, JsValue> {
+        // Parse the peer ID
+        let peer_id = PeerId::from_str(peer_id)
+            .map_err(|e| JsValue::from_str(&format!("Invalid peer ID: {}", e)))?;
+        
+        // Connect to the peer via relay
+        self.inner.connect_via_relay(peer_id).await
+            .map_err(|e| JsValue::from_str(&format!("Failed to connect via relay: {}", e)))
+    }
+    
+    /// Send data to a peer via relay
+    #[wasm_bindgen]
+    pub async fn send_via_relay(&mut self, peer_id: &str, relay_id: &str, data: &[u8]) -> Result<(), JsValue> {
+        // Parse the peer ID
+        let peer_id = PeerId::from_str(peer_id)
+            .map_err(|e| JsValue::from_str(&format!("Invalid peer ID: {}", e)))?;
+        
+        // Send data via relay
+        self.inner.send_via_relay(peer_id, relay_id, data.to_vec()).await
+            .map_err(|e| JsValue::from_str(&format!("Failed to send via relay: {}", e)))
+    }
+    
+    /// Close a relay connection
+    #[wasm_bindgen]
+    pub async fn close_relay(&mut self, relay_id: &str) -> Result<(), JsValue> {
+        // Close the relay connection
+        self.inner.close_relay(relay_id).await
+            .map_err(|e| JsValue::from_str(&format!("Failed to close relay: {}", e)))
+    }
+    
+    /// Create a trade offer
+    #[wasm_bindgen]
+    pub async fn create_trade_offer(
+        &self,
+        maker_asset_type: &str,
+        maker_asset_id: &str,
+        maker_amount: u64,
+        taker_asset_type: &str,
+        taker_asset_id: &str,
+        taker_amount: u64,
+        expiration_seconds: u64,
+    ) -> Result<String, JsValue> {
+        // Create the trade offer
+        self.inner.create_trade_offer(
+            maker_asset_type,
+            maker_asset_id,
+            maker_amount,
+            taker_asset_type,
+            taker_asset_id,
+            taker_amount,
+            expiration_seconds,
+        ).await.map_err(|e| JsValue::from_str(&format!("Failed to create trade offer: {}", e)))
+    }
+    
+    /// Accept a trade offer
+    #[wasm_bindgen]
+    pub async fn accept_trade_offer(&self, offer_id: &str) -> Result<(), JsValue> {
+        self.inner.accept_trade_offer(offer_id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to accept trade offer: {}", e)))
+    }
+    
+    /// Get the Bitcoin balance
+    #[wasm_bindgen]
+    pub async fn get_bitcoin_balance(&self) -> Result<u64, JsValue> {
+        self.inner.get_bitcoin_balance()
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get Bitcoin balance: {}", e)))
+    }
+    
+    /// Get the rune balance
+    #[wasm_bindgen]
+    pub async fn get_rune_balance(&self, rune_id: &str) -> Result<u64, JsValue> {
+        self.inner.get_rune_balance(rune_id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get rune balance: {}", e)))
+    }
+    
+    /// Get the alkane balance
+    #[wasm_bindgen]
+    pub async fn get_alkane_balance(&self, alkane_id: &str) -> Result<u64, JsValue> {
+        self.inner.get_alkane_balance(alkane_id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get alkane balance: {}", e)))
+    }
+    
+    /// Get all trade offers
+    #[wasm_bindgen]
+    pub async fn get_trade_offers(&self) -> Result<String, JsValue> {
+        let offers = self.inner.get_trade_offers()
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get trade offers: {}", e)))?;
+        
+        // Convert the offers to JSON
+        let offers_json = serde_json::to_string(&offers)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize offers: {}", e)))?;
+        
+        Ok(offers_json)
+    }
+    
+    /// Get a trade offer
+    #[wasm_bindgen]
+    pub async fn get_trade_offer(&self, offer_id: &str) -> Result<String, JsValue> {
+        let offer = self.inner.get_trade_offer(offer_id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get trade offer: {}", e)))?;
+        
+        // Convert the offer to JSON
+        let offer_json = serde_json::to_string(&offer)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize offer: {}", e)))?;
+        
+        Ok(offer_json)
+    }
+    
+    /// Get the trade state
+    #[wasm_bindgen]
+    pub async fn get_trade_state(&self, offer_id: &str) -> Result<String, JsValue> {
+        self.inner.get_trade_state(offer_id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Failed to get trade state: {}", e)))
+    }
 }

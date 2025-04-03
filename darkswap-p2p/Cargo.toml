@@ -2,39 +2,51 @@
 name = "darkswap-p2p"
 version = "0.1.0"
 edition = "2021"
+description = "P2P networking for DarkSwap"
+authors = ["DarkSwap Team"]
+license = "MIT"
 
 [dependencies]
+# Core dependencies
+darkswap-lib = { path = "../darkswap-lib" }
 darkswap-support = { path = "../darkswap-support" }
-libp2p = { version = "0.50", features = ["tcp", "dns", "websocket", "noise", "yamux", "ping", "identify", "kad", "gossipsub", "relay"] }
-tokio = { version = "1", features = ["full"] }
-async-trait = "0.1"
-futures = "0.3"
-log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-hex = "0.4"
-env_logger = "0.10"
-tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
-void = "1.0"
-url = "2.4"
-warp = "0.3"
+
+# Async runtime
+tokio = { workspace = true }
+futures = { workspace = true }
+futures-util = "0.3"
+
+# P2P networking
+libp2p = { workspace = true }
+libp2p-webrtc = { version = "0.9.0-alpha" }
+libp2p-webrtc-websys = { version = "0.4.0-alpha" }
+libp2p-mdns = { version = "0.43.1", features = ["async-io"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console", "Window", "Navigator", "MediaDevices", "MediaStreamConstraints", "RtcPeerConnection", "RtcConfiguration", "RtcIceServer", "RtcSessionDescription", "RtcSdpType", "RtcIceCandidate", "RtcIceCandidateInit"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.3", features = ["v4", "serde"] }
+rand = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+mockall = "0.11"
+serial_test = "2.0"
 
 [features]
-default = ["native"]
-native = []
-wasm = ["libp2p/wasm-bindgen", "libp2p/wasm-ext"]
-
-[[example]]
-name = "webrtc_example"
-path = "examples/webrtc_example.rs"
-
-[[example]]
-name = "signaling_server"
-path = "examples/signaling_server.rs"
-
-[[example]]
-name = "advanced_webrtc_example"
-path = "examples/advanced_webrtc_example.rs"
+default = []
+webrtc = []

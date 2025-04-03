@@ -15,12 +15,12 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Bitcoin
-bitcoin = { version = "0.29.2", features = ["rand", "serde"] }
+bitcoin = { workspace = true }
 # Disable BDK for now due to dependency conflicts
 # bdk = { version = "0.27.1", optional = true, features = ["all-keys", "keys-bip39"] }
 
 # P2P networking
-libp2p = { version = "0.50.0", features = ["kad", "tcp", "tokio", "gossipsub", "identify", "mdns", "ping", "relay", "dcutr", "async-std"] }
+libp2p = { workspace = true }
 libp2p-gossipsub = "0.42.0"
 libp2p-mdns = { version = "0.42.0", features = ["tokio", "async-io"] }
 libp2p-noise = "0.41.0"
@@ -32,58 +32,43 @@ libp2p-webrtc = { version = "0.9.0-alpha", optional = true, features = ["tokio"]
 libp2p-swarm-derive = "0.31.0"
 
 # Async
-tokio = { version = "1.28.0", features = ["full"] }
-futures = "0.3.28"
-async-trait = "0.1.68"
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
 
 # Serialization
-serde = { version = "1.0.160", features = ["derive"] }
-serde_json = "1.0.96"
-hex = "0.4.3"
-prost = "0.11.9"
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+prost = { workspace = true }
 
 # Cryptography
-rand = "0.8.5"
+rand = { workspace = true }
 sha2 = "0.10.6"
 
 # Compression
 flate2 = "1.0.28"
 
 # Utilities
-rust_decimal = { version = "1.29.1", features = ["serde"] }
+rust_decimal = { workspace = true }
 rust_decimal_macros = "1.29.1"
 num-traits = "0.2.15"
 uuid = { version = "1.3.3", features = ["v4", "serde"] }
-log = "0.4.17"
+log = { workspace = true }
 byteorder = "1.4.3"
-env_logger = "0.10.0"
-anyhow = "1.0.71"
-thiserror = "1.0.40"
+env_logger = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
 lazy_static = "1.4.0"
 zeroize = "1.6.0"
 trust-dns-resolver = "0.22.0"
 base64 = "0.13.0"
 
 # WebAssembly
-wasm-bindgen = { version = "0.2.86", optional = true }
-wasm-bindgen-futures = { version = "0.4.36", optional = true }
-js-sys = { version = "0.3.63", optional = true }
-web-sys = { version = "0.3.63", features = [
-    "console",
-    "Window",
-    "Document",
-    "Element",
-    "HtmlElement",
-    "RtcPeerConnection",
-    "RtcSessionDescription",
-    "RtcIceCandidate",
-    "RtcDataChannel",
-    "RtcConfiguration",
-    "RtcDataChannelInit",
-    "RtcIceCandidateInit",
-    "RtcSdpType",
-    "RtcSessionDescriptionInit",
-], optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 
 [dev-dependencies]
@@ -103,14 +88,3 @@ full = ["wasm", "webrtc"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
-
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3
-strip = true
-
-[profile.wasm-release]
-inherits = "release"
-lto = true
-opt-level = 's'

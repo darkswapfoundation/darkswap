@@ -1,75 +1,54 @@
-# DarkSwap Relay Server Dockerfile
-# Multi-stage build for smaller image size
+FROM node:18-alpine AS builder
 
-# Build stage
-FROM rust:1.70-slim-bullseye as builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    cmake \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy Cargo.toml and Cargo.lock
-COPY Cargo.toml ./
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
-# Create dummy source file to build dependencies
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs
+# Install dependencies
+RUN npm ci
 
-# Build dependencies
-RUN cargo build --release
-
-# Remove the dummy source file
-RUN rm -rf src
-
-# Copy the actual source code
+# Copy source code
 COPY . .
 
 # Build the application
-RUN cargo build --release
+RUN npm run build
 
-# Runtime stage
-FROM debian:bullseye-slim
+# Remove development dependencies
+RUN npm prune --production
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl1.1 \
-    && rm -rf /var/lib/apt/lists/*
+# Create production image
+FROM node:18-alpine
 
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy the binary from the builder stage
-COPY --from=builder /app/target/release/darkswap-relay /app/darkswap-relay
+# Set environment variables
+ENV NODE_ENV=production
 
-# Copy configuration files
-COPY config.toml /app/config.toml
-COPY generate-certs.sh /app/generate-certs.sh
+# Install dependencies
+RUN apk add --no-cache curl
 
-# Make the certificate generator executable
-RUN chmod +x /app/generate-certs.sh
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
-# Create certificates directory
-RUN mkdir -p /app/certs
+# Create data directory
+RUN mkdir -p /app/data && chown -R node:node /app/data
 
-# Generate certificates
-RUN ./generate-certs.sh --cert-dir /app/certs
+# Switch to non-root user
+USER node
 
 # Expose ports
-# 9002: Signaling server
-# 9003: WebRTC server
-# 9090: Metrics server
-EXPOSE 9002 9003 9090
+EXPOSE 9000
+EXPOSE 9001/udp
+EXPOSE 9100
 
-# Set environment variables
-ENV RUST_LOG=info
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:9000/health || exit 1
 
-# Run the application
-CMD ["/app/darkswap-relay", "--config", "/app/config.toml"]
+# Start the application
+CMD ["node", "dist/index.js"]

@@ -1,55 +1,91 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
-// Icons
-import {
-  ExclamationTriangleIcon,
-  HomeIcon,
-  ArrowLeftIcon,
-} from '@heroicons/react/24/outline';
-
-const NotFound: React.FC = () => {
+export const NotFound: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="text-center"
-      >
-        <ExclamationTriangleIcon className="w-24 h-24 text-twilight-neon-orange mx-auto mb-6" />
-        
-        <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-          404
-        </h1>
-        
-        <h2 className="text-2xl md:text-3xl font-display font-medium mb-6">
-          Page Not Found
-        </h2>
-        
-        <p className="text-gray-400 max-w-md mx-auto mb-8">
-          The page you're looking for doesn't exist or has been moved.
-          Please check the URL or navigate back to the home page.
-        </p>
-        
-        <div className="flex flex-wrap justify-center gap-4">
-          <Link to="/" className="btn btn-primary">
-            <HomeIcon className="w-5 h-5 mr-2" />
-            Go Home
-          </Link>
-          
-          <button
-            onClick={() => window.history.back()}
-            className="btn btn-outline"
-          >
-            <ArrowLeftIcon className="w-5 h-5 mr-2" />
-            Go Back
-          </button>
+    <div className="not-found-page">
+      <div className="not-found-content">
+        <h1>404</h1>
+        <h2>Page Not Found</h2>
+        <p>The page you are looking for does not exist or has been moved.</p>
+        <div className="not-found-actions">
+          <Link to="/" className="home-button">Go to Home</Link>
+          <Link to="/trade" className="trade-button">Go to Trade</Link>
         </div>
-      </motion.div>
+      </div>
+      
+      <style>
+        {`
+          .not-found-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 100px);
+            padding: 20px;
+          }
+          
+          .not-found-content {
+            text-align: center;
+            max-width: 500px;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
+          
+          .not-found-content h1 {
+            font-size: 6rem;
+            margin: 0;
+            color: #dc3545;
+            line-height: 1;
+          }
+          
+          .not-found-content h2 {
+            font-size: 2rem;
+            margin: 0 0 20px 0;
+            color: #333;
+          }
+          
+          .not-found-content p {
+            margin-bottom: 30px;
+            color: #555;
+            font-size: 1.1rem;
+          }
+          
+          .not-found-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+          }
+          
+          .home-button, .trade-button {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.2s;
+          }
+          
+          .home-button {
+            background-color: #007bff;
+            color: #fff;
+          }
+          
+          .home-button:hover {
+            background-color: #0069d9;
+          }
+          
+          .trade-button {
+            background-color: #28a745;
+            color: #fff;
+          }
+          
+          .trade-button:hover {
+            background-color: #218838;
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-export default NotFound;

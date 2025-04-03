@@ -1,83 +1,85 @@
 import React from 'react';
 import { useWebSocket } from '../contexts/WebSocketContext';
 
-// Icons
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  SignalSlashIcon,
-} from '@heroicons/react/24/outline';
-
 interface WebSocketStatusProps {
-  showLabel?: boolean;
   className?: string;
+  showText?: boolean;
 }
 
-const WebSocketStatus: React.FC<WebSocketStatusProps> = ({ 
-  showLabel = true,
-  className = ''
+/**
+ * WebSocket status component
+ * @param props Component props
+ * @returns WebSocket status component
+ */
+export const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
+  className,
+  showText = true,
 }) => {
-  const { connectionStatus, isConnecting } = useWebSocket();
+  const { isConnected, isConnecting } = useWebSocket();
 
-  const getStatusIcon = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
-      case 'connecting':
-        return <ArrowPathIcon className="w-5 h-5 text-blue-400 animate-spin" />;
-      case 'reconnecting':
-        return <ArrowPathIcon className="w-5 h-5 text-yellow-400 animate-spin" />;
-      case 'failed':
-        return <ExclamationTriangleIcon className="w-5 h-5 text-red-400" />;
-      case 'disconnected':
-      default:
-        return <SignalSlashIcon className="w-5 h-5 text-gray-400" />;
-    }
-  };
+  // Determine status
+  const status = isConnected ? 'connected' : isConnecting ? 'connecting' : 'disconnected';
 
-  const getStatusLabel = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return 'Connected';
-      case 'connecting':
-        return 'Connecting...';
-      case 'reconnecting':
-        return 'Reconnecting...';
-      case 'failed':
-        return 'Connection Failed';
-      case 'disconnected':
-      default:
-        return 'Disconnected';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return 'text-green-400';
-      case 'connecting':
-        return 'text-blue-400';
-      case 'reconnecting':
-        return 'text-yellow-400';
-      case 'failed':
-        return 'text-red-400';
-      case 'disconnected':
-      default:
-        return 'text-gray-400';
-    }
+  // Status text
+  const statusText = {
+    connected: 'Connected',
+    connecting: 'Connecting...',
+    disconnected: 'Disconnected',
   };
 
   return (
-    <div className={`flex items-center ${className}`}>
-      <div className="mr-2">
-        {getStatusIcon()}
-      </div>
-      {showLabel && (
-        <span className={`text-sm ${getStatusColor()}`}>
-          {getStatusLabel()}
-        </span>
-      )}
+    <div className={`websocket-status ${status} ${className || ''}`}>
+      <div className="status-indicator"></div>
+      {showText && <div className="status-text">{statusText[status]}</div>}
+
+      <style>
+        {`
+          .websocket-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background-color: #f8f9fa;
+          }
+          
+          .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+          }
+          
+          .status-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+          }
+          
+          .connected .status-indicator {
+            background-color: #28a745;
+          }
+          
+          .connecting .status-indicator {
+            background-color: #ffc107;
+            animation: pulse 1.5s infinite;
+          }
+          
+          .disconnected .status-indicator {
+            background-color: #dc3545;
+          }
+          
+          @keyframes pulse {
+            0% {
+              opacity: 0.5;
+            }
+            50% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 0.5;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

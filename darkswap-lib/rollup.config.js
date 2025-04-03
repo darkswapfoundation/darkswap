@@ -1,60 +1,39 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
-import json from '@rollup/plugin-json';
 import { terser } from 'rollup-plugin-terser';
+import external from 'rollup-plugin-peer-deps-external';
 import dts from 'rollup-plugin-dts';
-import pkg from './package.json';
 
-const production = !process.env.ROLLUP_WATCH;
+const packageJson = require('./package.json');
 
 export default [
-  // CommonJS (for Node) and ES module (for bundlers) build
   {
     input: 'src/index.ts',
     output: [
       {
-        file: pkg.main,
+        file: packageJson.main,
         format: 'cjs',
         sourcemap: true,
-        exports: 'named',
       },
       {
-        file: pkg.module,
-        format: 'es',
+        file: packageJson.module,
+        format: 'esm',
         sourcemap: true,
-        exports: 'named',
       },
     ],
     plugins: [
-      // Allow json resolution
-      json(),
-      
-      // Allow node_modules resolution
-      resolve({
-        browser: true,
-        preferBuiltins: false,
-      }),
-      
-      // Allow bundling cjs modules
+      external(),
+      resolve(),
       commonjs(),
-      
-      // Compile TypeScript files
       typescript({ tsconfig: './tsconfig.json' }),
-      
-      // Minify in production
-      production && terser(),
+      terser(),
     ],
-    external: [
-      ...Object.keys(pkg.dependencies || {}),
-      ...Object.keys(pkg.peerDependencies || {}),
-    ],
+    external: ['react', 'react-dom'],
   },
-  
-  // TypeScript declarations
   {
-    input: 'src/index.ts',
-    output: [{ file: pkg.types, format: 'es' }],
+    input: 'dist/esm/types/index.d.ts',
+    output: [{ file: 'dist/index.d.ts', format: 'esm' }],
     plugins: [dts()],
   },
 ];

@@ -1,269 +1,252 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 
-// Icons
-import {
-  ArrowRightIcon,
-  ShieldCheckIcon,
-  LockClosedIcon,
-  UserGroupIcon,
-  GlobeAltIcon,
-  CodeBracketIcon,
-  ScaleIcon,
-} from '@heroicons/react/24/outline';
-
-const About: React.FC = () => {
-  // Team members
-  const team = [
-    {
-      name: 'Alex Johnson',
-      role: 'Lead Developer',
-      bio: 'Blockchain developer with 8+ years of experience in Bitcoin and cryptocurrency projects.',
-      avatar: 'AJ',
-    },
-    {
-      name: 'Sarah Chen',
-      role: 'Product Manager',
-      bio: 'Former fintech product manager with a passion for decentralized finance and user experience.',
-      avatar: 'SC',
-    },
-    {
-      name: 'Michael Rodriguez',
-      role: 'Security Engineer',
-      bio: 'Cryptography expert specializing in secure transaction protocols and wallet security.',
-      avatar: 'MR',
-    },
-    {
-      name: 'Priya Patel',
-      role: 'Frontend Developer',
-      bio: 'Web3 developer focused on creating intuitive and responsive user interfaces for DeFi applications.',
-      avatar: 'PP',
-    },
-  ];
-
-  // FAQ items
-  const faqItems = [
-    {
-      question: 'What is DarkSwap?',
-      answer: 'DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It enables secure, non-custodial trading without intermediaries or centralized exchanges.',
-    },
-    {
-      question: 'How does DarkSwap ensure security?',
-      answer: 'DarkSwap uses Partially Signed Bitcoin Transactions (PSBTs) for secure trading. All transactions are executed on the Bitcoin blockchain, ensuring maximum security and transparency. Your private keys never leave your device.',
-    },
-    {
-      question: 'What are runes and alkanes?',
-      answer: 'Runes and alkanes are token protocols built on top of Bitcoin. Runes are fungible tokens that can represent various assets, while alkanes are a specific type of token with unique properties designed for specific use cases.',
-    },
-    {
-      question: 'Is DarkSwap open source?',
-      answer: 'Yes, DarkSwap is fully open source. The codebase is available on GitHub and contributions from the community are welcome. We believe in transparency and collaborative development.',
-    },
-    {
-      question: 'How do I get started with DarkSwap?',
-      answer: 'To get started, connect your Bitcoin wallet, browse the available orders, and start trading. You can also create your own orders by specifying the assets you want to trade and the desired price.',
-    },
-  ];
-
+export const About: React.FC = () => {
   return (
-    <div className="space-y-12">
-      {/* Hero Section */}
-      <section className="relative">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-twilight-primary to-twilight-darker opacity-20 rounded-3xl" />
-        
-        {/* Content */}
-        <div className="relative z-10 py-16 px-8 md:px-16 rounded-3xl border border-twilight-dark">
-          <div className="max-w-3xl">
-            <motion.h1 
-              className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="text-white">About</span>
-              <br />
-              <span className="text-twilight-neon-blue">DarkSwap</span>
-            </motion.h1>
-            
-            <motion.p 
-              className="text-xl text-gray-300 mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              DarkSwap is a revolutionary peer-to-peer trading platform built on Bitcoin.
-              Our mission is to enable secure, non-custodial trading of Bitcoin, runes, and alkanes
-              without intermediaries or centralized exchanges.
-            </motion.p>
+    <div className="about-page">
+      <h1>About DarkSwap</h1>
+      
+      <div className="about-section">
+        <h2>What is DarkSwap?</h2>
+        <p>
+          DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes.
+          It enables users to trade directly with each other without the need for intermediaries,
+          providing a secure, private, and censorship-resistant trading experience.
+        </p>
+      </div>
+      
+      <div className="about-section">
+        <h2>How it Works</h2>
+        <p>
+          DarkSwap uses WebRTC for direct peer-to-peer connections, allowing users to trade
+          directly with each other without going through a central server. For users behind NATs,
+          DarkSwap uses circuit relay to establish connections.
+        </p>
+        <p>
+          Trades are executed using Partially Signed Bitcoin Transactions (PSBTs), which ensure
+          that trades are atomic and secure. Both parties must sign the transaction for it to be valid,
+          preventing either party from cheating.
+        </p>
+      </div>
+      
+      <div className="about-section">
+        <h2>Features</h2>
+        <ul>
+          <li>Decentralized peer-to-peer trading</li>
+          <li>Support for Bitcoin, runes, and alkanes</li>
+          <li>Direct WebRTC connections</li>
+          <li>Circuit relay for NAT traversal</li>
+          <li>Atomic swaps using PSBTs</li>
+          <li>No KYC or registration required</li>
+          <li>Open source and transparent</li>
+        </ul>
+      </div>
+      
+      <div className="about-section">
+        <h2>Security</h2>
+        <p>
+          DarkSwap prioritizes security and privacy. All communications are encrypted end-to-end,
+          and no personal information is collected or stored. Trades are executed using PSBTs,
+          which ensure that both parties must sign the transaction for it to be valid.
+        </p>
+        <p>
+          The platform is open source, allowing anyone to audit the code and verify that it works
+          as advertised. We encourage security researchers to review our code and report any
+          vulnerabilities they find.
+        </p>
+      </div>
+      
+      <div className="about-section">
+        <h2>Technology Stack</h2>
+        <div className="tech-stack">
+          <div className="tech-item">
+            <h3>Backend</h3>
+            <ul>
+              <li>Rust</li>
+              <li>libp2p</li>
+              <li>WebRTC</li>
+              <li>Bitcoin Development Kit (BDK)</li>
+            </ul>
+          </div>
+          <div className="tech-item">
+            <h3>Frontend</h3>
+            <ul>
+              <li>TypeScript</li>
+              <li>React</li>
+              <li>WebAssembly</li>
+              <li>CSS</li>
+            </ul>
           </div>
         </div>
-      </section>
-
-      {/* Mission & Vision */}
-      <section className="card p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h2 className="text-2xl font-display font-bold mb-4">Our Mission</h2>
-            <p className="text-gray-300 mb-4">
-              Our mission is to democratize access to Bitcoin-based assets by providing a secure,
-              decentralized platform for peer-to-peer trading. We believe in financial sovereignty
-              and aim to build tools that empower individuals to trade without intermediaries.
-            </p>
-            <p className="text-gray-300">
-              By leveraging the security of Bitcoin and the innovation of runes and alkanes,
-              we're creating a new paradigm for decentralized exchange that prioritizes security,
-              privacy, and user control.
-            </p>
-          </div>
-          
-          <div>
-            <h2 className="text-2xl font-display font-bold mb-4">Our Vision</h2>
-            <p className="text-gray-300 mb-4">
-              We envision a future where anyone can trade Bitcoin-based assets directly with others,
-              without relying on centralized exchanges or intermediaries. A world where users have
-              full control over their assets and can trade securely and efficiently.
-            </p>
-            <p className="text-gray-300">
-              DarkSwap aims to be the leading platform for decentralized trading of Bitcoin, runes,
-              and alkanes, setting the standard for security, usability, and innovation in the space.
-            </p>
-          </div>
+      </div>
+      
+      <div className="about-section">
+        <h2>Open Source</h2>
+        <p>
+          DarkSwap is open source software, released under the MIT license. You can find the
+          source code on GitHub:
+        </p>
+        <div className="github-link">
+          <a href="https://github.com/darkswap/darkswap" target="_blank" rel="noopener noreferrer">
+            github.com/darkswap/darkswap
+          </a>
         </div>
-      </section>
-
-      {/* Core Values */}
-      <section className="card p-8">
-        <h2 className="text-2xl font-display font-bold mb-6">Core Values</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <ShieldCheckIcon className="w-8 h-8 text-twilight-neon-blue mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Security First</h3>
-            <p className="text-gray-400">
-              We prioritize security in everything we do. From our code to our transaction protocols,
-              security is never compromised.
-            </p>
-          </div>
+        <p>
+          We welcome contributions from the community. If you're interested in contributing,
+          please check out our contribution guidelines on GitHub.
+        </p>
+      </div>
+      
+      <div className="about-section">
+        <h2>Contact</h2>
+        <p>
+          If you have any questions, suggestions, or feedback, please reach out to us:
+        </p>
+        <ul className="contact-list">
+          <li>
+            <strong>Email:</strong> <a href="mailto:info@darkswap.io">info@darkswap.io</a>
+          </li>
+          <li>
+            <strong>Twitter:</strong> <a href="https://twitter.com/darkswap" target="_blank" rel="noopener noreferrer">@darkswap</a>
+          </li>
+          <li>
+            <strong>Discord:</strong> <a href="https://discord.gg/darkswap" target="_blank" rel="noopener noreferrer">discord.gg/darkswap</a>
+          </li>
+          <li>
+            <strong>Telegram:</strong> <a href="https://t.me/darkswap" target="_blank" rel="noopener noreferrer">t.me/darkswap</a>
+          </li>
+        </ul>
+      </div>
+      
+      <div className="about-section">
+        <h2>Version</h2>
+        <p>
+          DarkSwap v1.0.0
+        </p>
+        <p className="build-info">
+          Build: {new Date().toISOString().split('T')[0]}
+        </p>
+      </div>
+      
+      <style>
+        {`
+          .about-page {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
           
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <LockClosedIcon className="w-8 h-8 text-twilight-neon-green mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Self-Custody</h3>
-            <p className="text-gray-400">
-              We believe in the principle of "not your keys, not your coins." Users always maintain
-              full control of their assets.
-            </p>
-          </div>
+          .about-page h1 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+          }
           
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <CodeBracketIcon className="w-8 h-8 text-twilight-neon-purple mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Open Source</h3>
-            <p className="text-gray-400">
-              We're committed to transparency and collaboration. All our code is open source and
-              available for review and contribution.
-            </p>
-          </div>
+          .about-section {
+            margin-bottom: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
           
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <UserGroupIcon className="w-8 h-8 text-twilight-neon-orange mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Community Driven</h3>
-            <p className="text-gray-400">
-              We believe in the power of community. DarkSwap is built by and for the community,
-              with decisions guided by user feedback.
-            </p>
-          </div>
+          .about-section h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.5rem;
+          }
           
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <GlobeAltIcon className="w-8 h-8 text-twilight-neon-yellow mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Global Access</h3>
-            <p className="text-gray-400">
-              We believe in financial inclusion. DarkSwap is designed to be accessible to anyone,
-              anywhere in the world.
-            </p>
-          </div>
+          .about-section p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #555;
+          }
           
-          <div className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark">
-            <ScaleIcon className="w-8 h-8 text-twilight-neon-blue mb-4" />
-            <h3 className="text-lg font-display font-medium mb-2">Fairness</h3>
-            <p className="text-gray-400">
-              We're committed to creating a level playing field for all users, with transparent
-              fees and fair trading practices.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Team */}
-      <section className="card p-8">
-        <h2 className="text-2xl font-display font-bold mb-6">Our Team</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {team.map((member, index) => (
-            <motion.div 
-              key={index}
-              className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <div className="w-20 h-20 rounded-full bg-twilight-primary flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-white">{member.avatar}</span>
-              </div>
-              <h3 className="text-lg font-display font-medium mb-1">{member.name}</h3>
-              <p className="text-twilight-neon-blue text-sm mb-2">{member.role}</p>
-              <p className="text-gray-400 text-sm">{member.bio}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="card p-8">
-        <h2 className="text-2xl font-display font-bold mb-6">Frequently Asked Questions</h2>
-        <div className="space-y-4">
-          {faqItems.map((item, index) => (
-            <motion.div 
-              key={index}
-              className="p-6 bg-twilight-darker rounded-lg border border-twilight-dark"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <h3 className="text-lg font-display font-medium mb-2">{item.question}</h3>
-              <p className="text-gray-400">{item.answer}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="card p-8 bg-gradient-to-br from-twilight-primary to-twilight-darker">
-        <div className="text-center max-w-2xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
-            Join the DarkSwap Community
-          </h2>
-          <p className="text-gray-300 mb-6">
-            Ready to experience the future of decentralized trading? Start trading Bitcoin, runes, and alkanes today.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/trade" className="btn btn-primary btn-lg">
-              Start Trading
-              <ArrowRightIcon className="w-5 h-5 ml-2" />
-            </Link>
-            
-            <a 
-              href="https://github.com/darkswap" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="btn btn-outline btn-lg"
-            >
-              GitHub
-              <CodeBracketIcon className="w-5 h-5 ml-2" />
-            </a>
-          </div>
-        </div>
-      </section>
+          .about-section p:last-child {
+            margin-bottom: 0;
+          }
+          
+          .about-section ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+          }
+          
+          .about-section li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+            color: #555;
+          }
+          
+          .about-section li:last-child {
+            margin-bottom: 0;
+          }
+          
+          .tech-stack {
+            display: flex;
+            gap: 30px;
+          }
+          
+          .tech-item {
+            flex: 1;
+          }
+          
+          .tech-item h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.2rem;
+          }
+          
+          .github-link {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+          }
+          
+          .github-link a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+          }
+          
+          .github-link a:hover {
+            text-decoration: underline;
+          }
+          
+          .contact-list {
+            list-style: none;
+            padding: 0;
+          }
+          
+          .contact-list li {
+            margin-bottom: 10px;
+          }
+          
+          .contact-list a {
+            color: #007bff;
+            text-decoration: none;
+          }
+          
+          .contact-list a:hover {
+            text-decoration: underline;
+          }
+          
+          .build-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+          }
+          
+          @media (max-width: 768px) {
+            .tech-stack {
+              flex-direction: column;
+              gap: 15px;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-export default About;

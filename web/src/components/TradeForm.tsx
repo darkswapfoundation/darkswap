@@ -1,409 +1,249 @@
-import React, { useState, useEffect } from 'react';
-import ApiClient from '../utils/ApiClient';
-import { useNotification } from '../contexts/NotificationContext';
+import React, { useState } from 'react';
+import { useCreateTradeOffer, useBitcoinBalance, useRuneBalance, useAlkaneBalance } from '../hooks/useTradeHooks';
 
-// Icons
-import {
-  ArrowPathIcon,
-  ArrowsRightLeftIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-} from '@heroicons/react/24/outline';
-
-export interface TradeFormProps {
-  pair: string;
-  isLoading: boolean;
-  isWalletConnected: boolean;
-  isSDKInitialized: boolean;
-  apiClient?: ApiClient;
-  selectedPrice?: number;
+interface TradeFormProps {
+  onSuccess?: (offerId: string) => void;
+  onError?: (error: Error) => void;
 }
 
-const TradeForm: React.FC<TradeFormProps> = ({
-  pair,
-  isLoading,
-  isWalletConnected,
-  isSDKInitialized,
-  apiClient,
-  selectedPrice
-}) => {
-  const { addNotification } = useNotification();
-  // Parse pair
-  const [baseAsset, quoteAsset] = pair.split('/');
+export const TradeForm: React.FC<TradeFormProps> = ({ onSuccess, onError }) => {
+  // Asset types
+  const [makerAssetType, setMakerAssetType] = useState<'bitcoin' | 'rune' | 'alkane'>('bitcoin');
+  const [takerAssetType, setTakerAssetType] = useState<'bitcoin' | 'rune' | 'alkane'>('rune');
   
-  // Form state
-  const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [amount, setAmount] = useState<string>('');
-  const [price, setPrice] = useState<string>('');
-  const [total, setTotal] = useState<string>('');
-  const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // Asset IDs (for runes and alkanes)
+  const [makerAssetId, setMakerAssetId] = useState('');
+  const [takerAssetId, setTakerAssetId] = useState('');
+  
+  // Amounts
+  const [makerAmount, setMakerAmount] = useState('');
+  const [takerAmount, setTakerAmount] = useState('');
+  
+  // Expiration
+  const [expiration, setExpiration] = useState('3600'); // 1 hour by default
+  
+  // Loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Error state
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   
-  // Mock balances
-  const [balances, setBalances] = useState<{[key: string]: number}>({
-    BTC: 0.5,
-    'RUNE:0x123': 1000,
-    'ALKANE:0x456': 500,
-    'RUNE:0x789': 750
-  });
-
-  // Update price when pair changes
-  useEffect(() => {
-    if (isSDKInitialized && !isLoading) {
-      // Set a default price based on the pair
-      if (pair.includes('BTC')) {
-        setPrice(pair.includes('RUNE') ? '20000' : '200');
-      } else {
-        setPrice('10');
-      }
-    }
-  }, [pair, isSDKInitialized, isLoading]);
+  // Get balances
+  const { balance: bitcoinBalance } = useBitcoinBalance();
+  const runeBalance = makerAssetType === 'rune' ? useRuneBalance(makerAssetId).balance : 0;
+  const alkaneBalance = makerAssetType === 'alkane' ? useAlkaneBalance(makerAssetId).balance : 0;
   
-  // Update price when selectedPrice changes
-  useEffect(() => {
-    if (selectedPrice && selectedPrice > 0) {
-      setPrice(selectedPrice.toString());
-      // Show a brief highlight effect on the price input
-      const priceInput = document.querySelector('input[type="number"][value="' + price + '"]');
-      if (priceInput) {
-        priceInput.classList.add('highlight-input');
-        setTimeout(() => {
-          priceInput.classList.remove('highlight-input');
-        }, 1000);
-      }
-    }
-  }, [selectedPrice]);
-
-  // Calculate total when amount or price changes
-  useEffect(() => {
-    if (amount && price && orderType === 'limit') {
-      const calculatedTotal = parseFloat(amount) * parseFloat(price);
-      setTotal(calculatedTotal.toFixed(calculatedTotal < 1 ? 8 : 2));
-    }
-  }, [amount, price, orderType]);
-
-  // Update amount when total or price changes
-  const handleTotalChange = (value: string) => {
-    setTotal(value);
-    if (value && price && parseFloat(price) > 0) {
-      const calculatedAmount = parseFloat(value) / parseFloat(price);
-      setAmount(calculatedAmount.toFixed(calculatedAmount < 1 ? 8 : 4));
-    }
-  };
-
+  // Get the create trade offer function
+  const { create } = useCreateTradeOffer();
+  
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isWalletConnected) {
-      setError('Please connect your wallet first');
+    // Validate form
+    if (!makerAmount || !takerAmount) {
+      setError('Please enter both maker and taker amounts');
       return;
     }
     
-    if (!isSDKInitialized) {
-      setError('SDK is not initialized');
+    if (makerAssetType === 'rune' && !makerAssetId) {
+      setError('Please enter a rune ID for the maker asset');
       return;
     }
     
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount');
+    if (makerAssetType === 'alkane' && !makerAssetId) {
+      setError('Please enter an alkane ID for the maker asset');
       return;
     }
     
-    if (orderType === 'limit' && (!price || parseFloat(price) <= 0)) {
-      setError('Please enter a valid price');
+    if (takerAssetType === 'rune' && !takerAssetId) {
+      setError('Please enter a rune ID for the taker asset');
+      return;
+    }
+    
+    if (takerAssetType === 'alkane' && !takerAssetId) {
+      setError('Please enter an alkane ID for the taker asset');
       return;
     }
     
     // Check balance
-    const assetToCheck = side === 'buy' ? quoteAsset : baseAsset;
-    const amountToCheck = side === 'buy' ? parseFloat(total) : parseFloat(amount);
+    const makerAmountNumber = Number(makerAmount);
+    let hasEnoughBalance = false;
     
-    if (!balances[assetToCheck] || balances[assetToCheck] < amountToCheck) {
-      setError(`Insufficient ${assetToCheck} balance`);
+    switch (makerAssetType) {
+      case 'bitcoin':
+        hasEnoughBalance = bitcoinBalance >= makerAmountNumber;
+        break;
+      case 'rune':
+        hasEnoughBalance = runeBalance >= makerAmountNumber;
+        break;
+      case 'alkane':
+        hasEnoughBalance = alkaneBalance >= makerAmountNumber;
+        break;
+    }
+    
+    if (!hasEnoughBalance) {
+      setError(`Insufficient ${makerAssetType} balance`);
       return;
     }
     
-    // Clear previous messages
-    setError(null);
-    setSuccess(null);
+    // Submit form
     setIsSubmitting(true);
+    setError(null);
     
     try {
-      if (apiClient) {
-        // Create order using API
-        const response = await apiClient.createOrder(
-          baseAsset,
-          quoteAsset,
-          side,
-          amount,
-          price || '0', // Use 0 for market orders
-          undefined // No expiry for now
-        );
-        
-        if (response.error) {
-          setError(`Failed to create order: ${response.error}`);
-          addNotification('error', `Order failed: ${response.error}`);
-        } else {
-          // Update balances (mock)
-          const newBalances = { ...balances };
-          
-          if (side === 'buy') {
-            newBalances[quoteAsset] -= parseFloat(total);
-            newBalances[baseAsset] = (newBalances[baseAsset] || 0) + parseFloat(amount);
-          } else {
-            newBalances[baseAsset] -= parseFloat(amount);
-            newBalances[quoteAsset] = (newBalances[quoteAsset] || 0) + parseFloat(total);
-          }
-          
-          setBalances(newBalances);
-          setSuccess(`Order ${side === 'buy' ? 'bought' : 'sold'} successfully`);
-          addNotification('success', `Order created successfully`);
-          
-          // Reset form after success
-          setAmount('');
-          setTotal('');
-        }
-      } else {
-        // Simulate API call for demo
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Update balances (mock)
-        const newBalances = { ...balances };
-        
-        if (side === 'buy') {
-          newBalances[quoteAsset] -= parseFloat(total);
-          newBalances[baseAsset] = (newBalances[baseAsset] || 0) + parseFloat(amount);
-        } else {
-          newBalances[baseAsset] -= parseFloat(amount);
-          newBalances[quoteAsset] = (newBalances[quoteAsset] || 0) + parseFloat(total);
-        }
-        
-        setBalances(newBalances);
-        setSuccess(`Order ${side === 'buy' ? 'bought' : 'sold'} successfully`);
-        addNotification('success', `Order created successfully`);
-        
-        // Reset form after success
-        setAmount('');
-        setTotal('');
+      // Create maker asset
+      let makerAsset: any = { type: makerAssetType };
+      if (makerAssetType === 'rune' || makerAssetType === 'alkane') {
+        makerAsset.id = makerAssetId;
       }
-    } catch (error) {
-      setError(`Error creating order: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      addNotification('error', `Order failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Create taker asset
+      let takerAsset: any = { type: takerAssetType };
+      if (takerAssetType === 'rune' || takerAssetType === 'alkane') {
+        takerAsset.id = takerAssetId;
+      }
+      
+      // Create trade offer
+      const offerId = await create(
+        makerAsset,
+        makerAmountNumber,
+        takerAsset,
+        Number(takerAmount)
+      );
+      
+      // Reset form
+      setMakerAssetType('bitcoin');
+      setTakerAssetType('rune');
+      setMakerAssetId('');
+      setTakerAssetId('');
+      setMakerAmount('');
+      setTakerAmount('');
+      setExpiration('3600');
+      
+      // Call onSuccess callback
+      if (onSuccess) {
+        onSuccess(offerId);
+      }
+    } catch (err) {
+      console.error('Failed to create trade offer:', err);
+      setError(err instanceof Error ? err.message : String(err));
+      
+      // Call onError callback
+      if (onError && err instanceof Error) {
+        onError(err);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // Toggle between buy and sell
-  const toggleSide = () => {
-    setSide(side === 'buy' ? 'sell' : 'buy');
-    setError(null);
-    setSuccess(null);
-  };
-
-  // Format asset name for display
-  const formatAssetName = (asset: string) => {
-    if (asset.includes(':')) {
-      const [type] = asset.split(':');
-      return `${type}`;
-    }
-    return asset;
-  };
-
+  
   return (
-    <div className="card h-full">
-      <div className="card-header flex justify-between items-center">
-        <h2 className="text-lg font-display font-medium">
-          {side === 'buy' ? 'Buy' : 'Sell'} {formatAssetName(baseAsset)}
-        </h2>
-        <button
-          onClick={toggleSide}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-twilight-dark transition-colors duration-200"
-          disabled={isSubmitting}
-        >
-          <ArrowsRightLeftIcon className="w-5 h-5" />
+    <div className="trade-form">
+      <h2>Create Trade Offer</h2>
+      {error && (
+        <div className="error">{error}</div>
+      )}
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="maker-asset-type">You Send:</label>
+          <select
+            id="maker-asset-type"
+            value={makerAssetType}
+            onChange={(e) => setMakerAssetType(e.target.value as 'bitcoin' | 'rune' | 'alkane')}
+            disabled={isSubmitting}
+          >
+            <option value="bitcoin">Bitcoin</option>
+            <option value="rune">Rune</option>
+            <option value="alkane">Alkane</option>
+          </select>
+          {makerAssetType === 'rune' && (
+            <input
+              type="text"
+              placeholder="Rune ID"
+              value={makerAssetId}
+              onChange={(e) => setMakerAssetId(e.target.value)}
+              disabled={isSubmitting}
+            />
+          )}
+          {makerAssetType === 'alkane' && (
+            <input
+              type="text"
+              placeholder="Alkane ID"
+              value={makerAssetId}
+              onChange={(e) => setMakerAssetId(e.target.value)}
+              disabled={isSubmitting}
+            />
+          )}
+          <input
+            type="number"
+            placeholder="Amount"
+            value={makerAmount}
+            onChange={(e) => setMakerAmount(e.target.value)}
+            disabled={isSubmitting}
+            min="0"
+            step="0.00000001"
+          />
+          <div className="balance">
+            Balance: {makerAssetType === 'bitcoin' ? bitcoinBalance : makerAssetType === 'rune' ? runeBalance : alkaneBalance}
+          </div>
+        </div>
+        <div className="form-group">
+          <label htmlFor="taker-asset-type">You Receive:</label>
+          <select
+            id="taker-asset-type"
+            value={takerAssetType}
+            onChange={(e) => setTakerAssetType(e.target.value as 'bitcoin' | 'rune' | 'alkane')}
+            disabled={isSubmitting}
+          >
+            <option value="bitcoin">Bitcoin</option>
+            <option value="rune">Rune</option>
+            <option value="alkane">Alkane</option>
+          </select>
+          {takerAssetType === 'rune' && (
+            <input
+              type="text"
+              placeholder="Rune ID"
+              value={takerAssetId}
+              onChange={(e) => setTakerAssetId(e.target.value)}
+              disabled={isSubmitting}
+            />
+          )}
+          {takerAssetType === 'alkane' && (
+            <input
+              type="text"
+              placeholder="Alkane ID"
+              value={takerAssetId}
+              onChange={(e) => setTakerAssetId(e.target.value)}
+              disabled={isSubmitting}
+            />
+          )}
+          <input
+            type="number"
+            placeholder="Amount"
+            value={takerAmount}
+            onChange={(e) => setTakerAmount(e.target.value)}
+            disabled={isSubmitting}
+            min="0"
+            step="0.00000001"
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="expiration">Expiration (seconds):</label>
+          <input
+            id="expiration"
+            type="number"
+            value={expiration}
+            onChange={(e) => setExpiration(e.target.value)}
+            disabled={isSubmitting}
+            min="60"
+            step="60"
+          />
+        </div>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Creating Offer...' : 'Create Offer'}
         </button>
-      </div>
-      
-      <div className="card-body">
-        {/* Order Type Selector */}
-        <div className="flex rounded-lg overflow-hidden border border-twilight-dark mb-6">
-          <button
-            onClick={() => setOrderType('limit')}
-            className={`flex-1 py-2 text-sm ${orderType === 'limit' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-          >
-            Limit
-          </button>
-          <button
-            onClick={() => setOrderType('market')}
-            className={`flex-1 py-2 text-sm ${orderType === 'market' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-          >
-            Market
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          {/* Price Input (only for limit orders) */}
-          {orderType === 'limit' && (
-            <div className="mb-4">
-              <label className="form-label">Price</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.00"
-                  className="form-input pr-16"
-                  step="any"
-                  min="0"
-                  disabled={isSubmitting || !isSDKInitialized}
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <span className="text-gray-400">{formatAssetName(quoteAsset)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Amount Input */}
-          <div className="mb-4">
-            <label className="form-label">Amount</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="form-input pr-16"
-                step="any"
-                min="0"
-                disabled={isSubmitting || !isSDKInitialized}
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <span className="text-gray-400">{formatAssetName(baseAsset)}</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Total Input (only for limit orders) */}
-          {orderType === 'limit' && (
-            <div className="mb-6">
-              <label className="form-label">Total</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={total}
-                  onChange={(e) => handleTotalChange(e.target.value)}
-                  placeholder="0.00"
-                  className="form-input pr-16"
-                  step="any"
-                  min="0"
-                  disabled={isSubmitting || !isSDKInitialized}
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <span className="text-gray-400">{formatAssetName(quoteAsset)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Balance Display */}
-          <div className="flex justify-between text-sm mb-6">
-            <span className="text-gray-400">
-              {side === 'buy' ? `${formatAssetName(quoteAsset)} Balance` : `${formatAssetName(baseAsset)} Balance`}
-            </span>
-            <span className="text-white">
-              {side === 'buy' 
-                ? `${balances[quoteAsset]?.toFixed(quoteAsset === 'BTC' ? 8 : 2) || '0.00'} ${formatAssetName(quoteAsset)}`
-                : `${balances[baseAsset]?.toFixed(baseAsset === 'BTC' ? 8 : 2) || '0.00'} ${formatAssetName(baseAsset)}`
-              }
-            </span>
-          </div>
-          
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-2 bg-ui-error bg-opacity-10 border border-ui-error border-opacity-50 rounded-lg">
-              <div className="flex items-center">
-                <ExclamationTriangleIcon className="w-4 h-4 text-ui-error mr-2" />
-                <span className="text-ui-error text-sm">{error}</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 p-2 bg-ui-success bg-opacity-10 border border-ui-success border-opacity-50 rounded-lg">
-              <div className="flex items-center">
-                <CheckCircleIcon className="w-4 h-4 text-ui-success mr-2" />
-                <span className="text-ui-success text-sm">{success}</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className={`btn w-full ${side === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white`}
-            disabled={isSubmitting || !isWalletConnected || !isSDKInitialized}
-          >
-            {isSubmitting ? (
-              <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />
-            ) : null}
-            {side === 'buy' ? 'Buy' : 'Sell'} {formatAssetName(baseAsset)}
-          </button>
-        </form>
-      </div>
-      
-      {/* Quick Actions */}
-      <div className="card-footer">
-        <div className="grid grid-cols-4 gap-2">
-          <button
-            onClick={() => {
-              const bal = side === 'buy' ? balances[quoteAsset] / parseFloat(price) * 0.25 : balances[baseAsset] * 0.25;
-              setAmount(bal.toFixed(8));
-            }}
-            className="btn btn-sm btn-secondary"
-            disabled={isSubmitting || !isSDKInitialized}
-          >
-            25%
-          </button>
-          <button
-            onClick={() => {
-              const bal = side === 'buy' ? balances[quoteAsset] / parseFloat(price) * 0.5 : balances[baseAsset] * 0.5;
-              setAmount(bal.toFixed(8));
-            }}
-            className="btn btn-sm btn-secondary"
-            disabled={isSubmitting || !isSDKInitialized}
-          >
-            50%
-          </button>
-          <button
-            onClick={() => {
-              const bal = side === 'buy' ? balances[quoteAsset] / parseFloat(price) * 0.75 : balances[baseAsset] * 0.75;
-              setAmount(bal.toFixed(8));
-            }}
-            className="btn btn-sm btn-secondary"
-            disabled={isSubmitting || !isSDKInitialized}
-          >
-            75%
-          </button>
-          <button
-            onClick={() => {
-              const bal = side === 'buy' ? balances[quoteAsset] / parseFloat(price) : balances[baseAsset];
-              setAmount(bal.toFixed(8));
-            }}
-            className="btn btn-sm btn-secondary"
-            disabled={isSubmitting || !isSDKInitialized}
-          >
-            Max
-          </button>
-        </div>
-      </div>
+      </form>
     </div>
   );
 };
-
-export default TradeForm;

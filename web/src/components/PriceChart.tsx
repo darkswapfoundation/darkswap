@@ -1,434 +1,405 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import ApiClient from '../utils/ApiClient';
-import { useWebSocket } from '../contexts/WebSocketContext';
-
-// Icons
-import {
-  ArrowPathIcon,
-  ChartBarIcon,
-} from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
 
 interface PriceChartProps {
-  pair: string;
-  isLoading: boolean;
-  apiClient?: ApiClient;
+  assetType: 'bitcoin' | 'rune' | 'alkane';
+  assetId?: string;
+  timeframe?: '1h' | '1d' | '1w' | '1m' | '1y';
+  className?: string;
 }
 
-interface PriceData {
+interface PricePoint {
   timestamp: number;
   price: number;
-  volume: number;
 }
 
-interface ChartOptions {
-  timeframe: '1h' | '1d' | '1w' | '1m';
-  chartType: 'line' | 'candle';
-}
-
-const PriceChart: React.FC<PriceChartProps> = ({ pair, isLoading, apiClient }) => {
-  const [priceChange, setPriceChange] = useState<number>(5.2);
-  const [currentPrice, setCurrentPrice] = useState<number>(20000);
-  const [priceData, setPriceData] = useState<PriceData[]>([]);
-  const [options, setOptions] = useState<ChartOptions>({
-    timeframe: '1d',
-    chartType: 'line',
-  });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { lastMessage } = useWebSocket();
-
-  // Fetch price data when pair changes
+export const PriceChart: React.FC<PriceChartProps> = ({
+  assetType,
+  assetId = '',
+  timeframe = '1d',
+  className,
+}) => {
+  // Price data (mock data)
+  const [priceData, setPriceData] = useState<PricePoint[]>([]);
+  
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+  
+  // Selected timeframe
+  const [selectedTimeframe, setSelectedTimeframe] = useState<'1h' | '1d' | '1w' | '1m' | '1y'>(timeframe);
+  
+  // Fetch price data
   useEffect(() => {
-    if (!isLoading && apiClient) {
-      fetchPriceData();
-    } else if (!isLoading) {
-      // Fallback to mock data if no API client
-      generateMockData();
-    }
-  }, [pair, isLoading, apiClient, options.timeframe]);
-
-  // Update chart when price data changes
-  useEffect(() => {
-    if (priceData.length > 0) {
-      drawChart();
-    }
-  }, [priceData, options.chartType]);
-
-  // Listen for WebSocket price updates
-  useEffect(() => {
-    if (lastMessage && lastMessage.type === 'price_update') {
+    // In a real implementation, we would fetch this from an API
+    const fetchPriceData = async () => {
       try {
-        const payload = lastMessage.payload;
-        if (payload.pair === pair) {
-          // Update current price
-          setCurrentPrice(parseFloat(payload.price));
-          
-          // Calculate price change
-          const oldPrice = priceData.length > 0 ? priceData[0].price : parseFloat(payload.price);
-          const change = ((parseFloat(payload.price) - oldPrice) / oldPrice) * 100;
-          setPriceChange(change);
-          
-          // Add new price data point
-          const newDataPoint: PriceData = {
-            timestamp: Date.now(),
-            price: parseFloat(payload.price),
-            volume: parseFloat(payload.volume || '0'),
-          };
-          
-          setPriceData(prevData => [newDataPoint, ...prevData.slice(0, 99)]);
-        }
-      } catch (error) {
-        console.error('Error processing price update:', error);
-      }
-    }
-  }, [lastMessage, pair, priceData]);
-
-  // Fetch price data from API
-  const fetchPriceData = async () => {
-    if (!apiClient) return;
-    
-    try {
-      // Parse the pair to get base and quote assets
-      const [baseAsset, quoteAsset] = pair.split('/');
-      
-      // Fetch market data
-      const marketResponse = await apiClient.getMarketData(baseAsset, quoteAsset);
-      
-      if (marketResponse.error) {
-        console.error('Failed to fetch market data:', marketResponse.error);
-      } else if (marketResponse.data) {
-        // Update current price and price change
-        setCurrentPrice(parseFloat(marketResponse.data.last_price));
-        setPriceChange(parseFloat(marketResponse.data.price_change_percentage_24h));
+        setIsLoading(true);
+        setError(null);
         
-        // In a real implementation, we would fetch historical price data here
-        // For now, we'll generate mock data based on the current price
-        generateMockDataFromPrice(parseFloat(marketResponse.data.last_price));
-      }
-    } catch (error) {
-      console.error('Error fetching price data:', error);
-    }
-  };
-
-  // Generate mock data from current price
-  const generateMockDataFromPrice = (price: number) => {
-    const data: PriceData[] = [];
-    const now = Date.now();
-    const volatility = price * 0.02; // 2% volatility
-    
-    // Generate data points based on timeframe
-    let interval: number;
-    let count: number;
-    
-    switch (options.timeframe) {
-      case '1h':
-        interval = 60 * 1000; // 1 minute
-        count = 60;
-        break;
-      case '1d':
-        interval = 15 * 60 * 1000; // 15 minutes
-        count = 96;
-        break;
-      case '1w':
-        interval = 60 * 60 * 1000; // 1 hour
-        count = 168;
-        break;
-      case '1m':
-        interval = 6 * 60 * 60 * 1000; // 6 hours
-        count = 120;
-        break;
-      default:
-        interval = 15 * 60 * 1000; // 15 minutes
-        count = 96;
-    }
-    
-    for (let i = count - 1; i >= 0; i--) {
-      // Random walk price
-      const randomChange = (Math.random() - 0.5) * volatility;
-      const newPrice = i === count - 1 ? price : data[data.length - 1].price + randomChange;
-      
-      data.push({
-        timestamp: now - i * interval,
-        price: newPrice,
-        volume: Math.random() * price * 10,
-      });
-    }
-    
-    setPriceData(data);
-  };
-
-  // Generate mock data
-  const generateMockData = () => {
-    // Set mock price based on pair
-    let basePrice: number;
-    if (pair.includes('BTC')) {
-      basePrice = pair.includes('RUNE') ? 20000 : 19500;
-    } else {
-      basePrice = 10;
-    }
-    
-    setCurrentPrice(basePrice);
-    
-    // Set mock price change
-    const mockPriceChange = Math.random() * 10 - 5;
-    setPriceChange(mockPriceChange);
-    
-    // Generate mock price data
-    generateMockDataFromPrice(basePrice);
-  };
-
-  // Draw chart
-  const drawChart = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Set canvas dimensions
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // Calculate min and max price
-    const prices = priceData.map(d => d.price);
-    const minPrice = Math.min(...prices) * 0.99;
-    const maxPrice = Math.max(...prices) * 1.01;
-    const priceRange = maxPrice - minPrice;
-    
-    // Draw background grid
-    ctx.strokeStyle = '#2a2a3a';
-    ctx.lineWidth = 0.5;
-    
-    // Horizontal grid lines
-    for (let i = 0; i <= 4; i++) {
-      const y = height - (i / 4) * height;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-      
-      // Price labels
-      const price = minPrice + (i / 4) * priceRange;
-      ctx.fillStyle = '#8a8a9a';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(price.toFixed(2), 5, y - 5);
-    }
-    
-    // Vertical grid lines
-    const timeLabels = [];
-    for (let i = 0; i <= 4; i++) {
-      const x = (i / 4) * width;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-      
-      // Time labels
-      if (priceData.length > 0) {
-        const index = Math.floor((1 - i / 4) * (priceData.length - 1));
-        const timestamp = priceData[index].timestamp;
-        const date = new Date(timestamp);
-        let timeLabel = '';
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        switch (options.timeframe) {
+        // Generate mock data
+        const now = Date.now();
+        const data: PricePoint[] = [];
+        
+        // Different data points based on timeframe
+        let dataPoints = 24;
+        let interval = 3600000; // 1 hour in milliseconds
+        
+        switch (selectedTimeframe) {
           case '1h':
-            timeLabel = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+            dataPoints = 60;
+            interval = 60000; // 1 minute
             break;
           case '1d':
-            timeLabel = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+            dataPoints = 24;
+            interval = 3600000; // 1 hour
             break;
           case '1w':
-            timeLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+            dataPoints = 7;
+            interval = 86400000; // 1 day
             break;
           case '1m':
-            timeLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+            dataPoints = 30;
+            interval = 86400000; // 1 day
+            break;
+          case '1y':
+            dataPoints = 12;
+            interval = 2592000000; // 1 month
             break;
         }
         
-        timeLabels.push({ x, label: timeLabel });
-      }
-    }
-    
-    // Draw time labels after grid lines
-    timeLabels.forEach(({ x, label }) => {
-      ctx.fillStyle = '#8a8a9a';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(label, x, height - 5);
-    });
-    
-    // Draw price line
-    if (options.chartType === 'line') {
-      ctx.strokeStyle = priceChange >= 0 ? '#4caf50' : '#f44336';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      
-      priceData.forEach((d, i) => {
-        const x = width - (i / (priceData.length - 1)) * width;
-        const y = height - ((d.price - minPrice) / priceRange) * height;
+        // Base price based on asset type
+        let basePrice = 0;
+        let volatility = 0;
         
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+        switch (assetType) {
+          case 'bitcoin':
+            basePrice = 65000;
+            volatility = 0.02; // 2%
+            break;
+          case 'rune':
+            basePrice = 0.0001;
+            volatility = 0.05; // 5%
+            break;
+          case 'alkane':
+            basePrice = 0.0002;
+            volatility = 0.04; // 4%
+            break;
         }
-      });
+        
+        // Generate price points
+        for (let i = 0; i < dataPoints; i++) {
+          const timestamp = now - (dataPoints - i) * interval;
+          const randomChange = (Math.random() - 0.5) * 2 * volatility;
+          const price = basePrice * (1 + randomChange);
+          
+          data.push({
+            timestamp,
+            price,
+          });
+          
+          // Update base price for next point
+          basePrice = price;
+        }
+        
+        setPriceData(data);
+      } catch (err) {
+        console.error('Failed to fetch price data:', err);
+        setError('Failed to fetch price data. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchPriceData();
+  }, [assetType, assetId, selectedTimeframe]);
+  
+  // Calculate chart dimensions
+  const chartWidth = 600;
+  const chartHeight = 300;
+  const padding = 40;
+  
+  // Calculate min and max values
+  const minPrice = Math.min(...priceData.map(point => point.price));
+  const maxPrice = Math.max(...priceData.map(point => point.price));
+  
+  // Calculate price range with 10% padding
+  const priceRange = maxPrice - minPrice;
+  const paddedMinPrice = minPrice - priceRange * 0.1;
+  const paddedMaxPrice = maxPrice + priceRange * 0.1;
+  
+  // Calculate scale factors
+  const xScale = (chartWidth - padding * 2) / (priceData.length - 1);
+  const yScale = (chartHeight - padding * 2) / (paddedMaxPrice - paddedMinPrice);
+  
+  // Generate SVG path
+  const generatePath = (): string => {
+    if (priceData.length === 0) {
+      return '';
+    }
+    
+    return priceData.reduce((path, point, index) => {
+      const x = padding + index * xScale;
+      const y = chartHeight - padding - (point.price - paddedMinPrice) * yScale;
       
-      ctx.stroke();
+      if (index === 0) {
+        return `M ${x} ${y}`;
+      }
       
-      // Add gradient fill
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, priceChange >= 0 ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      
-      ctx.fillStyle = gradient;
-      ctx.lineTo(0, height);
-      ctx.lineTo(width, height);
-      ctx.closePath();
-      ctx.fill();
-    } else if (options.chartType === 'candle') {
-      // Draw candles
-      const candleWidth = width / priceData.length * 0.8;
-      
-      priceData.forEach((d, i) => {
-        const x = width - (i / (priceData.length - 1)) * width;
-        const y = height - ((d.price - minPrice) / priceRange) * height;
-        
-        // Simulate OHLC data
-        const open = d.price * (1 + (Math.random() - 0.5) * 0.01);
-        const high = Math.max(open, d.price) * (1 + Math.random() * 0.005);
-        const low = Math.min(open, d.price) * (1 - Math.random() * 0.005);
-        const close = d.price;
-        
-        const isGreen = close >= open;
-        
-        // Draw candle body
-        ctx.fillStyle = isGreen ? '#4caf50' : '#f44336';
-        const candleY = height - ((Math.max(open, close) - minPrice) / priceRange) * height;
-        const candleHeight = Math.abs(((open - close) / priceRange) * height);
-        ctx.fillRect(x - candleWidth / 2, candleY, candleWidth, Math.max(1, candleHeight));
-        
-        // Draw wicks
-        ctx.strokeStyle = isGreen ? '#4caf50' : '#f44336';
-        ctx.lineWidth = 1;
-        
-        // Top wick
-        ctx.beginPath();
-        ctx.moveTo(x, height - ((high - minPrice) / priceRange) * height);
-        ctx.lineTo(x, candleY);
-        ctx.stroke();
-        
-        // Bottom wick
-        ctx.beginPath();
-        ctx.moveTo(x, height - ((low - minPrice) / priceRange) * height);
-        ctx.lineTo(x, candleY + candleHeight);
-        ctx.stroke();
-      });
+      return `${path} L ${x} ${y}`;
+    }, '');
+  };
+  
+  // Generate area path (for fill)
+  const generateAreaPath = (): string => {
+    if (priceData.length === 0) {
+      return '';
+    }
+    
+    const path = generatePath();
+    const lastX = padding + (priceData.length - 1) * xScale;
+    const baseline = chartHeight - padding;
+    
+    return `${path} L ${lastX} ${baseline} L ${padding} ${baseline} Z`;
+  };
+  
+  // Format price
+  const formatPrice = (price: number): string => {
+    switch (assetType) {
+      case 'bitcoin':
+        return `$${price.toLocaleString()}`;
+      case 'rune':
+      case 'alkane':
+        return `${price.toFixed(8)} BTC`;
     }
   };
-
-  // Handle timeframe change
-  const handleTimeframeChange = (timeframe: '1h' | '1d' | '1w' | '1m') => {
-    setOptions(prev => ({ ...prev, timeframe }));
+  
+  // Format asset name
+  const formatAssetName = (): string => {
+    switch (assetType) {
+      case 'bitcoin':
+        return 'Bitcoin (BTC)';
+      case 'rune':
+        return `Rune (${assetId})`;
+      case 'alkane':
+        return `Alkane (${assetId})`;
+    }
   };
-
-  // Handle chart type change
-  const handleChartTypeChange = (chartType: 'line' | 'candle') => {
-    setOptions(prev => ({ ...prev, chartType }));
-  };
-
+  
+  // Get current price
+  const currentPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : 0;
+  
+  // Calculate price change
+  const previousPrice = priceData.length > 0 ? priceData[0].price : 0;
+  const priceChange = currentPrice - previousPrice;
+  const priceChangePercent = previousPrice !== 0 ? (priceChange / previousPrice) * 100 : 0;
+  
   return (
-    <div className="card">
-      <div className="card-header flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-display font-medium">{pair} Chart</h2>
-          <div className="flex items-center mt-1">
-            <span className="text-xl font-medium">${currentPrice.toFixed(2)}</span>
-            <span className={`ml-2 text-sm ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
-            </span>
+    <div className={`price-chart ${className || ''}`}>
+      <div className="price-chart-header">
+        <h2>{formatAssetName()}</h2>
+        <div className="price-info">
+          <div className="current-price">{formatPrice(currentPrice)}</div>
+          <div className={`price-change ${priceChange >= 0 ? 'positive' : 'negative'}`}>
+            {priceChange >= 0 ? '+' : ''}{formatPrice(priceChange)} ({priceChangePercent.toFixed(2)}%)
           </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex rounded-lg overflow-hidden border border-twilight-dark">
-            <button
-              onClick={() => handleTimeframeChange('1h')}
-              className={`px-2 py-1 text-xs ${options.timeframe === '1h' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              1H
-            </button>
-            <button
-              onClick={() => handleTimeframeChange('1d')}
-              className={`px-2 py-1 text-xs ${options.timeframe === '1d' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              1D
-            </button>
-            <button
-              onClick={() => handleTimeframeChange('1w')}
-              className={`px-2 py-1 text-xs ${options.timeframe === '1w' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              1W
-            </button>
-            <button
-              onClick={() => handleTimeframeChange('1m')}
-              className={`px-2 py-1 text-xs ${options.timeframe === '1m' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              1M
-            </button>
-          </div>
-          <div className="flex rounded-lg overflow-hidden border border-twilight-dark">
-            <button
-              onClick={() => handleChartTypeChange('line')}
-              className={`px-2 py-1 text-xs ${options.chartType === 'line' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              Line
-            </button>
-            <button
-              onClick={() => handleChartTypeChange('candle')}
-              className={`px-2 py-1 text-xs ${options.chartType === 'candle' ? 'bg-twilight-primary text-white' : 'bg-twilight-darker text-gray-400'}`}
-            >
-              Candle
-            </button>
-          </div>
-          <button
-            onClick={apiClient ? fetchPriceData : generateMockData}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-twilight-dark transition-colors duration-200"
-          >
-            <ArrowPathIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
       
-      <div className="card-body p-4">
+      <div className="timeframe-selector">
+        <button
+          className={selectedTimeframe === '1h' ? 'active' : ''}
+          onClick={() => setSelectedTimeframe('1h')}
+        >
+          1H
+        </button>
+        <button
+          className={selectedTimeframe === '1d' ? 'active' : ''}
+          onClick={() => setSelectedTimeframe('1d')}
+        >
+          1D
+        </button>
+        <button
+          className={selectedTimeframe === '1w' ? 'active' : ''}
+          onClick={() => setSelectedTimeframe('1w')}
+        >
+          1W
+        </button>
+        <button
+          className={selectedTimeframe === '1m' ? 'active' : ''}
+          onClick={() => setSelectedTimeframe('1m')}
+        >
+          1M
+        </button>
+        <button
+          className={selectedTimeframe === '1y' ? 'active' : ''}
+          onClick={() => setSelectedTimeframe('1y')}
+        >
+          1Y
+        </button>
+      </div>
+      
+      <div className="chart-container">
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <ArrowPathIcon className="w-8 h-8 text-twilight-neon-blue animate-spin" />
-          </div>
+          <div className="loading">Loading chart data...</div>
+        ) : error ? (
+          <div className="error">{error}</div>
         ) : (
-          <div className="relative h-64">
-            <canvas 
-              ref={canvasRef} 
-              className="w-full h-full"
-              width={800}
-              height={400}
+          <svg width={chartWidth} height={chartHeight}>
+            {/* X and Y axes */}
+            <line
+              x1={padding}
+              y1={chartHeight - padding}
+              x2={chartWidth - padding}
+              y2={chartHeight - padding}
+              stroke="#ddd"
+              strokeWidth="1"
             />
-            {priceData.length === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <ChartBarIcon className="w-16 h-16 text-twilight-neon-blue mb-4" />
-                <p className="text-gray-400">
-                  No price data available for {pair}
-                </p>
-              </div>
-            )}
-          </div>
+            <line
+              x1={padding}
+              y1={padding}
+              x2={padding}
+              y2={chartHeight - padding}
+              stroke="#ddd"
+              strokeWidth="1"
+            />
+            
+            {/* Price line */}
+            <path
+              d={generatePath()}
+              fill="none"
+              stroke={priceChange >= 0 ? '#28a745' : '#dc3545'}
+              strokeWidth="2"
+            />
+            
+            {/* Area fill */}
+            <path
+              d={generateAreaPath()}
+              fill={priceChange >= 0 ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'}
+            />
+            
+            {/* Price labels */}
+            <text x={padding - 5} y={padding} textAnchor="end" fontSize="12" fill="#666">
+              {formatPrice(paddedMaxPrice)}
+            </text>
+            <text x={padding - 5} y={chartHeight - padding} textAnchor="end" fontSize="12" fill="#666">
+              {formatPrice(paddedMinPrice)}
+            </text>
+            
+            {/* Time labels */}
+            <text x={padding} y={chartHeight - padding + 20} textAnchor="middle" fontSize="12" fill="#666">
+              {new Date(priceData[0]?.timestamp || Date.now()).toLocaleTimeString()}
+            </text>
+            <text x={chartWidth - padding} y={chartHeight - padding + 20} textAnchor="middle" fontSize="12" fill="#666">
+              {new Date(priceData[priceData.length - 1]?.timestamp || Date.now()).toLocaleTimeString()}
+            </text>
+          </svg>
         )}
       </div>
+      
+      <style>
+        {`
+          .price-chart {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+          }
+          
+          .price-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          }
+          
+          .price-chart-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+          }
+          
+          .price-info {
+            text-align: right;
+          }
+          
+          .current-price {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+          }
+          
+          .price-change {
+            font-size: 1rem;
+            font-weight: 500;
+          }
+          
+          .price-change.positive {
+            color: #28a745;
+          }
+          
+          .price-change.negative {
+            color: #dc3545;
+          }
+          
+          .timeframe-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+          }
+          
+          .timeframe-selector button {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 5px 15px;
+            margin: 0 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+          }
+          
+          .timeframe-selector button:hover {
+            background-color: #e9ecef;
+          }
+          
+          .timeframe-selector button.active {
+            background-color: #007bff;
+            color: #fff;
+            border-color: #007bff;
+          }
+          
+          .chart-container {
+            position: relative;
+            height: ${chartHeight}px;
+          }
+          
+          .loading, .error {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.8);
+          }
+          
+          .loading {
+            color: #6c757d;
+          }
+          
+          .error {
+            color: #dc3545;
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-export default PriceChart;

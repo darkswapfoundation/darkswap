@@ -1,173 +1,182 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import WebSocketClient, { WebSocketMessage } from '../utils/WebSocketClient';
-import { useSDK } from './SDKContext';
-import { useNotification } from './NotificationContext';
 
-export interface Peer {
-  id: string;
-  address: string;
-  connected: boolean;
-  latency: number;
-  isRelay: boolean;
-  protocols: string[];
-  connectedAt: number;
-}
-
+// Define the WebSocket context type
 interface WebSocketContextType {
+  wsClient: WebSocketClient | null;
   isConnected: boolean;
   isConnecting: boolean;
-  peerId: string | null;
-  peers: Peer[];
+  error: Error | null;
   connect: () => void;
   disconnect: () => void;
   send: (type: string, payload: any) => void;
-  lastMessage: WebSocketMessage | null;
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed';
 }
 
+// Create the WebSocket context
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
+// Define the WebSocket provider props
 interface WebSocketProviderProps {
   children: ReactNode;
-  url?: string;
+  url: string;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
+  autoConnect?: boolean;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ 
-  children, 
-  url = 'ws://localhost:3000/ws' 
+/**
+ * WebSocket provider component
+ * @param props Component props
+ * @returns WebSocket provider component
+ */
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
+  children,
+  url,
+  reconnectInterval = 5000,
+  maxReconnectAttempts = 10,
+  autoConnect = true,
 }) => {
-  const { isInitialized } = useSDK();
-  const { addNotification } = useNotification();
-  const [client, setClient] = useState<WebSocketClient | null>(null);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [peerId, setPeerId] = useState<string | null>(null);
-  const [peers, setPeers] = useState<Peer[]>([]);
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed'>('disconnected');
+  const [wsClient, setWsClient] = useState<WebSocketClient | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-  // Initialize WebSocket client and set up event handlers
+  // Initialize the WebSocket client
   useEffect(() => {
-    const wsClient = new WebSocketClient(url);
-    setClient(wsClient);
+    const client = new WebSocketClient(url, reconnectInterval, maxReconnectAttempts);
 
     // Set up event listeners
-    wsClient.on('connected', () => {
+    client.on('connected', () => {
       setIsConnected(true);
       setIsConnecting(false);
-      setConnectionStatus('connected');
-      addNotification('success', 'Connected to DarkSwap network');
+      setError(null);
     });
 
-    wsClient.on('disconnected', () => {
+    client.on('disconnected', () => {
       setIsConnected(false);
-      setConnectionStatus('disconnected');
-      addNotification('warning', 'Disconnected from DarkSwap network');
     });
 
-    wsClient.on('reconnecting', (data: { attempt: number, delay: number }) => {
-      setConnectionStatus('reconnecting');
-      addNotification('info', `Reconnecting to DarkSwap network (attempt ${data.attempt})`);
-    });
-
-    wsClient.on('reconnect_failed', () => {
-      setConnectionStatus('failed');
-      addNotification('error', 'Failed to connect to DarkSwap network');
-    });
-
-    wsClient.on('message', (message: WebSocketMessage) => {
-      setLastMessage(message);
-      
-      // Handle peer-related messages
-      if (message.type === 'peer_id') {
-        setPeerId(message.payload.id);
-      } else if (message.type === 'peers_update') {
-        setPeers(message.payload.peers);
-      }
-      
-      // Handle specific message types
-      switch (message.type) {
-        case 'order_created':
-          addNotification('success', 'New order created');
-          break;
-        case 'order_filled':
-          addNotification('success', 'Order filled successfully');
-          break;
-        case 'order_canceled':
-          addNotification('info', 'Order canceled');
-          break;
-        case 'trade_completed':
-          addNotification('success', 'Trade completed successfully');
-          break;
-        case 'error':
-          addNotification('error', `Error: ${message.payload.message}`);
-          break;
-      }
-    });
-
-    return () => {
-      wsClient.disconnect();
-    };
-  }, [url, addNotification]);
-
-  // Auto-connect when SDK is initialized
-  useEffect(() => {
-    if (isInitialized && client && !isConnected && !isConnecting) {
-      connect();
-    }
-  }, [isInitialized, client, isConnected, isConnecting]);
-
-  // Connect to WebSocket server
-  const connect = () => {
-    if (client && !isConnected && !isConnecting) {
+    client.on('reconnecting', () => {
       setIsConnecting(true);
-      setConnectionStatus('connecting');
+    });
+
+    client.on('reconnect_failed', () => {
+      setIsConnecting(false);
+      setError(new Error('Failed to reconnect to WebSocket server'));
+    });
+
+    client.on('error', (event: Event) => {
+      setError(new Error('WebSocket error'));
+    });
+
+    setWsClient(client);
+
+    // Connect to the WebSocket server if autoConnect is true
+    if (autoConnect) {
+      setIsConnecting(true);
       client.connect();
+    }
+
+    // Clean up
+    return () => {
+      client.disconnect();
+    };
+  }, [url, reconnectInterval, maxReconnectAttempts, autoConnect]);
+
+  // Connect to the WebSocket server
+  const connect = () => {
+    if (wsClient && !isConnected && !isConnecting) {
+      setIsConnecting(true);
+      wsClient.connect();
     }
   };
 
-  // Disconnect from WebSocket server
+  // Disconnect from the WebSocket server
   const disconnect = () => {
-    if (client) {
-      client.disconnect();
-      setIsConnected(false);
-      setIsConnecting(false);
-      setConnectionStatus('disconnected');
+    if (wsClient) {
+      wsClient.disconnect();
     }
   };
 
   // Send a message to the WebSocket server
   const send = (type: string, payload: any) => {
-    if (client && isConnected) {
-      client.send(type, payload);
+    if (wsClient && isConnected) {
+      wsClient.send(type, payload);
     } else {
       console.warn('Cannot send message: WebSocket is not connected');
     }
   };
 
-  return (
-    <WebSocketContext.Provider
-      value={{
-        isConnected,
-        isConnecting,
-        peerId,
-        peers,
-        connect,
-        disconnect,
-        send,
-        lastMessage,
-        connectionStatus,
-      }}
-    >
-      {children}
-    </WebSocketContext.Provider>
+  // Create the context value
+  const contextValue: WebSocketContextType = {
+    wsClient,
+    isConnected,
+    isConnecting,
+    error,
+    connect,
+    disconnect,
+    send,
+  };
+
+  // Return the WebSocket provider
+  return React.createElement(
+    WebSocketContext.Provider,
+    { value: contextValue },
+    children
   );
 };
 
+/**
+ * Hook to use the WebSocket client
+ * @returns WebSocket client
+ */
 export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
+
   if (context === undefined) {
     throw new Error('useWebSocket must be used within a WebSocketProvider');
   }
+
   return context;
 };
+
+/**
+ * Hook to use WebSocket events
+ * @param eventType Event type
+ * @param callback Event callback
+ */
+export const useWebSocketEvent = <T extends {}>(
+  eventType: string,
+  callback: (data: T) => void
+) => {
+  const { wsClient } = useWebSocket();
+
+  useEffect(() => {
+    if (!wsClient) {
+      return;
+    }
+
+    // Add event listener
+    wsClient.on(eventType, callback);
+
+    // Clean up
+    return () => {
+      wsClient.off(eventType, callback);
+    };
+  }, [wsClient, eventType, callback]);
+};
+
+/**
+ * Hook to send WebSocket messages
+ * @param eventType Event type
+ * @returns Function to send messages
+ */
+export const useWebSocketSend = (eventType: string) => {
+  const { send } = useWebSocket();
+
+  return (payload: any) => {
+    send(eventType, payload);
+  };
+};
+
+export default WebSocketContext;

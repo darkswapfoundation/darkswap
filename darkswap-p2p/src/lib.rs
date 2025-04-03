@@ -1,21 +1,29 @@
-//! DarkSwap P2P networking library
+//! DarkSwap P2P Networking
 //!
-//! This crate provides the P2P networking functionality for DarkSwap.
-//! It includes WebRTC transport for browser compatibility and circuit relay
-//! for NAT traversal.
+//! This library provides P2P networking functionality for the DarkSwap platform.
 
-pub mod transport;
 pub mod behaviour;
-pub mod network;
 pub mod circuit_relay;
-pub mod error;
-pub mod signaling_client;
-pub mod webrtc_signaling_client;
-pub mod webrtc_transport;
-pub mod webrtc_connection;
+pub mod config;
+pub mod discovery;
+pub mod message;
+pub mod network;
+pub mod protocol;
+pub mod transport;
 
-pub use network::Network;
-pub use error::Error;
-pub use webrtc_transport::WebRtcTransport;
-pub use webrtc_signaling_client::WebRtcSignalingClient;
-pub use webrtc_connection::{WebRtcConnection, WebRtcConnectionManager, DataChannel, ConnectionState, IceConnectionState, SignalingState, DataChannelState};
+/// Re-export common types from darkswap-lib
+pub use darkswap_lib::{Error, Result};
+
+/// Library version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Library name
+pub const NAME: &str = env!("CARGO_PKG_NAME");
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}

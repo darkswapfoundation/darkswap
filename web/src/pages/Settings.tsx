@@ -1,269 +1,520 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useNotification } from '../contexts/NotificationContext';
-import { useApi } from '../contexts/ApiContext';
-import { useWebSocket } from '../contexts/WebSocketContext';
-import { useWasmWallet } from '../contexts/WasmWalletContext';
-import P2PNetworkStatus from '../components/P2PNetworkStatus';
+import React, { useState } from 'react';
+import { useLocalPeerId } from '../hooks/useDarkSwap';
 
-// Icons
-import {
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  Cog6ToothIcon,
-  ServerIcon,
-  SignalIcon,
-} from '@heroicons/react/24/outline';
-
-const Settings: React.FC = () => {
-  // Get contexts
-  const { isConnected: isWalletConnected, isInitialized: isSDKInitialized } = useWasmWallet();
-  const { client: apiClient, isLoading: isApiLoading, setBaseUrl } = useApi();
+export const Settings: React.FC = () => {
+  // Get the local peer ID
+  const localPeerId = useLocalPeerId();
   
-  const [apiUrl, setApiUrl] = useState<string>('http://localhost:3000');
-  const [wsUrl, setWsUrl] = useState<string>('ws://localhost:3000/ws');
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const { addNotification } = useNotification();
-  const { disconnect, connect } = useWebSocket();
-
-  // Initialize form values
-  useEffect(() => {
-    // Get API URL from localStorage or use default
-    const savedApiUrl = localStorage.getItem('darkswap-api-url');
-    if (savedApiUrl) {
-      setApiUrl(savedApiUrl);
-    }
-
-    // Get WebSocket URL from localStorage or use default
-    const savedWsUrl = localStorage.getItem('darkswap-ws-url');
-    if (savedWsUrl) {
-      setWsUrl(savedWsUrl);
-    }
-  }, []);
-
-  // Save settings
-  const saveSettings = () => {
-    setIsSaving(true);
-
-    try {
-      // Save API URL to localStorage
-      localStorage.setItem('darkswap-api-url', apiUrl);
-
-      // Save WebSocket URL to localStorage
-      localStorage.setItem('darkswap-ws-url', wsUrl);
-
-      // Update API client base URL
-      setBaseUrl(apiUrl);
-
-      // Reconnect WebSocket
-      disconnect();
-      setTimeout(() => {
-        connect();
-      }, 1000);
-
-      addNotification('success', 'Settings saved successfully');
-    } catch (error) {
-      addNotification('error', `Error saving settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsSaving(false);
+  // Network settings
+  const [bootstrapPeers, setBootstrapPeers] = useState<string[]>([
+    'peer1.darkswap.io',
+    'peer2.darkswap.io',
+    'peer3.darkswap.io',
+  ]);
+  const [newBootstrapPeer, setNewBootstrapPeer] = useState('');
+  
+  // Relay settings
+  const [relayServers, setRelayServers] = useState<string[]>([
+    'relay1.darkswap.io',
+    'relay2.darkswap.io',
+  ]);
+  const [newRelayServer, setNewRelayServer] = useState('');
+  
+  // Wallet settings
+  const [electrumServer, setElectrumServer] = useState('electrum.blockstream.info:50002');
+  const [network, setNetwork] = useState<'mainnet' | 'testnet' | 'regtest'>('testnet');
+  
+  // Theme settings
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  
+  // Notification settings
+  const [notifications, setNotifications] = useState({
+    tradeOffers: true,
+    tradeAccepted: true,
+    tradeCompleted: true,
+    connectionStatus: true,
+  });
+  
+  // Handle adding a bootstrap peer
+  const handleAddBootstrapPeer = () => {
+    if (newBootstrapPeer && !bootstrapPeers.includes(newBootstrapPeer)) {
+      setBootstrapPeers([...bootstrapPeers, newBootstrapPeer]);
+      setNewBootstrapPeer('');
     }
   };
-
-  // Reset settings to defaults
-  const resetSettings = () => {
-    setApiUrl('http://localhost:3000');
-    setWsUrl('ws://localhost:3000/ws');
-    addNotification('info', 'Settings reset to defaults');
+  
+  // Handle removing a bootstrap peer
+  const handleRemoveBootstrapPeer = (peer: string) => {
+    setBootstrapPeers(bootstrapPeers.filter(p => p !== peer));
   };
-
-  // Test API connection
-  const testApiConnection = async () => {
-    setIsSaving(true);
-
-    try {
-      // Test API connection
-      const response = await apiClient.getHealth();
-
-      if (response.error) {
-        addNotification('error', `API connection failed: ${response.error}`);
-      } else {
-        addNotification('success', `API connection successful: v${response.data?.version}`);
-      }
-    } catch (error) {
-      addNotification('error', `API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsSaving(false);
+  
+  // Handle adding a relay server
+  const handleAddRelayServer = () => {
+    if (newRelayServer && !relayServers.includes(newRelayServer)) {
+      setRelayServers([...relayServers, newRelayServer]);
+      setNewRelayServer('');
     }
   };
-
+  
+  // Handle removing a relay server
+  const handleRemoveRelayServer = (server: string) => {
+    setRelayServers(relayServers.filter(s => s !== server));
+  };
+  
+  // Handle saving settings
+  const handleSaveSettings = () => {
+    // In a real implementation, we would save the settings to the DarkSwap instance
+    alert('Settings saved!');
+  };
+  
+  // Handle notification toggle
+  const handleNotificationToggle = (key: keyof typeof notifications) => {
+    setNotifications({
+      ...notifications,
+      [key]: !notifications[key],
+    });
+  };
+  
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold">
-            <span className="text-white">Settings</span>
-          </h1>
-          <p className="text-gray-400 mt-1">
-            Configure your DarkSwap application
-          </p>
-        </div>
-      </div>
-
-      {/* Connection Warning */}
-      {!isWalletConnected && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-glass p-4 border border-ui-warning border-opacity-50"
-        >
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
-            <span className="text-ui-warning">
-              Connect your wallet to access all settings
-            </span>
-          </div>
-        </motion.div>
-      )}
-
-      {/* SDK Warning */}
-      {isWalletConnected && !isSDKInitialized && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-glass p-4 border border-ui-warning border-opacity-50"
-        >
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
-            <span className="text-ui-warning">
-              Initializing DarkSwap SDK...
-            </span>
-          </div>
-        </motion.div>
-      )}
-
-      {/* API Settings */}
-      <div className="card">
-        <div className="card-header flex items-center">
-          <ServerIcon className="w-5 h-5 mr-2 text-twilight-neon-blue" />
-          <h2 className="text-lg font-display font-medium">API Settings</h2>
-        </div>
-        <div className="card-body">
-          <div className="mb-4">
-            <label className="form-label">API URL</label>
-            <input
-              type="text"
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="http://localhost:3000"
-              className="form-input"
-            />
-            <p className="text-sm text-gray-400 mt-1">
-              The URL of the DarkSwap daemon API
-            </p>
-          </div>
-          <div className="flex justify-end space-x-2">
+    <div className="settings-page">
+      <h1>Settings</h1>
+      
+      <div className="settings-section">
+        <h2>Network Settings</h2>
+        
+        <div className="setting-item">
+          <div className="setting-label">Peer ID</div>
+          <div className="setting-value">
+            <div className="peer-id">{localPeerId}</div>
             <button
-              onClick={testApiConnection}
-              disabled={isSaving || !apiUrl}
-              className="btn btn-secondary"
+              className="copy-button"
+              onClick={() => {
+                navigator.clipboard.writeText(localPeerId);
+                alert('Peer ID copied to clipboard!');
+              }}
             >
-              {isSaving ? (
-                <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />
-              ) : null}
-              Test Connection
+              Copy
             </button>
           </div>
         </div>
-      </div>
-
-      {/* WebSocket Settings */}
-      <div className="card">
-        <div className="card-header flex items-center">
-          <SignalIcon className="w-5 h-5 mr-2 text-twilight-neon-green" />
-          <h2 className="text-lg font-display font-medium">WebSocket Settings</h2>
-        </div>
-        <div className="card-body">
-          <div className="mb-4">
-            <label className="form-label">WebSocket URL</label>
-            <input
-              type="text"
-              value={wsUrl}
-              onChange={(e) => setWsUrl(e.target.value)}
-              placeholder="ws://localhost:3000/ws"
-              className="form-input"
-            />
-            <p className="text-sm text-gray-400 mt-1">
-              The URL of the DarkSwap daemon WebSocket endpoint
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* General Settings */}
-      <div className="card">
-        <div className="card-header flex items-center">
-          <Cog6ToothIcon className="w-5 h-5 mr-2 text-twilight-neon-purple" />
-          <h2 className="text-lg font-display font-medium">General Settings</h2>
-        </div>
-        <div className="card-body">
-          <div className="mb-4">
-            <label className="form-label">Theme</label>
-            <select className="form-select">
-              <option value="dark">Dark</option>
-              <option value="light" disabled>Light (Coming Soon)</option>
-              <option value="system" disabled>System (Coming Soon)</option>
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="form-label">Notifications</label>
-            <div className="flex items-center space-x-2">
-              <input type="checkbox" className="form-checkbox" defaultChecked />
-              <span>Enable notifications</span>
+        
+        <div className="setting-item">
+          <div className="setting-label">Bootstrap Peers</div>
+          <div className="setting-value">
+            <ul className="peer-list">
+              {bootstrapPeers.map((peer, index) => (
+                <li key={index} className="peer-item">
+                  {peer}
+                  <button
+                    className="remove-button"
+                    onClick={() => handleRemoveBootstrapPeer(peer)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="add-peer">
+              <input
+                type="text"
+                value={newBootstrapPeer}
+                onChange={(e) => setNewBootstrapPeer(e.target.value)}
+                placeholder="Enter peer address"
+              />
+              <button onClick={handleAddBootstrapPeer}>Add</button>
             </div>
           </div>
-          <div className="mb-4">
-            <label className="form-label">Auto-connect Wallet</label>
-            <div className="flex items-center space-x-2">
-              <input type="checkbox" className="form-checkbox" defaultChecked />
-              <span>Automatically connect wallet on startup</span>
+        </div>
+        
+        <div className="setting-item">
+          <div className="setting-label">Relay Servers</div>
+          <div className="setting-value">
+            <ul className="peer-list">
+              {relayServers.map((server, index) => (
+                <li key={index} className="peer-item">
+                  {server}
+                  <button
+                    className="remove-button"
+                    onClick={() => handleRemoveRelayServer(server)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="add-peer">
+              <input
+                type="text"
+                value={newRelayServer}
+                onChange={(e) => setNewRelayServer(e.target.value)}
+                placeholder="Enter relay server address"
+              />
+              <button onClick={handleAddRelayServer}>Add</button>
             </div>
           </div>
         </div>
       </div>
       
-      {/* P2P Network Status */}
-      <div className="card">
-        <div className="card-header flex items-center">
-          <SignalIcon className="w-5 h-5 mr-2 text-twilight-neon-blue" />
-          <h2 className="text-lg font-display font-medium">P2P Network</h2>
+      <div className="settings-section">
+        <h2>Wallet Settings</h2>
+        
+        <div className="setting-item">
+          <div className="setting-label">Electrum Server</div>
+          <div className="setting-value">
+            <input
+              type="text"
+              value={electrumServer}
+              onChange={(e) => setElectrumServer(e.target.value)}
+              placeholder="Enter Electrum server address"
+            />
+          </div>
         </div>
-        <div className="card-body p-0">
-          <P2PNetworkStatus />
+        
+        <div className="setting-item">
+          <div className="setting-label">Network</div>
+          <div className="setting-value">
+            <select
+              value={network}
+              onChange={(e) => setNetwork(e.target.value as 'mainnet' | 'testnet' | 'regtest')}
+            >
+              <option value="mainnet">Mainnet</option>
+              <option value="testnet">Testnet</option>
+              <option value="regtest">Regtest</option>
+            </select>
+          </div>
         </div>
       </div>
-
-      {/* Save Settings */}
-      <div className="flex justify-end space-x-2">
-        <button
-          onClick={resetSettings}
-          className="btn btn-secondary"
-        >
-          Reset to Defaults
-        </button>
-        <button
-          onClick={saveSettings}
-          disabled={isSaving}
-          className="btn btn-primary"
-        >
-          {isSaving ? (
-            <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />
-          ) : null}
+      
+      <div className="settings-section">
+        <h2>Appearance</h2>
+        
+        <div className="setting-item">
+          <div className="setting-label">Theme</div>
+          <div className="setting-value">
+            <div className="theme-selector">
+              <button
+                className={`theme-button ${theme === 'light' ? 'active' : ''}`}
+                onClick={() => setTheme('light')}
+              >
+                Light
+              </button>
+              <button
+                className={`theme-button ${theme === 'dark' ? 'active' : ''}`}
+                onClick={() => setTheme('dark')}
+              >
+                Dark
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="settings-section">
+        <h2>Notifications</h2>
+        
+        <div className="setting-item">
+          <div className="setting-label">Trade Offers</div>
+          <div className="setting-value">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={notifications.tradeOffers}
+                onChange={() => handleNotificationToggle('tradeOffers')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        
+        <div className="setting-item">
+          <div className="setting-label">Trade Accepted</div>
+          <div className="setting-value">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={notifications.tradeAccepted}
+                onChange={() => handleNotificationToggle('tradeAccepted')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        
+        <div className="setting-item">
+          <div className="setting-label">Trade Completed</div>
+          <div className="setting-value">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={notifications.tradeCompleted}
+                onChange={() => handleNotificationToggle('tradeCompleted')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        
+        <div className="setting-item">
+          <div className="setting-label">Connection Status</div>
+          <div className="setting-value">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={notifications.connectionStatus}
+                onChange={() => handleNotificationToggle('connectionStatus')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div className="settings-actions">
+        <button className="save-button" onClick={handleSaveSettings}>
           Save Settings
         </button>
       </div>
+      
+      <style>
+        {`
+          .settings-page {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          
+          .settings-page h1 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+          }
+          
+          .settings-section {
+            margin-bottom: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
+          
+          .settings-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.5rem;
+          }
+          
+          .setting-item {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+          }
+          
+          .setting-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+          }
+          
+          .setting-label {
+            flex: 1;
+            font-weight: 500;
+            color: #555;
+            padding-top: 8px;
+          }
+          
+          .setting-value {
+            flex: 2;
+          }
+          
+          .peer-id {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            margin-bottom: 10px;
+            word-break: break-all;
+          }
+          
+          .copy-button {
+            background-color: #6c757d;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          
+          .copy-button:hover {
+            background-color: #5a6268;
+          }
+          
+          .peer-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 15px 0;
+          }
+          
+          .peer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            border: 1px solid #eee;
+          }
+          
+          .remove-button {
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          
+          .remove-button:hover {
+            background-color: #c82333;
+          }
+          
+          .add-peer {
+            display: flex;
+            gap: 10px;
+          }
+          
+          .add-peer input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+          }
+          
+          .add-peer button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          
+          .add-peer button:hover {
+            background-color: #218838;
+          }
+          
+          .setting-value input[type="text"],
+          .setting-value select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+          }
+          
+          .theme-selector {
+            display: flex;
+            gap: 10px;
+          }
+          
+          .theme-button {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          
+          .theme-button.active {
+            background-color: #007bff;
+            color: #fff;
+            border-color: #007bff;
+          }
+          
+          .toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+          }
+          
+          .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+          }
+          
+          .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+          }
+          
+          .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+          }
+          
+          input:checked + .toggle-slider {
+            background-color: #28a745;
+          }
+          
+          input:focus + .toggle-slider {
+            box-shadow: 0 0 1px #28a745;
+          }
+          
+          input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+          }
+          
+          .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+          }
+          
+          .save-button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+          
+          .save-button:hover {
+            background-color: #0069d9;
+          }
+        `}
+      </style>
     </div>
   );
 };
-
-export default Settings;
