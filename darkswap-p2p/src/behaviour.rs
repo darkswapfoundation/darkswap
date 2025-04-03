@@ -7,7 +7,6 @@ use libp2p::{
     gossipsub::{self, Gossipsub, GossipsubConfig, IdentTopic, MessageAuthenticity},
     identify::{self, Identify, IdentifyConfig},
     kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent},
-    mdns::{self, Mdns, MdnsConfig},
     ping::{self, Ping, PingConfig},
     request_response::{self, RequestResponse},
     swarm::NetworkBehaviour,
@@ -26,8 +25,6 @@ pub struct DarkSwapBehaviour {
     identify: Identify,
     /// Kademlia DHT for peer discovery.
     kademlia: Kademlia<MemoryStore>,
-    /// mDNS for local peer discovery.
-    mdns: Mdns,
     /// Gossipsub for pubsub messaging.
     gossipsub: Gossipsub,
     /// Request-response protocol for direct messaging.
@@ -43,8 +40,6 @@ pub enum DarkSwapEvent {
     Identify(identify::Event),
     /// Kademlia event.
     Kademlia(KademliaEvent),
-    /// mDNS event.
-    Mdns(mdns::Event),
     /// Gossipsub event.
     Gossipsub(gossipsub::Event),
     /// Request-response event.
@@ -66,12 +61,6 @@ impl From<identify::Event> for DarkSwapEvent {
 impl From<KademliaEvent> for DarkSwapEvent {
     fn from(event: KademliaEvent) -> Self {
         Self::Kademlia(event)
-    }
-}
-
-impl From<mdns::Event> for DarkSwapEvent {
-    fn from(event: mdns::Event) -> Self {
-        Self::Mdns(event)
     }
 }
 
@@ -108,9 +97,6 @@ impl DarkSwapBehaviour {
         kademlia_config.set_query_timeout(Duration::from_secs(5 * 60));
         let mut kademlia = Kademlia::with_config(local_peer_id, store, kademlia_config);
 
-        // Create an mDNS discovery service
-        let mdns = Mdns::new(MdnsConfig::default()).await?;
-
         // Create a Gossipsub protocol
         let gossipsub_config = GossipsubConfig::default();
         let gossipsub = Gossipsub::new(
@@ -125,7 +111,6 @@ impl DarkSwapBehaviour {
             ping,
             identify,
             kademlia,
-            mdns,
             gossipsub,
             request_response,
         })

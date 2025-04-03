@@ -12,7 +12,7 @@ categories = ["cryptography", "cryptocurrency", "command-line-utilities"]
 
 [dependencies]
 # DarkSwap SDK
-darkswap-sdk = { path = "../darkswap-sdk" }
+darkswap-sdk = { path = "../darkswap-sdk", default-features = false }
 
 # Command-line interface
 clap = { version = "4.2.7", features = ["derive"] }

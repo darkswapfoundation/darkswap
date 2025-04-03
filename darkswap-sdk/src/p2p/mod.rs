@@ -21,7 +21,6 @@ pub mod webrtc_transport;
 use circuit_relay::CircuitRelay;
 use relay_manager::{RelayManager, RelayManagerConfig, RelayServer, RelayServerStatus};
 use webrtc_transport::{DarkSwapWebRtcTransport, WebRtcSignalingClient};
-use webrtc_transport::{DarkSwapWebRtcTransport, WebRtcSignalingClient};
 
 /// P2P network event
 #[derive(Debug)]
@@ -49,284 +48,265 @@ pub struct P2PNetwork {
     /// Circuit relay
     circuit_relay: Option<Arc<CircuitRelay>>,
     /// Relay manager
-    relay_manager: Option<RelayManager>,
+    relay_manager: Option<Arc<RelayManager>>,
     /// Connected peers
-    connected_peers: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
+    connected_peers: Arc<RwLock<HashMap<PeerId, Multiaddr>>>,
     /// Event sender
     event_sender: mpsc::Sender<Event>,
-    /// Listen addresses
-    listen_addresses: Vec<Multiaddr>,
-    /// Bootstrap peers
-    bootstrap_peers: Vec<Multiaddr>,
-    /// Relay servers
-    relay_servers: Vec<Multiaddr>,
-    /// Topics
-    topics: HashMap<String, String>,
+    /// Event receiver
+    event_receiver: Arc<RwLock<mpsc::Receiver<Event>>>,
 }
 
 impl P2PNetwork {
     /// Create a new P2P network
-    pub fn new(config: &Config, event_sender: mpsc::Sender<Event>) -> Result<Self> {
-        // Generate a random peer ID
-        let local_key = libp2p::identity::Keypair::generate_ed25519();
-        let local_peer_id = PeerId::from(local_key.public());
+    pub async fn new(config: &Config) -> Result<Self> {
+        // Generate a new keypair
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(keypair.public());
 
-        info!("Local peer ID: {}", local_peer_id);
+        // Create the event channel
+        let (event_sender, event_receiver) = mpsc::channel(100);
+
+        // Create the WebRTC transport
+        let webrtc_transport = if config.enable_webrtc {
+            Some(Arc::new(DarkSwapWebRtcTransport::new(local_peer_id.clone()).await?))
+        } else {
+            None
+        };
+
+        // Create the WebRTC signaling client
+        let webrtc_signaling = if config.enable_webrtc && !config.signaling_servers.is_empty() {
+            let signaling_server = &config.signaling_servers[0];
+            Some(WebRtcSignalingClient::new(
+                local_peer_id.clone(),
+                signaling_server.clone(),
+            )?)
+        } else {
+            None
+        };
+
+        // Create the circuit relay
+        let circuit_relay = if config.enable_circuit_relay {
+            Some(Arc::new(CircuitRelay::new(local_peer_id.clone()).await?))
+        } else {
+            None
+        };
+
+        // Create the relay manager
+        let relay_manager = if config.enable_relay_manager && webrtc_transport.is_some() {
+            let webrtc_transport = webrtc_transport.as_ref().unwrap().clone();
+            Some(Arc::new(RelayManager::new(
+                local_peer_id.clone(),
+                config.network.clone(),
+                webrtc_transport,
+            )))
+        } else {
+            None
+        };
 
         Ok(Self {
             local_peer_id,
-            webrtc_transport: None,
-            webrtc_signaling: None,
-            circuit_relay: None,
-            relay_manager: None,
-            connected_peers: Arc::new(Mutex::new(HashMap::new())),
+            webrtc_transport,
+            webrtc_signaling,
+            circuit_relay,
+            relay_manager,
+            connected_peers: Arc::new(RwLock::new(HashMap::new())),
             event_sender,
-            listen_addresses: config.p2p.listen_addresses.clone(),
-            bootstrap_peers: config.p2p.bootstrap_peers.clone(),
-            relay_servers: config.p2p.relay_servers.clone(),
-            topics: HashMap::new(),
+            event_receiver: Arc::new(RwLock::new(event_receiver)),
         })
     }
 
     /// Start the P2P network
-    pub async fn start(&mut self) -> Result<()> {
-        // Create WebRTC transport
-        let ice_servers = vec![
-            "stun:stun.l.google.com:19302".to_string(),
-            "stun:stun1.l.google.com:19302".to_string(),
-        ];
-        let signaling_server_url = Some("wss://signaling.darkswap.io".to_string());
-        
-        let webrtc_transport = DarkSwapWebRtcTransport::new(
-            ice_servers,
-            signaling_server_url.clone(),
-        ).await?;
-        
-        let webrtc_transport = Arc::new(webrtc_transport);
-        self.webrtc_transport = Some(webrtc_transport.clone());
-
-        // Create WebRTC signaling client
-        if let Some(url) = signaling_server_url {
-            let signaling_client = WebRtcSignalingClient::new(
-                url,
-                webrtc_transport.clone(),
-                self.local_peer_id,
-            );
-            self.webrtc_signaling = Some(signaling_client);
-        }
-
-        // Start WebRTC signaling client
+    pub async fn start(&self) -> Result<()> {
+        // Start the WebRTC signaling client
         if let Some(signaling) = &self.webrtc_signaling {
             signaling.connect().await?;
         }
-        
-        // Create circuit relay
-        let circuit_relay = CircuitRelay::new(
-            webrtc_transport.clone(),
-            self.local_peer_id,
-        );
-        
-        let circuit_relay = Arc::new(circuit_relay);
-        self.circuit_relay = Some(circuit_relay.clone());
-        
-        // Create relay manager
-        let mut relay_servers = Vec::new();
-        
-        // Convert relay server multiaddrs to relay server configs
-        for addr in &self.relay_servers {
-            if let Some(peer_id) = Self::extract_peer_id(addr) {
-                // Extract the host and port from the multiaddr
-                let mut host = String::new();
-                let mut port = 9002; // Default signaling port
-                
-                for proto in addr.iter() {
-                    match proto {
-                        Protocol::Ip4(ip) => host = ip.to_string(),
-                        Protocol::Ip6(ip) => host = ip.to_string(),
-                        Protocol::Dns(domain) => host = domain.to_string(),
-                        Protocol::Dns4(domain) => host = domain.to_string(),
-                        Protocol::Dns6(domain) => host = domain.to_string(),
-                        Protocol::Tcp(p) => port = p,
-                        _ => {}
-                    }
-                }
-                
-                // Create the relay server URL
-                let url = format!("ws://{}:{}/signaling", host, port);
-                
-                // Create the relay server config
-                let server = RelayServer {
-                    id: peer_id.to_string(),
-                    url,
-                    status: RelayServerStatus::Unknown,
-                    last_ping: None,
-                    latency_ms: None,
-                };
-                
-                relay_servers.push(server);
-            }
-        }
-        
-        // Create the relay manager config
-        let relay_config = RelayManagerConfig {
-            servers: relay_servers,
-            connection_timeout: 30,
-            ping_interval: 30,
-            reconnect_interval: 5,
-            max_reconnect_attempts: 5,
-        };
-        
-        // Create the relay manager
-        let mut relay_manager = RelayManager::new(
-            relay_config,
-            webrtc_transport.clone(),
-            circuit_relay.clone(),
-            self.local_peer_id,
-        );
-        
-        // Start the relay manager
-        tokio::spawn(async move {
-            if let Err(e) = relay_manager.start().await {
-                error!("Failed to start relay manager: {:?}", e);
-            }
-        });
-        
-        self.relay_manager = Some(relay_manager);
 
-        // Process events
-        self.process_events().await?;
+        // Start the circuit relay
+        if let Some(relay) = &self.circuit_relay {
+            relay.start().await?;
+        }
+
+        // Start the relay manager
+        if let Some(manager) = &self.relay_manager {
+            // Connect to relay servers
+            // This is just a placeholder for now
+        }
 
         Ok(())
     }
 
     /// Stop the P2P network
-    pub async fn stop(&mut self) -> Result<()> {
-        // Stop WebRTC signaling client
+    pub async fn stop(&self) -> Result<()> {
+        // Stop the WebRTC signaling client
         if let Some(signaling) = &self.webrtc_signaling {
             signaling.disconnect().await?;
         }
 
-        // Clear state
-        self.webrtc_transport = None;
-        self.webrtc_signaling = None;
-        self.circuit_relay = None;
-        self.relay_manager = None;
-        self.connected_peers.lock().await.clear();
-        self.topics.clear();
-
-        Ok(())
-    }
-
-    /// Process P2P events
-    async fn process_events(&mut self) -> Result<()> {
-        // Clone event sender
-        let event_sender = self.event_sender.clone();
-        let connected_peers = self.connected_peers.clone();
-
-        // Spawn event processing task
-        tokio::spawn(async move {
-            // In a real implementation, we would process events from the swarm
-            // For now, just log a message
-            info!("P2P event processing started");
-        });
-
-        Ok(())
-    }
-
-    /// Subscribe to a topic
-    pub async fn subscribe(&mut self, topic_name: &str) -> Result<()> {
-        // In a real implementation, we would subscribe to a gossipsub topic
-        // For now, just store the topic name
-        self.topics.insert(topic_name.to_string(), topic_name.to_string());
-        
-        info!("Subscribed to topic: {}", topic_name);
-        
-        Ok(())
-    }
-
-    /// Unsubscribe from a topic
-    pub async fn unsubscribe(&mut self, topic_name: &str) -> Result<()> {
-        // In a real implementation, we would unsubscribe from a gossipsub topic
-        // For now, just remove the topic name
-        self.topics.remove(topic_name);
-        
-        info!("Unsubscribed from topic: {}", topic_name);
-        
-        Ok(())
-    }
-    
-    /// Connect to a peer via relay
-    pub async fn connect_via_relay(&mut self, peer_id: PeerId) -> Result<String> {
-        // Check if we have a relay manager
-        if let Some(relay_manager) = &self.relay_manager {
-            // Connect to the peer via relay
-            let relay_id = relay_manager.connect_to_peer(&peer_id).await?;
-            
-            info!("Connected to peer {} via relay (ID: {})", peer_id, relay_id);
-            
-            Ok(relay_id)
-        } else {
-            Err(anyhow::anyhow!("Relay manager not initialized"))
+        // Stop the circuit relay
+        if let Some(relay) = &self.circuit_relay {
+            relay.stop().await?;
         }
-    }
-    
-    /// Send data to a peer via relay
-    pub async fn send_via_relay(&mut self, peer_id: PeerId, relay_id: &str, data: Vec<u8>) -> Result<()> {
-        // Check if we have a relay manager
-        if let Some(relay_manager) = &self.relay_manager {
-            // Send data to the peer via relay
-            relay_manager.send_data(&peer_id, relay_id, &data).await?;
-            
-            debug!("Sent data to peer {} via relay: {} bytes", peer_id, data.len());
-            
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Relay manager not initialized"))
-        }
-    }
-    
-    /// Close a relay connection
-    pub async fn close_relay(&mut self, relay_id: &str) -> Result<()> {
-        // Check if we have a relay manager
-        if let Some(relay_manager) = &self.relay_manager {
-            // Close the relay connection
-            relay_manager.close_relay(relay_id).await?;
-            
-            info!("Closed relay connection: {}", relay_id);
-            
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Relay manager not initialized"))
-        }
-    }
 
-    /// Publish a message to a topic
-    pub async fn publish(&mut self, topic_name: &str, data: Vec<u8>) -> Result<()> {
-        // In a real implementation, we would publish a message to a gossipsub topic
-        // For now, just log a message
-        debug!("Published message to topic: {}", topic_name);
-        
         Ok(())
     }
 
-    /// Get connected peers
-    pub async fn connected_peers(&self) -> HashMap<PeerId, Multiaddr> {
-        self.connected_peers.lock().await.clone()
-    }
+    /// Connect to a peer
+    pub async fn connect(&self, peer_id: &PeerId, addr: &Multiaddr) -> Result<()> {
+        // Check if we're already connected
+        let mut connected_peers = self.connected_peers.write().await;
+        if connected_peers.contains_key(peer_id) {
+            return Ok(());
+        }
 
-    /// Get local peer ID
-    pub fn local_peer_id(&self) -> PeerId {
-        self.local_peer_id
-    }
-
-    /// Extract peer ID from multiaddr
-    fn extract_peer_id(addr: &Multiaddr) -> Option<PeerId> {
-        addr.iter().find_map(|proto| {
-            if let Protocol::P2p(hash) = proto {
-                Some(PeerId::from_multihash(hash).expect("Valid multihash"))
-            } else {
-                None
+        // Try to connect via WebRTC
+        if let Some(transport) = &self.webrtc_transport {
+            if let Ok(()) = transport.connect(peer_id).await {
+                connected_peers.insert(peer_id.clone(), addr.clone());
+                return Ok(());
             }
+        }
+
+        // Try to connect via circuit relay
+        if let Some(relay) = &self.circuit_relay {
+            if let Ok(()) = relay.connect(peer_id, addr).await {
+                connected_peers.insert(peer_id.clone(), addr.clone());
+                return Ok(());
+            }
+        }
+
+        // Try to connect via relay manager
+        if let Some(manager) = &self.relay_manager {
+            if let Ok(_) = manager.connect_to_peer(peer_id).await {
+                connected_peers.insert(peer_id.clone(), addr.clone());
+                return Ok(());
+            }
+        }
+
+        Err(anyhow::anyhow!("Failed to connect to peer"))
+    }
+
+    /// Disconnect from a peer
+    pub async fn disconnect(&self, peer_id: &PeerId) -> Result<()> {
+        // Remove from connected peers
+        let mut connected_peers = self.connected_peers.write().await;
+        connected_peers.remove(peer_id);
+
+        Ok(())
+    }
+
+    /// Send data to a peer
+    pub async fn send_data(&self, peer_id: &PeerId, data: &[u8]) -> Result<()> {
+        // Check if we're connected
+        let connected_peers = self.connected_peers.read().await;
+        if !connected_peers.contains_key(peer_id) {
+            return Err(anyhow::anyhow!("Not connected to peer"));
+        }
+
+        // Try to send via WebRTC
+        if let Some(transport) = &self.webrtc_transport {
+            if let Ok(()) = transport.send_message(peer_id, &String::from_utf8_lossy(data)).await {
+                return Ok(());
+            }
+        }
+
+        // Try to send via circuit relay
+        if let Some(relay) = &self.circuit_relay {
+            if let Ok(()) = relay.send_data(peer_id, data).await {
+                return Ok(());
+            }
+        }
+
+        // Try to send via relay manager
+        if let Some(manager) = &self.relay_manager {
+            // Get the relay ID
+            let relay_id = "relay-id"; // This is just a placeholder
+            if let Ok(()) = manager.send_data(peer_id, relay_id, data).await {
+                return Ok(());
+            }
+        }
+
+        Err(anyhow::anyhow!("Failed to send data to peer"))
+    }
+
+    /// Get the local peer ID
+    pub fn local_peer_id(&self) -> PeerId {
+        self.local_peer_id.clone()
+    }
+
+    /// Get the connected peers
+    pub async fn connected_peers(&self) -> HashMap<PeerId, Multiaddr> {
+        self.connected_peers.read().await.clone()
+    }
+
+    /// Extract the peer ID from a multiaddr
+    fn extract_peer_id(addr: &Multiaddr) -> Option<PeerId> {
+        addr.iter().find_map(|proto| match proto {
+            Protocol::P2p(hash) => {
+                Some(PeerId::from_multihash(hash).expect("Valid multihash"))
+            }
+            _ => None,
         })
+    }
+}
+
+/// Circuit relay manager
+pub struct CircuitRelayManager {
+    /// Local peer ID
+    local_peer_id: PeerId,
+    /// Circuit relay
+    circuit_relay: Arc<CircuitRelay>,
+    /// Connected relays
+    connected_relays: Arc<RwLock<HashMap<PeerId, Multiaddr>>>,
+}
+
+impl CircuitRelayManager {
+    /// Create a new circuit relay manager
+    pub fn new(local_peer_id: PeerId, circuit_relay: Arc<CircuitRelay>) -> Self {
+        Self {
+            local_peer_id,
+            circuit_relay,
+            connected_relays: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Connect to a relay
+    pub async fn connect_to_relay(&self, relay_peer_id: PeerId, relay_addr: Multiaddr) -> Result<()> {
+        // Check if we're already connected
+        let mut connected_relays = self.connected_relays.write().await;
+        if connected_relays.contains_key(&relay_peer_id) {
+            return Ok(());
+        }
+
+        // Connect to the relay
+        self.circuit_relay.connect_to_relay(&relay_peer_id, &relay_addr).await?;
+
+        // Add to connected relays
+        connected_relays.insert(relay_peer_id, relay_addr);
+
+        Ok(())
+    }
+
+    /// Disconnect from a relay
+    pub async fn disconnect_from_relay(&self, relay_peer_id: &PeerId) -> Result<()> {
+        // Check if we're connected
+        let mut connected_relays = self.connected_relays.write().await;
+        if !connected_relays.contains_key(relay_peer_id) {
+            return Ok(());
+        }
+
+        // Disconnect from the relay
+        self.circuit_relay.disconnect_from_relay(relay_peer_id).await?;
+
+        // Remove from connected relays
+        connected_relays.remove(relay_peer_id);
+
+        Ok(())
+    }
+
+    /// Get the connected relays
+    pub async fn connected_relays(&self) -> HashMap<PeerId, Multiaddr> {
+        self.connected_relays.read().await.clone()
     }
 }

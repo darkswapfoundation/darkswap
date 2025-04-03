@@ -16,13 +16,13 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # Bitcoin
 bitcoin = { workspace = true }
-# Disable BDK for now due to dependency conflicts
-# bdk = { version = "0.27.1", optional = true, features = ["all-keys", "keys-bip39"] }
+bdk = { version = "0.27.1", optional = true, features = ["all-keys", "keys-bip39"] }
 
 # P2P networking
 libp2p = { workspace = true }
 libp2p-gossipsub = "0.42.0"
-libp2p-mdns = { version = "0.42.0", features = ["tokio", "async-io"] }
+# Disable mdns for now due to dependency conflicts
+# libp2p-mdns = { version = "0.42.0", features = ["tokio", "async-io"], optional = true }
 libp2p-noise = "0.41.0"
 libp2p-yamux = "0.42.0"
 libp2p-relay = "0.14.0"
@@ -61,7 +61,8 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 lazy_static = "1.4.0"
 zeroize = "1.6.0"
-trust-dns-resolver = "0.22.0"
+# Disable trust-dns-resolver for now due to dependency conflicts
+# trust-dns-resolver = { version = "0.22.0", optional = true }
 base64 = "0.13.0"
 
 # WebAssembly
@@ -79,11 +80,11 @@ wasm-bindgen-test = "0.3.36"
 
 [features]
 default = []
-# Disable BDK wallet feature for now
-# bdk-wallet = ["bdk"]
+bdk-wallet = ["bdk"]
+# mdns = ["libp2p-mdns", "trust-dns-resolver"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys", "console_error_panic_hook"]
 webrtc = ["libp2p-webrtc"]
-full = ["wasm", "webrtc"]
+full = ["wasm", "webrtc", "bdk-wallet"]
 
 [package.metadata.docs.rs]
 all-features = true
