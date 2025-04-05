@@ -1,0 +1,1 @@
+/home/ghostinthegrey/darkswap/darkswap-core/target/debug/libdarkswap_lib.rlib: /home/ghostinthegrey/darkswap/darkswap-core/darkswap-lib/src/error.rs /home/ghostinthegrey/darkswap/darkswap-core/darkswap-lib/src/lib.rs /home/ghostinthegrey/darkswap/darkswap-core/darkswap-lib/src/types.rs /home/ghostinthegrey/darkswap/darkswap-core/darkswap-lib/src/utils.rs

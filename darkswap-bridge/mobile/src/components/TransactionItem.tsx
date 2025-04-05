@@ -1,201 +1,128 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity
-} from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Transaction, TransactionStatus } from '../utils/types';
-import { formatRelativeTime, formatBTC } from '../utils/formatters';
+import { formatBTC, formatDate, formatTxHash } from '../utils/formatters';
 
 interface TransactionItemProps {
   transaction: Transaction;
   onPress?: () => void;
-  showAsset?: boolean;
 }
 
-const TransactionItem: React.FC<TransactionItemProps> = ({
-  transaction,
-  onPress,
-  showAsset = true
-}) => {
+const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, onPress }) => {
   const { theme, isDark } = useTheme();
   
-  // Get transaction icon based on type and status
-  const getTransactionIcon = () => {
-    if (transaction.status === 'pending' || transaction.status === 'confirming') {
-      return 'clock-outline';
-    }
-    
-    if (transaction.status === 'failed') {
-      return 'alert-circle-outline';
-    }
-    
-    switch (transaction.type) {
-      case 'deposit':
-        return 'arrow-down';
-      case 'withdrawal':
-        return 'arrow-up';
-      case 'trade':
-        return 'swap-horizontal';
-      default:
-        return 'circle-outline';
-    }
-  };
-  
-  // Get transaction icon color based on type and status
-  const getTransactionIconColor = () => {
-    if (transaction.status === 'failed') {
-      return '#f44336';
-    }
-    
-    if (transaction.status === 'pending' || transaction.status === 'confirming') {
-      return '#ff9800';
-    }
-    
-    switch (transaction.type) {
-      case 'deposit':
-        return '#4caf50';
-      case 'withdrawal':
-        return '#f44336';
-      case 'trade':
-        return '#2196f3';
-      default:
-        return '#9e9e9e';
-    }
-  };
-  
-  // Get transaction title based on type
-  const getTransactionTitle = () => {
-    switch (transaction.type) {
-      case 'deposit':
-        return 'Received';
-      case 'withdrawal':
-        return 'Sent';
-      case 'trade':
-        return 'Traded';
-      default:
-        return 'Transaction';
-    }
-  };
-  
-  // Get transaction amount prefix based on type
-  const getAmountPrefix = () => {
-    switch (transaction.type) {
-      case 'deposit':
-        return '+';
-      case 'withdrawal':
-        return '-';
-      default:
-        return '';
-    }
-  };
-  
-  // Get transaction status text
-  const getStatusText = (status: TransactionStatus) => {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'confirming':
-        return `Confirming (${transaction.confirmations}/${transaction.requiredConfirmations})`;
-      case 'confirmed':
-        return 'Confirmed';
-      case 'failed':
-        return 'Failed';
-      default:
-        return '';
-    }
-  };
-  
-  // Get transaction status color
+  // Get status color
   const getStatusColor = (status: TransactionStatus) => {
     switch (status) {
       case 'pending':
+        return '#f39c12'; // Orange
       case 'confirming':
-        return '#ff9800';
+        return '#3498db'; // Blue
       case 'confirmed':
-        return '#4caf50';
+        return theme.chart.positive; // Green
       case 'failed':
-        return '#f44336';
+        return theme.chart.negative; // Red
       default:
-        return '#9e9e9e';
+        return theme.text.secondary;
     }
+  };
+  
+  // Get transaction icon based on type
+  const getTransactionIcon = () => {
+    switch (transaction.type) {
+      case 'deposit':
+        return '↓';
+      case 'withdrawal':
+        return '↑';
+      case 'trade':
+        return '↔';
+      default:
+        return '•';
+    }
+  };
+  
+  // Format transaction amount with sign
+  const formatAmount = () => {
+    const sign = transaction.type === 'deposit' ? '+' : transaction.type === 'withdrawal' ? '-' : '';
+    return `${sign}${formatBTC(transaction.amount)}`;
   };
   
   return (
     <TouchableOpacity
       style={[
         styles.container,
-        { backgroundColor: isDark ? '#1e1e1e' : '#ffffff' }
+        { backgroundColor: theme.surface },
+        onPress ? styles.pressable : null,
       ]}
       onPress={onPress}
       disabled={!onPress}
     >
-      {/* Transaction Icon */}
-      <View
-        style={[
-          styles.iconContainer,
-          { backgroundColor: getTransactionIconColor() + '20' } // 20% opacity
-        ]}
-      >
-        <Icon
-          name={getTransactionIcon()}
-          size={24}
-          color={getTransactionIconColor()}
-        />
+      <View style={styles.iconContainer}>
+        <View
+          style={[
+            styles.icon,
+            {
+              backgroundColor: isDark ? '#333333' : '#f0f0f0',
+            },
+          ]}
+        >
+          <Text style={[styles.iconText, { color: theme.text.primary }]}>
+            {getTransactionIcon()}
+          </Text>
+        </View>
       </View>
       
-      {/* Transaction Details */}
-      <View style={styles.detailsContainer}>
-        {/* Title and Time */}
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: isDark ? '#ffffff' : '#000000' }]}>
-            {getTransactionTitle()}
+      <View style={styles.contentContainer}>
+        <View style={styles.topRow}>
+          <Text style={[styles.type, { color: theme.text.primary }]}>
+            {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
           </Text>
-          <Text style={[styles.time, { color: isDark ? '#aaaaaa' : '#666666' }]}>
-            {formatRelativeTime(transaction.timestamp)}
+          <Text
+            style={[
+              styles.amount,
+              {
+                color:
+                  transaction.type === 'deposit'
+                    ? theme.chart.positive
+                    : transaction.type === 'withdrawal'
+                    ? theme.chart.negative
+                    : theme.text.primary,
+              },
+            ]}
+          >
+            {formatAmount()}
           </Text>
         </View>
         
-        {/* Status */}
-        <View style={styles.statusRow}>
-          <Text style={[styles.status, { color: getStatusColor(transaction.status) }]}>
-            {getStatusText(transaction.status)}
+        <View style={styles.middleRow}>
+          <Text style={[styles.hash, { color: theme.text.secondary }]}>
+            {transaction.txid ? formatTxHash(transaction.txid) : 'No TXID'}
           </Text>
-          {transaction.txid && (
-            <Text style={[styles.txid, { color: isDark ? '#aaaaaa' : '#666666' }]}>
-              {`${transaction.txid.substring(0, 8)}...${transaction.txid.substring(transaction.txid.length - 8)}`}
+          <Text style={[styles.date, { color: theme.text.secondary }]}>
+            {formatDate(transaction.timestamp)}
+          </Text>
+        </View>
+        
+        <View style={styles.bottomRow}>
+          <View style={styles.statusContainer}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: getStatusColor(transaction.status) },
+              ]}
+            />
+            <Text style={[styles.status, { color: theme.text.secondary }]}>
+              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+            </Text>
+          </View>
+          
+          {transaction.status === 'confirming' && (
+            <Text style={[styles.confirmations, { color: theme.text.secondary }]}>
+              {transaction.confirmations}/{transaction.requiredConfirmations} confirmations
             </Text>
           )}
         </View>
-      </View>
-      
-      {/* Transaction Amount */}
-      <View style={styles.amountContainer}>
-        <Text
-          style={[
-            styles.amount,
-            {
-              color:
-                transaction.type === 'deposit'
-                  ? '#4caf50'
-                  : transaction.type === 'withdrawal'
-                  ? '#f44336'
-                  : isDark
-                  ? '#ffffff'
-                  : '#000000'
-            }
-          ]}
-        >
-          {`${getAmountPrefix()}${formatBTC(transaction.amount, 8).replace(' BTC', '')}`}
-        </Text>
-        {showAsset && (
-          <Text style={[styles.asset, { color: isDark ? '#aaaaaa' : '#666666' }]}>
-            {transaction.asset}
-          </Text>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -204,62 +131,80 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  },
+  pressable: {
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 16,
   },
-  detailsContainer: {
+  icon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  contentContainer: {
     flex: 1,
   },
-  titleRow: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
   },
-  title: {
+  type: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  time: {
-    fontSize: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  status: {
-    fontSize: 14,
     fontWeight: '500',
-    marginRight: 8,
-  },
-  txid: {
-    fontSize: 12,
-  },
-  amountContainer: {
-    alignItems: 'flex-end',
   },
   amount: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
   },
-  asset: {
-    fontSize: 12,
-    marginTop: 2,
+  middleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  hash: {
+    fontSize: 14,
+  },
+  date: {
+    fontSize: 14,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  status: {
+    fontSize: 14,
+  },
+  confirmations: {
+    fontSize: 14,
   },
 });
 

@@ -28,37 +28,39 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   
   // Load notifications from storage on mount
   useEffect(() => {
-    try {
-      // In a real app, you would use AsyncStorage
-      // const loadNotifications = async () => {
-      //   const savedNotifications = await AsyncStorage.getItem('notifications');
-      //   if (savedNotifications) {
-      //     setNotifications(JSON.parse(savedNotifications));
-      //   }
-      // };
-      // loadNotifications();
-    } catch (error) {
-      console.error('Error loading notifications from storage:', error);
-    }
+    const loadNotifications = async () => {
+      try {
+        // In a real app, you would use AsyncStorage
+        // const savedNotifications = await AsyncStorage.getItem('notifications');
+        // if (savedNotifications) {
+        //   setNotifications(JSON.parse(savedNotifications));
+        // }
+      } catch (error) {
+        console.error('Error loading notifications from storage:', error);
+      }
+    };
+    
+    loadNotifications();
   }, []);
   
   // Save notifications to storage when they change
   useEffect(() => {
-    try {
-      // In a real app, you would use AsyncStorage
-      // const saveNotifications = async () => {
-      //   await AsyncStorage.setItem('notifications', JSON.stringify(notifications));
-      // };
-      // saveNotifications();
-    } catch (error) {
-      console.error('Error saving notifications to storage:', error);
-    }
+    const saveNotifications = async () => {
+      try {
+        // In a real app, you would use AsyncStorage
+        // await AsyncStorage.setItem('notifications', JSON.stringify(notifications));
+      } catch (error) {
+        console.error('Error saving notifications to storage:', error);
+      }
+    };
+    
+    saveNotifications();
   }, [notifications]);
   
   // Add a notification
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
-      id: `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       timestamp: Date.now(),
       read: false,
       ...notification

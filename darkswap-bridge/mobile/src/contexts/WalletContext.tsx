@@ -44,10 +44,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         const walletData = null;
         
         if (walletData) {
-          const parsedWallet = JSON.parse(walletData);
+          const parsedWallet = JSON.parse(walletData) as Wallet;
           
           // Verify wallet connection
-          const response = await get(`/wallet/${parsedWallet.id}/status`);
+          const response = await get<{ connected: boolean }>(`/wallet/${parsedWallet.id}/status`);
           
           if (response && response.success && response.data?.connected) {
             setWallet(parsedWallet);

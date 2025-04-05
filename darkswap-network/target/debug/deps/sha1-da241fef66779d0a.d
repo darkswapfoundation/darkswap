@@ -1,0 +1,11 @@
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libsha1-da241fef66779d0a.rmeta: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/consts.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/soft.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/x86.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libsha1-da241fef66779d0a.rlib: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/consts.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/soft.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/x86.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/sha1-da241fef66779d0a.d: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/consts.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/soft.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/x86.rs
+
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/lib.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/consts.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/soft.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha-1-0.9.8/src/compress/x86.rs:

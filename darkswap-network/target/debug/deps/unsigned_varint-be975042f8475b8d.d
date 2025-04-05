@@ -1,0 +1,10 @@
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libunsigned_varint-be975042f8475b8d.rmeta: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/decode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/encode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/io.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libunsigned_varint-be975042f8475b8d.rlib: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/decode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/encode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/io.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/unsigned_varint-be975042f8475b8d.d: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/decode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/encode.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/io.rs
+
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/lib.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/decode.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/encode.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsigned-varint-0.8.0/src/io.rs:

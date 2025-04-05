@@ -5,9 +5,16 @@ import { useWallet } from '../contexts/WalletContext';
 import { useApi } from '../contexts/ApiContext';
 import { Price } from '../utils/types';
 import { formatPrice, formatPercent } from '../utils/formatters';
-import AssetCard from '../components/AssetCard';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { MainTabParamList } from '../navigation/types';
 
-const HomeScreen = () => {
+type HomeScreenNavigationProp = StackNavigationProp<MainTabParamList, 'Home'>;
+
+interface HomeScreenProps {
+  navigation: HomeScreenNavigationProp;
+}
+
+const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { wallet, balance, refreshBalance } = useWallet();
   const { get } = useApi();
@@ -99,16 +106,30 @@ const HomeScreen = () => {
               style={styles.balanceCards}
             >
               {Object.entries(balance).map(([asset, amount]) => (
-                <AssetCard
+                <View
                   key={asset}
-                  symbol={asset}
-                  balance={amount}
-                  icon={{ uri: `https://api.darkswap.io/assets/${asset.toLowerCase()}.png` }}
-                  showBalance
-                  showPrice
-                  price={prices.find(p => p.pair === `${asset}/BTC`)?.price}
-                  change24h={prices.find(p => p.pair === `${asset}/BTC`)?.change24h}
-                />
+                  style={[styles.balanceCard, { backgroundColor: isDark ? '#333333' : '#f0f0f0' }]}
+                >
+                  <Text style={[styles.assetSymbol, { color: theme.text.primary }]}>
+                    {asset}
+                  </Text>
+                  <Text style={[styles.assetBalance, { color: theme.text.primary }]}>
+                    {formatPrice(amount)}
+                  </Text>
+                  
+                  {prices.find(p => p.pair === `${asset}/BTC`) && (
+                    <Text
+                      style={[
+                        styles.assetPrice,
+                        {
+                          color: theme.text.secondary,
+                        },
+                      ]}
+                    >
+                      {formatPrice(prices.find(p => p.pair === `${asset}/BTC`)?.price || 0)} BTC
+                    </Text>
+                  )}
+                </View>
               ))}
             </ScrollView>
           </View>
@@ -212,6 +233,25 @@ const styles = StyleSheet.create({
   balanceCards: {
     flexDirection: 'row',
     marginHorizontal: -8,
+  },
+  balanceCard: {
+    padding: 16,
+    borderRadius: 8,
+    marginRight: 12,
+    minWidth: 120,
+  },
+  assetSymbol: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  assetBalance: {
+    fontSize: 18,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  assetPrice: {
+    fontSize: 14,
   },
   connectWallet: {
     alignItems: 'center',

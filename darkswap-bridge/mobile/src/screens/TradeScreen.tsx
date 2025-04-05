@@ -5,8 +5,16 @@ import { useWallet } from '../contexts/WalletContext';
 import { useApi } from '../contexts/ApiContext';
 import { Price, OrderType } from '../utils/types';
 import { formatPrice, formatPercent } from '../utils/formatters';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { TradeStackParamList } from '../navigation/types';
 
-const TradeScreen = () => {
+type TradeScreenNavigationProp = StackNavigationProp<TradeStackParamList, 'TradeHome'>;
+
+interface TradeScreenProps {
+  navigation: TradeScreenNavigationProp;
+}
+
+const TradeScreen: React.FC<TradeScreenProps> = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { wallet, balance } = useWallet();
   const { get } = useApi();
@@ -63,6 +71,16 @@ const TradeScreen = () => {
   // Get base and quote balances
   const baseBalance = balance[baseAsset] || 0;
   const quoteBalance = balance[quoteAsset] || 0;
+  
+  // Handle place order
+  const handlePlaceOrder = () => {
+    navigation.navigate('PlaceOrder', { pair: selectedPair, type: orderType });
+  };
+  
+  // Handle view order book
+  const handleViewOrderBook = () => {
+    navigation.navigate('OrderBook', { pair: selectedPair });
+  };
   
   return (
     <ScrollView
@@ -213,7 +231,6 @@ const TradeScreen = () => {
       
       {/* Trade Form */}
       <View style={[styles.tradeForm, { backgroundColor: theme.surface }]}>
-        {/* In a real app, you would implement a proper trade form here */}
         <Text style={[styles.tradeFormTitle, { color: theme.text.primary }]}>
           {orderType === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
         </Text>
@@ -240,6 +257,7 @@ const TradeScreen = () => {
             },
           ]}
           disabled={!wallet}
+          onPress={handlePlaceOrder}
         >
           <Text style={styles.tradeButtonText}>
             {orderType === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
@@ -253,31 +271,15 @@ const TradeScreen = () => {
         )}
       </View>
       
-      {/* Order Book Placeholder */}
-      <View style={[styles.orderBookSection, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-          Order Book
+      {/* Order Book Button */}
+      <TouchableOpacity
+        style={[styles.orderBookButton, { backgroundColor: theme.surface }]}
+        onPress={handleViewOrderBook}
+      >
+        <Text style={[styles.orderBookButtonText, { color: theme.text.primary }]}>
+          View Order Book
         </Text>
-        
-        <View style={[styles.formPlaceholder, { backgroundColor: theme.background }]}>
-          <Text style={[styles.placeholderText, { color: theme.text.secondary }]}>
-            Order book would go here
-          </Text>
-        </View>
-      </View>
-      
-      {/* Recent Trades Placeholder */}
-      <View style={[styles.recentTradesSection, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-          Recent Trades
-        </Text>
-        
-        <View style={[styles.formPlaceholder, { backgroundColor: theme.background }]}>
-          <Text style={[styles.placeholderText, { color: theme.text.secondary }]}>
-            Recent trades would go here
-          </Text>
-        </View>
-      </View>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -394,21 +396,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  orderBookSection: {
+  orderBookButton: {
     margin: 16,
     padding: 16,
     borderRadius: 12,
-  },
-  recentTradesSection: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    alignItems: 'center',
     marginBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  orderBookButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

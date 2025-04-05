@@ -51,10 +51,17 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({
     const requestInterceptor = api.interceptors.request.use(
       (config) => {
         // Add authorization header if token exists
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers = config.headers || {};
-          config.headers.Authorization = `Bearer ${token}`;
+        try {
+          // In a real app, you would use AsyncStorage
+          // const token = await AsyncStorage.getItem('token');
+          const token = null;
+          
+          if (token) {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          console.error('Error getting token:', error);
         }
         
         return config;
@@ -73,7 +80,9 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({
         // Handle token expiration
         if (error.response?.status === 401) {
           // Clear token and redirect to login
-          localStorage.removeItem('token');
+          // In a real app, you would use AsyncStorage
+          // AsyncStorage.removeItem('token');
+          
           // In a real app, you would use navigation
           // navigation.navigate('Login');
         }
@@ -211,7 +220,7 @@ export const useApi = (): ApiContextType => {
 // Default API provider with environment-specific URL
 export const DefaultApiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Get API URL from environment
-  const apiUrl = process.env.REACT_APP_API_URL || 'https://api.darkswap.io';
+  const apiUrl = 'https://api.darkswap.io';
   
   return (
     <ApiProvider options={{ baseURL: apiUrl }}>

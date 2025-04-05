@@ -1,206 +1,298 @@
 # DarkSwap Trading Guide
 
-This guide will walk you through the process of creating and accepting trade offers on the DarkSwap platform.
+This guide provides step-by-step instructions for trading on the DarkSwap platform, including setting up your wallet, placing orders, and executing trades.
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Prerequisites](#prerequisites)
-3. [Creating a Trade Offer](#creating-a-trade-offer)
-4. [Viewing Trade Offers](#viewing-trade-offers)
-5. [Accepting a Trade Offer](#accepting-a-trade-offer)
-6. [Cancelling a Trade Offer](#cancelling-a-trade-offer)
-7. [Viewing Trade History](#viewing-trade-history)
-8. [Troubleshooting](#troubleshooting)
+- [Introduction](#introduction)
+- [Setting Up Your Wallet](#setting-up-your-wallet)
+- [Understanding the Interface](#understanding-the-interface)
+- [Placing Orders](#placing-orders)
+- [Executing Trades](#executing-trades)
+- [Managing Your Orders](#managing-your-orders)
+- [Trading Strategies](#trading-strategies)
+- [Security Best Practices](#security-best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Introduction
 
-DarkSwap is a decentralized trading platform that allows you to trade Bitcoin, runes, and alkanes directly with other users. The platform uses a peer-to-peer network to connect users and facilitate trades without the need for a central authority.
+DarkSwap is a decentralized exchange (DEX) that allows you to trade Bitcoin, Runes, and Alkanes directly from your wallet without intermediaries. The platform uses peer-to-peer technology to facilitate trades, ensuring privacy and security.
 
-## Prerequisites
+### Key Features
 
-Before you can start trading on DarkSwap, you need to:
+- **Decentralized**: Trade directly from your wallet without intermediaries
+- **Private**: No KYC required, and trades are conducted peer-to-peer
+- **Secure**: Non-custodial trading with atomic swaps
+- **Low Fees**: Minimal network fees for transactions
+- **Cross-Chain**: Trade between Bitcoin, Runes, and Alkanes
 
-1. **Connect your wallet**: DarkSwap supports various Bitcoin wallets. You need to connect your wallet to the platform to be able to trade.
+## Setting Up Your Wallet
 
-2. **Have assets to trade**: You need to have Bitcoin, runes, or alkanes in your wallet to be able to create trade offers.
+Before you can start trading on DarkSwap, you need to set up your wallet.
 
-3. **Be connected to the network**: DarkSwap uses a peer-to-peer network to connect users. You need to be connected to the network to be able to see and accept trade offers from other users.
+### Connecting Your Wallet
 
-## Creating a Trade Offer
+1. Navigate to the DarkSwap web interface at [https://darkswap.io](https://darkswap.io)
+2. Click on the "Connect Wallet" button in the top-right corner
+3. Choose your wallet type:
+   - **Built-in Wallet**: Create or import a wallet directly in DarkSwap
+   - **External Wallet**: Connect to an external wallet like Sparrow or Electrum
 
-To create a trade offer, follow these steps:
+### Creating a New Wallet
 
-1. **Navigate to the Trade page**: Click on the "Trade" link in the navigation menu.
+If you choose to create a new wallet:
 
-2. **Fill out the trade form**:
-   - **You Send**: Select the asset you want to send and enter the amount.
-   - **You Receive**: Select the asset you want to receive and enter the amount.
-   - **Expiration**: Enter the expiration time for your trade offer in seconds. The default is 3600 seconds (1 hour).
+1. Click on "Create New Wallet"
+2. Set a strong password for your wallet
+3. Write down your recovery phrase (12 or 24 words) and store it securely
+4. Confirm your recovery phrase by selecting the words in the correct order
+5. Your wallet is now created and ready to use
 
-3. **Click "Create Offer"**: Once you've filled out the form, click the "Create Offer" button to create your trade offer.
+### Importing an Existing Wallet
 
-4. **Wait for confirmation**: The platform will create your trade offer and broadcast it to the network. You'll see a success notification when the offer is created.
+If you choose to import an existing wallet:
 
-### Example
+1. Click on "Import Wallet"
+2. Choose the import method:
+   - **Recovery Phrase**: Enter your 12 or 24-word recovery phrase
+   - **Private Key**: Enter your private key
+   - **Watch-Only**: Enter your public key or address (for viewing only)
+3. Set a password for accessing your wallet on DarkSwap
+4. Your wallet is now imported and ready to use
 
-Let's say you want to sell 0.01 BTC for 1000 RUNE:
+### Funding Your Wallet
 
-1. Navigate to the Trade page.
+To trade on DarkSwap, you need to have funds in your wallet:
 
-2. Fill out the trade form:
-   - **You Send**: Select "Bitcoin" and enter "0.01".
-   - **You Receive**: Select "Rune", enter "rune-id" in the ID field, and enter "1000" in the amount field.
-   - **Expiration**: Leave the default value of "3600" (1 hour).
+1. Go to the "Wallet" tab
+2. Click on "Deposit"
+3. Select the asset you want to deposit (BTC, Runes, or Alkanes)
+4. Send funds to the displayed address
+5. Wait for the transaction to be confirmed (usually 1-2 confirmations)
 
-3. Click "Create Offer".
+## Understanding the Interface
 
-4. Wait for the success notification.
+The DarkSwap interface consists of several key components:
 
-### Notes
+### Navigation
 
-- The platform will check your balance before creating the trade offer. If you don't have enough of the asset you're trying to send, you'll see an error message.
-- The expiration time is in seconds. For example, 3600 seconds is 1 hour, 86400 seconds is 1 day.
-- Once your trade offer is created, it will be visible to other users on the network.
+- **Trade**: The main trading interface
+- **Orders**: View and manage your open orders
+- **History**: View your trade history
+- **Wallet**: Manage your wallet and assets
+- **Settings**: Configure your trading preferences
 
-## Viewing Trade Offers
+### Trading Interface
 
-To view available trade offers, follow these steps:
+The trading interface includes:
 
-1. **Navigate to the Trade page**: Click on the "Trade" link in the navigation menu.
+- **Order Book**: Shows all open buy and sell orders
+- **Price Chart**: Displays price history for the selected pair
+- **Trade Form**: Used to place buy and sell orders
+- **Recent Trades**: Shows recently executed trades
 
-2. **Scroll down to the Trade Offers section**: This section shows all available trade offers on the network.
+### Order Book
 
-3. **Filter and sort trade offers**: You can filter and sort trade offers by asset type, amount, and expiration time.
+The order book displays all open buy and sell orders for the selected trading pair:
 
-### Understanding the Trade Offers Table
+- **Buy Orders (Bids)**: Shown in green, sorted by price (highest first)
+- **Sell Orders (Asks)**: Shown in red, sorted by price (lowest first)
+- **Price**: The price per unit of the base asset
+- **Amount**: The amount of the base asset being bought or sold
+- **Total**: The total value of the order in the quote asset
 
-The Trade Offers table shows the following information for each trade offer:
+### Price Chart
 
-- **Maker**: The peer ID of the user who created the offer.
-- **You Send**: The asset and amount you need to send to accept the offer.
-- **You Receive**: The asset and amount you will receive if you accept the offer.
-- **Expiration**: The time when the offer will expire.
-- **Action**: Buttons to accept or cancel the offer.
+The price chart shows the price history for the selected trading pair:
 
-### Notes
+- **Timeframes**: 1m, 5m, 15m, 1h, 4h, 1d, 1w
+- **Chart Types**: Candlestick, Line, Area
+- **Indicators**: Moving averages, RSI, MACD, and more
 
-- Expired trade offers are shown with a greyed-out background and cannot be accepted.
-- Your own trade offers are shown with a "Cancel" button instead of an "Accept" button.
-- The platform automatically refreshes the trade offers list periodically, but you can also click the "Refresh" button to manually refresh the list.
+## Placing Orders
 
-## Accepting a Trade Offer
+DarkSwap supports two types of orders:
 
-To accept a trade offer, follow these steps:
+- **Limit Orders**: Orders at a specific price
+- **Market Orders**: Orders at the best available price
 
-1. **Navigate to the Trade page**: Click on the "Trade" link in the navigation menu.
+### Placing a Limit Order
 
-2. **Find the trade offer you want to accept**: Scroll through the Trade Offers section to find the offer you want to accept.
+1. Go to the "Trade" tab
+2. Select the trading pair (e.g., BTC/RUNE1)
+3. Choose "Limit" order type
+4. Enter the price at which you want to buy or sell
+5. Enter the amount you want to buy or sell
+6. Review the total cost or proceeds
+7. Click "Buy" or "Sell" to place your order
 
-3. **Check your balance**: Make sure you have enough of the asset you need to send to accept the offer.
+### Placing a Market Order
 
-4. **Click "Accept"**: Click the "Accept" button next to the trade offer you want to accept.
+1. Go to the "Trade" tab
+2. Select the trading pair (e.g., BTC/RUNE1)
+3. Choose "Market" order type
+4. Enter the amount you want to buy or sell
+5. Review the estimated price and total cost or proceeds
+6. Click "Buy" or "Sell" to place your order
 
-5. **Confirm the trade**: A confirmation dialog will appear. Review the trade details and click "Confirm" to proceed.
+### Order Status
 
-6. **Wait for the trade to complete**: The platform will execute the trade and transfer the assets between the wallets. You'll see a success notification when the trade is completed.
+After placing an order, it will appear in the "Orders" tab with one of the following statuses:
 
-### Example
+- **Open**: The order is active and waiting to be filled
+- **Partially Filled**: The order has been partially filled
+- **Filled**: The order has been completely filled
+- **Cancelled**: The order has been cancelled
+- **Expired**: The order has expired
 
-Let's say you want to accept a trade offer where you send 1000 RUNE and receive 0.01 BTC:
+## Executing Trades
 
-1. Navigate to the Trade page.
+When your order matches with another order, a trade is executed:
 
-2. Find the trade offer in the Trade Offers section.
+1. The DarkSwap protocol initiates an atomic swap between the two parties
+2. Both parties sign the transaction
+3. The transaction is broadcast to the network
+4. Once confirmed, the assets are exchanged
 
-3. Check that you have at least 1000 RUNE in your wallet.
+### Trade Status
 
-4. Click "Accept" next to the trade offer.
+Trades can have the following statuses:
 
-5. Review the trade details in the confirmation dialog and click "Confirm".
+- **Pending**: The trade is being processed
+- **Confirming**: The transaction is waiting for confirmations
+- **Completed**: The trade has been successfully completed
+- **Failed**: The trade has failed
 
-6. Wait for the success notification.
+### Trade Details
 
-### Notes
+You can view the details of your trades in the "History" tab:
 
-- The platform will check your balance before accepting the trade offer. If you don't have enough of the asset you're trying to send, you'll see an error message.
-- Once you accept a trade offer, the trade is executed immediately. Make sure you want to proceed before confirming.
-- If the trade offer expires before you accept it, you'll see an error message.
+- **Trade ID**: Unique identifier for the trade
+- **Date**: Date and time of the trade
+- **Pair**: The trading pair (e.g., BTC/RUNE1)
+- **Type**: Buy or sell
+- **Price**: The price at which the trade was executed
+- **Amount**: The amount of the base asset bought or sold
+- **Total**: The total value of the trade in the quote asset
+- **Status**: The current status of the trade
 
-## Cancelling a Trade Offer
+## Managing Your Orders
 
-To cancel a trade offer you've created, follow these steps:
+You can manage your open orders in the "Orders" tab:
 
-1. **Navigate to the Trade page**: Click on the "Trade" link in the navigation menu.
+### Viewing Orders
 
-2. **Find your trade offer**: Scroll through the Trade Offers section to find your offer.
+1. Go to the "Orders" tab
+2. View all your open orders
+3. Filter orders by trading pair, type, or status
 
-3. **Click "Cancel"**: Click the "Cancel" button next to your trade offer.
+### Cancelling Orders
 
-4. **Wait for confirmation**: The platform will cancel your trade offer and remove it from the network. You'll see a success notification when the offer is cancelled.
+1. Go to the "Orders" tab
+2. Find the order you want to cancel
+3. Click the "Cancel" button
+4. Confirm the cancellation
 
-### Notes
+### Modifying Orders
 
-- You can only cancel trade offers that you've created.
-- Once you cancel a trade offer, it cannot be restored. You'll need to create a new offer if you want to trade again.
-- If someone accepts your trade offer before you cancel it, the trade will be executed and cannot be cancelled.
+DarkSwap does not support direct order modification. To modify an order:
 
-## Viewing Trade History
+1. Cancel the existing order
+2. Place a new order with the desired parameters
 
-To view your trade history, follow these steps:
+## Trading Strategies
 
-1. **Navigate to the Trade page**: Click on the "Trade" link in the navigation menu.
+Here are some common trading strategies you can use on DarkSwap:
 
-2. **Scroll down to the Trade History section**: This section shows all your past trades.
+### Market Making
 
-### Understanding the Trade History Table
+Market making involves placing both buy and sell orders around the current market price to profit from the spread:
 
-The Trade History table shows the following information for each trade:
+1. Place buy orders slightly below the current market price
+2. Place sell orders slightly above the current market price
+3. Profit from the difference when both orders are filled
 
-- **Date**: The date and time when the trade was executed.
-- **Type**: Whether you bought or sold the asset.
-- **Asset**: The asset that was traded.
-- **Amount**: The amount of the asset that was traded.
-- **Price**: The price of the asset in the trade.
-- **Status**: The status of the trade (completed, pending, or failed).
+### Arbitrage
 
-### Notes
+Arbitrage involves taking advantage of price differences between different markets:
 
-- The trade history shows all trades you've participated in, whether you created the offer or accepted it.
-- The platform automatically refreshes the trade history periodically, but you can also click the "Refresh" button to manually refresh the list.
+1. Monitor prices on DarkSwap and other exchanges
+2. Buy assets where they are cheaper
+3. Sell them where they are more expensive
+4. Profit from the price difference
+
+### Swing Trading
+
+Swing trading involves capturing medium-term price movements:
+
+1. Identify support and resistance levels
+2. Buy near support levels
+3. Sell near resistance levels
+4. Hold positions for days or weeks
+
+## Security Best Practices
+
+To ensure the security of your assets while trading on DarkSwap:
+
+### Wallet Security
+
+- Use a strong, unique password for your wallet
+- Store your recovery phrase in a secure location
+- Consider using a hardware wallet for large amounts
+- Enable two-factor authentication if available
+
+### Trading Security
+
+- Double-check all order details before confirming
+- Start with small trades to get familiar with the platform
+- Be cautious of orders with unusually good prices
+- Monitor your open orders regularly
+
+### Network Security
+
+- Use a secure and private internet connection
+- Avoid trading on public Wi-Fi networks
+- Keep your browser and operating system updated
+- Use a VPN for additional privacy
 
 ## Troubleshooting
 
-### Common Issues
+Here are solutions to common issues you might encounter while trading on DarkSwap:
 
-#### "Insufficient balance" error when creating a trade offer
+### Order Not Showing Up
 
-This error occurs when you don't have enough of the asset you're trying to send. Check your wallet balance and adjust the amount in your trade offer.
+If your order doesn't appear in the order book:
 
-#### "Failed to create trade offer" error
+1. Check your wallet balance to ensure you have sufficient funds
+2. Verify that your wallet is connected
+3. Check if the order was placed on the correct trading pair
+4. Refresh the page or restart the application
 
-This error can occur for several reasons:
+### Trade Stuck in Pending Status
 
-- Network issues: Check your internet connection and try again.
-- Server issues: The DarkSwap server might be experiencing issues. Wait a few minutes and try again.
-- Wallet issues: Make sure your wallet is connected and has enough funds.
+If a trade is stuck in pending status:
 
-#### "Failed to accept trade offer" error
+1. Wait for a few minutes as the network might be congested
+2. Check the network status in the settings
+3. Verify that your wallet is online and connected
+4. Contact support if the issue persists
 
-This error can occur for several reasons:
+### Wallet Connection Issues
 
-- The trade offer might have expired or been cancelled by the maker.
-- You might not have enough of the asset you need to send to accept the offer.
-- Network or server issues might be preventing the trade from being executed.
+If you're having trouble connecting your wallet:
 
-#### "WebSocket disconnected" warning
+1. Ensure your wallet software is up to date
+2. Check your internet connection
+3. Clear your browser cache and cookies
+4. Try using a different browser
+5. Disable any browser extensions that might interfere
 
-This warning indicates that your connection to the DarkSwap server has been lost. The platform will automatically try to reconnect. If the issue persists, check your internet connection and try refreshing the page.
+### Price Discrepancies
 
-### Getting Help
+If you notice price discrepancies:
 
-If you encounter issues that aren't covered in this guide, you can:
+1. Remember that DarkSwap is a decentralized exchange, so prices may differ from centralized exchanges
+2. Check the depth of the order book, as thin markets can have wider spreads
+3. Verify that you're looking at the correct trading pair
 
-- Check the [FAQ](./faq.md) for answers to common questions.
-- Join the DarkSwap community on [Discord](https://discord.gg/darkswap) or [Telegram](https://t.me/darkswap) to get help from other users.
-- Contact the DarkSwap support team at support@darkswap.io.
+For additional help, visit the [DarkSwap Support Center](https://support.darkswap.io) or join the [DarkSwap Community Discord](https://discord.gg/darkswap).

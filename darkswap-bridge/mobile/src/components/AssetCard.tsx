@@ -1,149 +1,183 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ImageSourcePropType
-} from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { formatNumber } from '../utils/formatters';
+import { formatBTC, formatPercent } from '../utils/formatters';
 
 interface AssetCardProps {
   symbol: string;
-  balance: number;
-  icon: ImageSourcePropType;
-  selected?: boolean;
-  onPress?: () => void;
-  showBalance?: boolean;
-  showPrice?: boolean;
+  balance?: number;
   price?: number;
   change24h?: number;
+  icon?: { uri: string };
+  showBalance?: boolean;
+  showPrice?: boolean;
+  onPress?: () => void;
 }
 
 const AssetCard: React.FC<AssetCardProps> = ({
   symbol,
-  balance,
-  icon,
-  selected = false,
-  onPress,
-  showBalance = true,
-  showPrice = false,
+  balance = 0,
   price,
-  change24h
+  change24h,
+  icon,
+  showBalance = true,
+  showPrice = true,
+  onPress,
 }) => {
   const { theme, isDark } = useTheme();
-  
-  // Format change percentage
-  const formatChange = (change: number | undefined) => {
-    if (change === undefined) return '';
-    
-    const prefix = change >= 0 ? '+' : '';
-    return `${prefix}${change.toFixed(2)}%`;
-  };
-  
-  // Get change color
-  const getChangeColor = (change: number | undefined) => {
-    if (change === undefined) return '#888888';
-    return change >= 0 ? '#4caf50' : '#f44336';
-  };
   
   return (
     <TouchableOpacity
       style={[
         styles.container,
-        {
-          backgroundColor: isDark ? '#1e1e1e' : '#ffffff',
-          borderColor: selected ? (isDark ? '#3f51b5' : '#2196f3') : 'transparent'
-        }
+        { backgroundColor: theme.surface },
+        onPress ? styles.pressable : null,
       ]}
       onPress={onPress}
       disabled={!onPress}
     >
-      {/* Asset Icon */}
-      <View style={styles.iconContainer}>
-        <Image source={icon} style={styles.icon} />
+      <View style={styles.header}>
+        <View style={styles.iconContainer}>
+          {icon ? (
+            <Image source={icon} style={styles.icon} />
+          ) : (
+            <View
+              style={[
+                styles.placeholderIcon,
+                { backgroundColor: isDark ? '#333333' : '#f0f0f0' },
+              ]}
+            >
+              <Text style={[styles.placeholderText, { color: theme.text.primary }]}>
+                {symbol.substring(0, 1)}
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.titleContainer}>
+          <Text style={[styles.symbol, { color: theme.text.primary }]}>
+            {symbol}
+          </Text>
+        </View>
       </View>
       
-      {/* Asset Details */}
-      <View style={styles.detailsContainer}>
-        {/* Symbol */}
-        <Text style={[styles.symbol, { color: isDark ? '#ffffff' : '#000000' }]}>
-          {symbol}
-        </Text>
-        
-        {/* Balance */}
-        {showBalance && (
-          <Text style={[styles.balance, { color: isDark ? '#aaaaaa' : '#666666' }]}>
-            {formatNumber(balance, 8)}
+      {showBalance && (
+        <View style={styles.balanceContainer}>
+          <Text style={[styles.balanceLabel, { color: theme.text.secondary }]}>
+            Balance
           </Text>
-        )}
-        
-        {/* Price and Change */}
-        {showPrice && price !== undefined && (
-          <View style={styles.priceContainer}>
-            <Text style={[styles.price, { color: isDark ? '#ffffff' : '#000000' }]}>
-              ${formatNumber(price, 2)}
+          <Text style={[styles.balanceValue, { color: theme.text.primary }]}>
+            {formatBTC(balance)}
+          </Text>
+        </View>
+      )}
+      
+      {showPrice && price !== undefined && (
+        <View style={styles.priceContainer}>
+          <Text style={[styles.priceLabel, { color: theme.text.secondary }]}>
+            Price
+          </Text>
+          <View style={styles.priceRow}>
+            <Text style={[styles.priceValue, { color: theme.text.primary }]}>
+              {formatBTC(price)}
             </Text>
             
             {change24h !== undefined && (
-              <Text style={[styles.change, { color: getChangeColor(change24h) }]}>
-                {formatChange(change24h)}
+              <Text
+                style={[
+                  styles.changeValue,
+                  {
+                    color:
+                      change24h > 0
+                        ? theme.chart.positive
+                        : change24h < 0
+                        ? theme.chart.negative
+                        : theme.text.secondary,
+                  },
+                ]}
+              >
+                {formatPercent(change24h)}
               </Text>
             )}
           </View>
-        )}
-      </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 8,
+    marginVertical: 8,
+    width: 160,
+  },
+  pressable: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginRight: 12,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    minWidth: 120,
+    marginBottom: 12,
   },
   iconContainer: {
-    marginRight: 12,
+    marginRight: 8,
   },
   icon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
-  detailsContainer: {
+  placeholderIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  titleContainer: {
     flex: 1,
   },
   symbol: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  balanceContainer: {
+    marginBottom: 12,
+  },
+  balanceLabel: {
+    fontSize: 12,
     marginBottom: 4,
   },
-  balance: {
-    fontSize: 14,
+  balanceValue: {
+    fontSize: 16,
+    fontWeight: '500',
   },
-  priceContainer: {
+  priceContainer: {},
+  priceLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  priceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    alignItems: 'center',
   },
-  price: {
+  priceValue: {
     fontSize: 14,
     fontWeight: '500',
   },
-  change: {
+  changeValue: {
     fontSize: 12,
     fontWeight: '500',
   },

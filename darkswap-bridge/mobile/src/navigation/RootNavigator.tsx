@@ -2,8 +2,9 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { RootStackParamList } from '../utils/types';
+import { RootStackParamList, MainTabParamList } from './types';
 import { useTheme } from '../contexts/ThemeContext';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -13,8 +14,19 @@ import SettingsScreen from '../screens/SettingsScreen';
 import NetworkScreen from '../screens/NetworkScreen';
 
 // Create navigators
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createStackNavigator<RootStackParamList>();
+
+// Tab bar icon component
+interface TabBarIconProps {
+  name: string;
+  color: string;
+  size: number;
+}
+
+const TabBarIcon: React.FC<TabBarIconProps> = ({ name, color, size }) => {
+  return <MaterialCommunityIcons name={name} color={color} size={size} />;
+};
 
 // Tab navigator
 const TabNavigator = () => {
@@ -91,21 +103,14 @@ const TabNavigator = () => {
   );
 };
 
-// Tab bar icon component
-const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => {
-  // In a real app, you would use a proper icon component
-  // For example: return <MaterialCommunityIcons name={name} color={color} size={size} />;
-  return null;
-};
-
 // Root navigator
 const RootNavigator = () => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   
   return (
     <NavigationContainer
       theme={{
-        dark: theme === 'dark',
+        dark: isDark,
         colors: {
           primary: theme.primary,
           background: theme.background,

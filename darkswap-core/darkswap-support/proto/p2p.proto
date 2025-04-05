@@ -1,0 +1,63 @@
+syntax = "proto3";
+package darkswap.p2p;
+
+message PeerInfo {
+  string peer_id = 1;
+  repeated string addresses = 2;
+  uint64 timestamp = 3;
+}
+
+message RelayRequest {
+  string src_peer_id = 1;
+  string dst_peer_id = 2;
+  uint64 reservation_id = 3;
+}
+
+message RelayResponse {
+  enum Status {
+    SUCCESS = 0;
+    FAILURE = 1;
+  }
+  Status status = 1;
+  string message = 2;
+}
+
+message CircuitRelay {
+  enum Type {
+    HOP = 0;
+    STOP = 1;
+    STATUS = 2;
+    CAN_HOP = 3;
+    RESERVE = 4;
+  }
+  Type type = 1;
+  
+  message Peer {
+    bytes id = 1;
+    repeated bytes addrs = 2;
+  }
+  
+  message Reservation {
+    uint64 expire = 1;
+    bytes voucher = 2;
+  }
+  
+  oneof body {
+    Peer src_peer = 2;
+    Peer dst_peer = 3;
+    bytes data = 4;
+    Status status = 5;
+    Reservation reservation = 6;
+    uint64 limit = 7;
+  }
+  
+  enum Status {
+    SUCCESS = 0;
+    RESERVATION_REFUSED = 100;
+    RESOURCE_LIMIT_EXCEEDED = 200;
+    PERMISSION_DENIED = 300;
+    CONNECTION_FAILED = 400;
+    NO_RESERVATION = 500;
+    MALFORMED_MESSAGE = 600;
+  }
+}

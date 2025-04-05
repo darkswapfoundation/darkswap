@@ -17,11 +17,9 @@ futures = { workspace = true }
 futures-util = "0.3"
 
 # P2P networking
-libp2p = { workspace = true }
+libp2p = { version = "0.50", default-features = false, features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "relay"] }
 libp2p-webrtc = { version = "0.9.0-alpha" }
 libp2p-webrtc-websys = { version = "0.4.0-alpha" }
-# Disable mdns for now due to dependency conflicts
-# libp2p-mdns = { version = "0.43.1", features = ["async-io"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"

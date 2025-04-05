@@ -1,0 +1,10 @@
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libprost_types-c5e3d7ead275306d.rmeta: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/datetime.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/compiler.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/protobuf.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/libprost_types-c5e3d7ead275306d.rlib: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/datetime.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/compiler.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/protobuf.rs
+
+/home/ghostinthegrey/darkswap/darkswap-network/target/debug/deps/prost_types-c5e3d7ead275306d.d: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/datetime.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/compiler.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/protobuf.rs
+
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/lib.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/datetime.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/compiler.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-types-0.11.9/src/protobuf.rs:

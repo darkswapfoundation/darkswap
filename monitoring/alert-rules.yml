@@ -1,0 +1,153 @@
+groups:
+  - name: darkswap-alerts
+    rules:
+      # Node health alerts
+      - alert: InstanceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes."
+
+      - alert: HighCPULoad
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load on {{ $labels.instance }}"
+          description: "CPU load is above 80% for more than 10 minutes on {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 10 minutes on {{ $labels.instance }}."
+
+      - alert: HighDiskUsage
+        expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 90% for more than 5 minutes on {{ $labels.instance }}."
+
+      # DarkSwap daemon alerts
+      - alert: DarkSwapDaemonDown
+        expr: up{job="darkswap-daemon"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DarkSwap daemon is down"
+          description: "DarkSwap daemon has been down for more than 2 minutes."
+
+      - alert: DarkSwapDaemonHighMemory
+        expr: process_resident_memory_bytes{job="darkswap-daemon"} > 1073741824  # 1GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DarkSwap daemon high memory usage"
+          description: "DarkSwap daemon is using more than 1GB of memory for more than 5 minutes."
+
+      - alert: DarkSwapDaemonHighCPU
+        expr: rate(process_cpu_seconds_total{job="darkswap-daemon"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DarkSwap daemon high CPU usage"
+          description: "DarkSwap daemon is using more than 80% CPU for more than 5 minutes."
+
+      # P2P network alerts
+      - alert: LowPeerCount
+        expr: darkswap_connected_peers < 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low peer count"
+          description: "DarkSwap has less than 5 connected peers for more than 10 minutes."
+
+      - alert: HighMessageErrorRate
+        expr: rate(darkswap_message_errors_total[5m]) / rate(darkswap_messages_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High message error rate"
+          description: "DarkSwap message error rate is above 5% for more than 5 minutes."
+
+      # API alerts
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="darkswap-web"}[5m])) by (le, handler)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile of API request latency is above 1 second for more than 5 minutes."
+
+      - alert: HighAPIErrorRate
+        expr: sum(rate(http_requests_total{job="darkswap-web",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="darkswap-web"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is above 5% for more than 5 minutes."
+
+      # WebSocket alerts
+      - alert: WebSocketConnectionDrop
+        expr: delta(darkswap_websocket_connections_total[5m]) < -10
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connection drop"
+          description: "More than 10 WebSocket connections dropped in the last 5 minutes."
+
+      # Bitcoin node alerts
+      - alert: BitcoinNodeDown
+        expr: up{job="bitcoin-node"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bitcoin node is down"
+          description: "Bitcoin node has been down for more than 5 minutes."
+
+      - alert: BitcoinNodeSyncLag
+        expr: bitcoin_blocks_to_tip > 6
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bitcoin node sync lag"
+          description: "Bitcoin node is more than 6 blocks behind the tip for more than 30 minutes."
+
+      # Trade execution alerts
+      - alert: HighTradeFailureRate
+        expr: sum(rate(darkswap_trade_failures_total[15m])) / sum(rate(darkswap_trades_total[15m])) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High trade failure rate"
+          description: "Trade failure rate is above 10% for more than 15 minutes."
+
+      # Wallet alerts
+      - alert: WalletConnectionIssues
+        expr: darkswap_wallet_connection_errors > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Wallet connection issues"
+          description: "There have been wallet connection errors for more than 5 minutes."

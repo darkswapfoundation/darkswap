@@ -1,369 +1,125 @@
 /**
- * Formatting utilities for DarkSwap Mobile
- * 
- * This module provides utilities for formatting various types of data.
+ * Format a number as a BTC amount with 8 decimal places
+ * @param value The number to format
+ * @returns Formatted BTC amount
  */
-
-/**
- * Format a number with specified precision
- * @param value - Number to format
- * @param precision - Number of decimal places
- * @param options - Formatting options
- * @returns Formatted number string
- */
-export const formatNumber = (
-  value: number | string,
-  precision: number = 2,
-  options: Intl.NumberFormatOptions = {}
-): string => {
-  // Convert string to number if needed
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return '0';
-  }
-  
-  // Format with Intl.NumberFormat
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-    ...options
-  }).format(num);
+export const formatBTC = (value: number): string => {
+  return value.toFixed(8);
 };
 
 /**
- * Format a price with appropriate precision
- * @param price - Price to format
- * @param symbol - Currency symbol
- * @returns Formatted price string
+ * Format a number as a price with 8 decimal places
+ * @param value The number to format
+ * @returns Formatted price
  */
-export const formatPrice = (
-  price: number | string,
-  symbol: string = ''
-): string => {
-  // Convert string to number if needed
-  const num = typeof price === 'string' ? parseFloat(price) : price;
-  
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return `${symbol}0`;
-  }
-  
-  // Determine precision based on price
-  let precision = 2;
-  
-  if (num < 0.0001) {
-    precision = 8;
-  } else if (num < 0.01) {
-    precision = 6;
-  } else if (num < 1) {
-    precision = 4;
-  }
-  
-  // Format with Intl.NumberFormat
-  const formatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  }).format(num);
-  
-  // Add symbol if provided
-  return symbol ? `${symbol}${formatted}` : formatted;
+export const formatPrice = (value: number): string => {
+  return value.toFixed(8);
 };
 
 /**
- * Format a percentage
- * @param value - Percentage value
- * @param precision - Number of decimal places
- * @returns Formatted percentage string
+ * Format a number as a percentage with 2 decimal places
+ * @param value The number to format
+ * @returns Formatted percentage
  */
-export const formatPercent = (
-  value: number | string,
-  precision: number = 2
-): string => {
-  // Convert string to number if needed
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return '0%';
-  }
-  
-  // Format with Intl.NumberFormat
-  return new Intl.NumberFormat('en-US', {
-    style: 'percent',
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  }).format(num / 100);
+export const formatPercent = (value: number): string => {
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}%`;
 };
 
 /**
- * Format a Bitcoin amount
- * @param value - BTC amount
- * @param precision - Number of decimal places
- * @returns Formatted BTC string
+ * Format a date as a string
+ * @param timestamp The timestamp to format
+ * @returns Formatted date
  */
-export const formatBTC = (
-  value: number | string,
-  precision: number = 8
-): string => {
-  // Convert string to number if needed
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return '0 BTC';
-  }
-  
-  // Format with Intl.NumberFormat
-  const formatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision
-  }).format(num);
-  
-  return `${formatted} BTC`;
+export const formatDate = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString();
 };
 
 /**
- * Format a satoshi amount
- * @param value - Satoshi amount
- * @returns Formatted satoshi string
+ * Format a timestamp as a relative time string
+ * @param timestamp The timestamp to format
+ * @returns Formatted relative time
  */
-export const formatSatoshi = (value: number | string): string => {
-  // Convert string to number if needed
-  const num = typeof value === 'string' ? parseFloat(value) : value;
+export const formatRelativeTime = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
   
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return '0 sats';
+  // Less than a minute
+  if (diff < 60 * 1000) {
+    return 'Just now';
   }
   
-  // Format with Intl.NumberFormat
-  const formatted = new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0
-  }).format(num);
+  // Less than an hour
+  if (diff < 60 * 60 * 1000) {
+    const minutes = Math.floor(diff / (60 * 1000));
+    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  }
   
-  return `${formatted} sats`;
+  // Less than a day
+  if (diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  }
+  
+  // Less than a week
+  if (diff < 7 * 24 * 60 * 60 * 1000) {
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    return `${days} day${days !== 1 ? 's' : ''} ago`;
+  }
+  
+  // Otherwise, return the date
+  return formatDate(timestamp);
 };
 
 /**
- * Format a date
- * @param date - Date to format
- * @param options - Formatting options
- * @returns Formatted date string
+ * Format a transaction hash for display
+ * @param hash The transaction hash to format
+ * @returns Formatted transaction hash
  */
-export const formatDate = (
-  date: Date | number | string,
-  options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }
-): string => {
-  // Convert to Date object if needed
-  const dateObj = date instanceof Date ? date : new Date(date);
-  
-  // Handle invalid date
-  if (isNaN(dateObj.getTime())) {
-    return 'Invalid Date';
-  }
-  
-  // Format with Intl.DateTimeFormat
-  return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+export const formatTxHash = (hash: string): string => {
+  if (!hash) return 'Unknown';
+  if (hash.length <= 16) return hash;
+  return `${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}`;
 };
 
 /**
- * Format a time
- * @param date - Date to format
- * @param options - Formatting options
- * @returns Formatted time string
+ * Format an address for display
+ * @param address The address to format
+ * @param prefixLength The number of characters to show at the beginning
+ * @param suffixLength The number of characters to show at the end
+ * @returns Formatted address
  */
-export const formatTime = (
-  date: Date | number | string,
-  options: Intl.DateTimeFormatOptions = {
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hour12: true
-  }
-): string => {
-  // Convert to Date object if needed
-  const dateObj = date instanceof Date ? date : new Date(date);
-  
-  // Handle invalid date
-  if (isNaN(dateObj.getTime())) {
-    return 'Invalid Time';
-  }
-  
-  // Format with Intl.DateTimeFormat
-  return new Intl.DateTimeFormat('en-US', options).format(dateObj);
-};
-
-/**
- * Format a datetime
- * @param date - Date to format
- * @param options - Formatting options
- * @returns Formatted datetime string
- */
-export const formatDateTime = (
-  date: Date | number | string,
-  options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hour12: true
-  }
-): string => {
-  // Convert to Date object if needed
-  const dateObj = date instanceof Date ? date : new Date(date);
-  
-  // Handle invalid date
-  if (isNaN(dateObj.getTime())) {
-    return 'Invalid DateTime';
-  }
-  
-  // Format with Intl.DateTimeFormat
-  return new Intl.DateTimeFormat('en-US', options).format(dateObj);
-};
-
-/**
- * Format a relative time
- * @param date - Date to format
- * @param baseDate - Base date for comparison
- * @returns Formatted relative time string
- */
-export const formatRelativeTime = (
-  date: Date | number | string,
-  baseDate: Date | number | string = new Date()
-): string => {
-  // Convert to Date objects if needed
-  const dateObj = date instanceof Date ? date : new Date(date);
-  const baseDateObj = baseDate instanceof Date ? baseDate : new Date(baseDate);
-  
-  // Handle invalid date
-  if (isNaN(dateObj.getTime()) || isNaN(baseDateObj.getTime())) {
-    return 'Invalid Date';
-  }
-  
-  // Calculate time difference in seconds
-  const diffSeconds = Math.floor((baseDateObj.getTime() - dateObj.getTime()) / 1000);
-  const absDiffSeconds = Math.abs(diffSeconds);
-  
-  // Format based on time difference
-  if (absDiffSeconds < 60) {
-    return 'just now';
-  } else if (absDiffSeconds < 3600) {
-    const minutes = Math.floor(absDiffSeconds / 60);
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ${diffSeconds < 0 ? 'from now' : 'ago'}`;
-  } else if (absDiffSeconds < 86400) {
-    const hours = Math.floor(absDiffSeconds / 3600);
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${diffSeconds < 0 ? 'from now' : 'ago'}`;
-  } else if (absDiffSeconds < 2592000) {
-    const days = Math.floor(absDiffSeconds / 86400);
-    return `${days} ${days === 1 ? 'day' : 'days'} ${diffSeconds < 0 ? 'from now' : 'ago'}`;
-  } else if (absDiffSeconds < 31536000) {
-    const months = Math.floor(absDiffSeconds / 2592000);
-    return `${months} ${months === 1 ? 'month' : 'months'} ${diffSeconds < 0 ? 'from now' : 'ago'}`;
-  } else {
-    const years = Math.floor(absDiffSeconds / 31536000);
-    return `${years} ${years === 1 ? 'year' : 'years'} ${diffSeconds < 0 ? 'from now' : 'ago'}`;
-  }
-};
-
-/**
- * Format a file size
- * @param bytes - File size in bytes
- * @param precision - Number of decimal places
- * @returns Formatted file size string
- */
-export const formatFileSize = (
-  bytes: number,
-  precision: number = 2
-): string => {
-  // Handle invalid input
-  if (bytes === 0 || !isFinite(bytes)) {
-    return '0 B';
-  }
-  
-  // Define units
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  
-  // Calculate unit index
-  const unitIndex = Math.floor(Math.log(bytes) / Math.log(1024));
-  
-  // Format with specified precision
-  return `${(bytes / Math.pow(1024, unitIndex)).toFixed(precision)} ${units[unitIndex]}`;
-};
-
-/**
- * Format an address (e.g., Bitcoin address)
- * @param address - Address to format
- * @param prefixLength - Number of characters to show at the beginning
- * @param suffixLength - Number of characters to show at the end
- * @returns Formatted address string
- */
-export const formatAddress = (
-  address: string,
-  prefixLength: number = 6,
-  suffixLength: number = 4
-): string => {
-  // Handle invalid input
-  if (!address || typeof address !== 'string') {
-    return '';
-  }
-  
-  // Return full address if it's shorter than the combined prefix and suffix length
-  if (address.length <= prefixLength + suffixLength) {
-    return address;
-  }
-  
-  // Format address with ellipsis
+export const formatAddress = (address: string, prefixLength = 6, suffixLength = 6): string => {
+  if (!address) return 'Unknown';
+  if (address.length <= prefixLength + suffixLength) return address;
   return `${address.substring(0, prefixLength)}...${address.substring(address.length - suffixLength)}`;
 };
 
 /**
- * Format a transaction hash
- * @param hash - Transaction hash to format
- * @param prefixLength - Number of characters to show at the beginning
- * @param suffixLength - Number of characters to show at the end
- * @returns Formatted transaction hash string
+ * Format a number as a currency
+ * @param value The number to format
+ * @param currency The currency code
+ * @returns Formatted currency
  */
-export const formatTxHash = (
-  hash: string,
-  prefixLength: number = 8,
-  suffixLength: number = 8
-): string => {
-  return formatAddress(hash, prefixLength, suffixLength);
+export const formatCurrency = (value: number, currency = 'USD'): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+  }).format(value);
 };
 
 /**
- * Format a currency amount
- * @param amount - Amount to format
- * @param currency - Currency code
- * @param locale - Locale for formatting
- * @returns Formatted currency string
+ * Format a file size
+ * @param bytes The file size in bytes
+ * @returns Formatted file size
  */
-export const formatCurrency = (
-  amount: number | string,
-  currency: string = 'USD',
-  locale: string = 'en-US'
-): string => {
-  // Convert string to number if needed
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+export const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
   
-  // Handle NaN and Infinity
-  if (!isFinite(num)) {
-    return `0 ${currency}`;
-  }
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
   
-  // Format with Intl.NumberFormat
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(num);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };

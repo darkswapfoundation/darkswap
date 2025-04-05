@@ -4,8 +4,16 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useApi } from '../contexts/ApiContext';
 import { Peer, NetworkStats } from '../utils/types';
 import { formatRelativeTime } from '../utils/formatters';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { NetworkStackParamList } from '../navigation/types';
 
-const NetworkScreen = () => {
+type NetworkScreenNavigationProp = StackNavigationProp<NetworkStackParamList, 'NetworkHome'>;
+
+interface NetworkScreenProps {
+  navigation: NetworkScreenNavigationProp;
+}
+
+const NetworkScreen: React.FC<NetworkScreenProps> = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { get } = useApi();
   
@@ -162,9 +170,10 @@ const NetworkScreen = () => {
           </Text>
         ) : peers.length > 0 ? (
           peers.map(peer => (
-            <View
+            <TouchableOpacity
               key={peer.id}
               style={[styles.peerCard, { backgroundColor: theme.surface }]}
+              onPress={() => navigation.navigate('PeerDetails', { id: peer.id })}
             >
               <View style={styles.peerHeader}>
                 <Text style={[styles.peerId, { color: theme.text.primary }]}>
@@ -217,33 +226,7 @@ const NetworkScreen = () => {
                   </Text>
                 </View>
               </View>
-              
-              <View style={styles.peerProtocols}>
-                <Text style={[styles.peerDetailLabel, { color: theme.text.secondary }]}>
-                  Protocols
-                </Text>
-                <View style={styles.protocolTags}>
-                  {peer.protocols.map(protocol => (
-                    <View
-                      key={protocol}
-                      style={[
-                        styles.protocolTag,
-                        { backgroundColor: isDark ? '#333333' : '#f0f0f0' },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.protocolTagText,
-                          { color: theme.text.primary },
-                        ]}
-                      >
-                        {protocol}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
           <View style={[styles.emptyState, { backgroundColor: theme.surface }]}>
@@ -276,12 +259,11 @@ const NetworkScreen = () => {
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.primary }]}
             onPress={() => {
-              // In a real app, you would implement this functionality
-              // For example: api.post('/network/refresh');
+              navigation.navigate('NetworkStats');
             }}
           >
             <Text style={styles.actionButtonText}>
-              Refresh Peers
+              View Stats
             </Text>
           </TouchableOpacity>
         </View>
@@ -359,24 +341,6 @@ const styles = StyleSheet.create({
   peerDetailValue: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  peerProtocols: {
-    marginTop: 8,
-  },
-  protocolTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  protocolTag: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  protocolTagText: {
-    fontSize: 12,
   },
   emptyState: {
     padding: 24,

@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWallet } from '../contexts/WalletContext';
 import { Transaction } from '../utils/types';
 import { formatBTC, formatAddress } from '../utils/formatters';
-import TransactionItem from '../components/TransactionItem';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { WalletStackParamList } from '../navigation/types';
 
-const WalletScreen = () => {
+type WalletScreenNavigationProp = StackNavigationProp<WalletStackParamList, 'WalletHome'>;
+
+interface WalletScreenProps {
+  navigation: WalletScreenNavigationProp;
+}
+
+const WalletScreen: React.FC<WalletScreenProps> = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { wallet, balance, transactions, connect, disconnect, refreshBalance } = useWallet();
   
@@ -36,35 +43,18 @@ const WalletScreen = () => {
     connect();
   };
   
-  // Handle disconnect wallet
-  const handleDisconnectWallet = () => {
-    Alert.alert(
-      'Disconnect Wallet',
-      'Are you sure you want to disconnect your wallet?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: disconnect,
-        },
-      ]
-    );
-  };
-  
   // Handle send
   const handleSend = () => {
-    // In a real app, you would navigate to the send screen
-    // navigation.navigate('Send', { asset: selectedAsset });
+    if (selectedAsset) {
+      navigation.navigate('Send', { asset: selectedAsset });
+    }
   };
   
   // Handle receive
   const handleReceive = () => {
-    // In a real app, you would navigate to the receive screen
-    // navigation.navigate('Receive', { asset: selectedAsset });
+    if (selectedAsset) {
+      navigation.navigate('Receive', { asset: selectedAsset });
+    }
   };
   
   // Filter transactions by selected asset
@@ -94,15 +84,6 @@ const WalletScreen = () => {
             <Text style={[styles.walletAddress, { color: theme.text.secondary }]}>
               {formatAddress(Object.values(wallet.addresses)[0] || '', 8, 8)}
             </Text>
-            
-            <TouchableOpacity
-              style={[styles.disconnectButton, { borderColor: theme.error }]}
-              onPress={handleDisconnectWallet}
-            >
-              <Text style={[styles.disconnectButtonText, { color: theme.error }]}>
-                Disconnect
-              </Text>
-            </TouchableOpacity>
           </View>
           
           {/* Asset Selector */}
@@ -173,15 +154,62 @@ const WalletScreen = () => {
             </Text>
             
             {filteredTransactions.length > 0 ? (
-              filteredTransactions.map(transaction => (
-                <TransactionItem
+              filteredTransactions.map((transaction: Transaction) => (
+                <TouchableOpacity
                   key={transaction.id}
-                  transaction={transaction}
+                  style={[styles.transactionItem, { backgroundColor: theme.surface }]}
                   onPress={() => {
-                    // In a real app, you would navigate to the transaction details screen
-                    // navigation.navigate('TransactionDetails', { id: transaction.id });
+                    navigation.navigate('TransactionDetails', { id: transaction.id });
                   }}
-                />
+                >
+                  <View style={styles.transactionHeader}>
+                    <Text style={[styles.transactionType, { color: theme.text.primary }]}>
+                      {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        {
+                          color:
+                            transaction.type === 'deposit'
+                              ? theme.chart.positive
+                              : transaction.type === 'withdrawal'
+                              ? theme.chart.negative
+                              : theme.text.primary,
+                        },
+                      ]}
+                    >
+                      {transaction.type === 'deposit' ? '+' : transaction.type === 'withdrawal' ? '-' : ''}
+                      {formatBTC(transaction.amount)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.transactionDetails}>
+                    <Text style={[styles.transactionDate, { color: theme.text.secondary }]}>
+                      {new Date(transaction.timestamp).toLocaleDateString()}
+                    </Text>
+                    <View style={styles.transactionStatus}>
+                      <View
+                        style={[
+                          styles.statusDot,
+                          {
+                            backgroundColor:
+                              transaction.status === 'confirmed'
+                                ? theme.chart.positive
+                                : transaction.status === 'pending'
+                                ? theme.warning
+                                : transaction.status === 'failed'
+                                ? theme.error
+                                : theme.info,
+                          },
+                        ]}
+                      />
+                      <Text style={[styles.statusText, { color: theme.text.secondary }]}>
+                        {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
               ))
             ) : (
               <View style={[styles.emptyState, { backgroundColor: theme.surface }]}>
@@ -230,17 +258,6 @@ const styles = StyleSheet.create({
   },
   walletAddress: {
     fontSize: 14,
-    marginBottom: 16,
-  },
-  disconnectButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  disconnectButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   assetSelector: {
     paddingHorizontal: 16,
@@ -297,6 +314,44 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
   },
+  transactionItem: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  transactionType: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  transactionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  transactionDate: {
+    fontSize: 14,
+  },
+  transactionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 14,
+  },
   emptyState: {
     padding: 24,
     borderRadius: 12,
@@ -310,6 +365,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 400,
   },
   connectWalletTitle: {
     fontSize: 24,

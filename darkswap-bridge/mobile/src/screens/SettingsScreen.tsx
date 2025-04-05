@@ -3,8 +3,16 @@ import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } f
 import { useTheme } from '../contexts/ThemeContext';
 import { useWallet } from '../contexts/WalletContext';
 import { ThemeType } from '../utils/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { SettingsStackParamList } from '../navigation/types';
 
-const SettingsScreen = () => {
+type SettingsScreenNavigationProp = StackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
+
+interface SettingsScreenProps {
+  navigation: SettingsScreenNavigationProp;
+}
+
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const { theme, isDark, themeType, setThemeType } = useTheme();
   const { wallet, disconnect } = useWallet();
   
@@ -319,8 +327,7 @@ const SettingsScreen = () => {
           <TouchableOpacity
             style={[styles.button, { backgroundColor: theme.primary }]}
             onPress={() => {
-              // In a real app, you would navigate to the about screen
-              // navigation.navigate('About');
+              navigation.navigate('About');
             }}
           >
             <Text style={styles.buttonText}>
