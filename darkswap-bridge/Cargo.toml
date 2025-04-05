@@ -1,0 +1,78 @@
+[package]
+name = "darkswap-bridge"
+version = "0.1.0"
+edition = "2021"
+description = "Bridge layer for DarkSwap to resolve dependency conflicts"
+authors = ["DarkSwap Team"]
+license = "MIT"
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.28", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.3", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+toml = "0.7"
+dirs = "5.0"
+getrandom = { version = "0.2", features = ["js"] }
+
+# Cryptography
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+aes-gcm = "0.10"
+base64 = "0.21"
+hex = "0.4"
+pbkdf2 = "0.12"
+
+# Network
+reqwest = { version = "0.11", features = ["json"] }
+url = "2.3"
+socket2 = "0.5"
+ipc-channel = "0.16"
+
+# Bitcoin
+bitcoin = "0.30"
+bdk = { version = "0.28", default-features = false, features = ["keys-bip39"] }
+
+# Web
+axum = { version = "0.6", features = ["headers"] }
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+hyper = "0.14"
+jsonwebtoken = "8.3"
+
+[dev-dependencies]
+tempfile = "3.5"
+mockall = "0.11"
+serial_test = "2.0"
+
+[features]
+default = ["std"]
+std = []
+wasm = ["getrandom/js"]
+
+[workspace]
+members = [
+    "darkswap-bridge-wallet",
+    "darkswap-bridge-network",
+]
+
+[[bin]]
+name = "darkswap-bridge"
+path = "src/bin/bridge.rs"
+
+[[bin]]
+name = "darkswap-wallet-adapter"
+path = "src/bin/wallet_adapter.rs"
+
+[[bin]]
+name = "darkswap-network-adapter"
+path = "src/bin/network_adapter.rs"

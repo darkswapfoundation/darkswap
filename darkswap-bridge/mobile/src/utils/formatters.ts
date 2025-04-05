@@ -1,5 +1,5 @@
 /**
- * Formatting utilities for DarkSwap
+ * Formatting utilities for DarkSwap Mobile
  * 
  * This module provides utilities for formatting various types of data.
  */
@@ -299,45 +299,6 @@ export const formatFileSize = (
 };
 
 /**
- * Format a duration in milliseconds
- * @param ms - Duration in milliseconds
- * @returns Formatted duration string
- */
-export const formatDuration = (ms: number): string => {
-  // Handle invalid input
-  if (!isFinite(ms) || ms < 0) {
-    return '0s';
-  }
-  
-  // Calculate time components
-  const seconds = Math.floor((ms / 1000) % 60);
-  const minutes = Math.floor((ms / (1000 * 60)) % 60);
-  const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-  
-  // Build formatted string
-  const parts = [];
-  
-  if (days > 0) {
-    parts.push(`${days}d`);
-  }
-  
-  if (hours > 0) {
-    parts.push(`${hours}h`);
-  }
-  
-  if (minutes > 0) {
-    parts.push(`${minutes}m`);
-  }
-  
-  if (seconds > 0 || parts.length === 0) {
-    parts.push(`${seconds}s`);
-  }
-  
-  return parts.join(' ');
-};
-
-/**
  * Format an address (e.g., Bitcoin address)
  * @param address - Address to format
  * @param prefixLength - Number of characters to show at the beginning
@@ -376,4 +337,33 @@ export const formatTxHash = (
   suffixLength: number = 8
 ): string => {
   return formatAddress(hash, prefixLength, suffixLength);
+};
+
+/**
+ * Format a currency amount
+ * @param amount - Amount to format
+ * @param currency - Currency code
+ * @param locale - Locale for formatting
+ * @returns Formatted currency string
+ */
+export const formatCurrency = (
+  amount: number | string,
+  currency: string = 'USD',
+  locale: string = 'en-US'
+): string => {
+  // Convert string to number if needed
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Handle NaN and Infinity
+  if (!isFinite(num)) {
+    return `0 ${currency}`;
+  }
+  
+  // Format with Intl.NumberFormat
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
 };

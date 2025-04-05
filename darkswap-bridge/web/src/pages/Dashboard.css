@@ -1,0 +1,132 @@
+/* Dashboard.css - Styles for the Dashboard page */
+
+.dashboard {
+  padding-bottom: 2rem;
+}
+
+/* Status cards */
+.dashboard .status-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard .status-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard .status-card .card-title {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard .status-card .status {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Balance display */
+.dashboard .balance-container {
+  display: flex;
+  justify-content: space-around;
+  padding: 1rem 0;
+}
+
+.dashboard .balance-item {
+  text-align: center;
+}
+
+.dashboard .balance-label {
+  font-size: 1rem;
+  color: var(--secondary);
+  margin-bottom: 0.5rem;
+}
+
+.dashboard .balance-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Peer list */
+.dashboard .peer-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.dashboard .peer-list {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+}
+
+.dashboard .peer-item {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.dashboard .peer-item:last-child {
+  border-bottom: none;
+}
+
+/* Charts */
+.dashboard .chart-container {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard .chart-info {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.dashboard .chart-info-item {
+  text-align: center;
+  margin: 0 1rem;
+}
+
+.dashboard .chart-info-label {
+  font-size: 0.875rem;
+  color: var(--secondary);
+  margin-bottom: 0.25rem;
+}
+
+.dashboard .chart-info-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dashboard .status-card {
+    margin-bottom: 1rem;
+  }
+  
+  .dashboard .balance-container {
+    flex-direction: column;
+  }
+  
+  .dashboard .balance-item {
+    margin-bottom: 1rem;
+  }
+  
+  .dashboard .chart-info {
+    flex-direction: column;
+  }
+  
+  .dashboard .chart-info-item {
+    margin-bottom: 0.5rem;
+  }
+}

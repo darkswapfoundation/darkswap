@@ -1,0 +1,147 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 1rem;
+}
+
+.App-link {
+  color: var(--primary-color);
+}
+
+/* Navigation styles */
+.navbar {
+  padding: 0.5rem 1rem;
+}
+
+.navbar-brand {
+  font-weight: bold;
+}
+
+/* Dashboard styles */
+.dashboard-card {
+  height: 100%;
+  margin-bottom: 1rem;
+}
+
+.dashboard-card .card-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card .card-title {
+  margin-bottom: 1rem;
+}
+
+.dashboard-card .card-text {
+  flex-grow: 1;
+}
+
+/* Order book styles */
+.order-book-table {
+  font-size: 0.9rem;
+}
+
+.order-book-table th,
+.order-book-table td {
+  padding: 0.5rem;
+}
+
+/* Trade history styles */
+.trade-history-table {
+  font-size: 0.9rem;
+}
+
+.trade-history-table th,
+.trade-history-table td {
+  padding: 0.5rem;
+}
+
+/* Wallet styles */
+.wallet-balance {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.wallet-address {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+/* Network styles */
+.network-peer {
+  font-family: monospace;
+}
+
+/* Settings styles */
+.settings-section {
+  margin-bottom: 2rem;
+}
+
+/* Notification styles */
+.notification-dropdown {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item.unread {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* WebSocket status styles */
+.websocket-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.websocket-status.connected {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.websocket-status.disconnected {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+/* Theme toggle styles */
+.theme-toggle {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+  
+  .table-responsive {
+    margin-bottom: 1rem;
+  }
+}

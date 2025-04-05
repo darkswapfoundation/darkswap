@@ -1,0 +1,46 @@
+# Prometheus configuration for DarkSwap Bridge
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape the Node Exporter
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Scrape the DarkSwap Bridge Server
+  - job_name: 'darkswap-bridge-server'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['server:3001']
+    
+  # Scrape the DarkSwap Bridge
+  - job_name: 'darkswap-bridge'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bridge:8080']
+
+  # Scrape the Cadvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']

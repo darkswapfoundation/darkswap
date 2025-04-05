@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { Wallet, Balance, Transaction } from '../utils/types';
 import { useApi } from './ApiContext';
-import { useNotification } from './NotificationContext';
+import { formatBTC } from '../utils/formatters';
 
 interface WalletContextType {
   wallet: Wallet | null;
@@ -25,8 +26,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 // Wallet provider component
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   // Hooks
-  const { api } = useApi();
-  const { addNotification } = useNotification();
+  const { get, post } = useApi();
   
   // State
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -39,39 +39,40 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkWalletConnection = async () => {
       try {
-        // Check local storage for wallet connection
-        const walletData = localStorage.getItem('wallet');
+        // In a real app, you would use AsyncStorage
+        // const walletData = await AsyncStorage.getItem('wallet');
+        const walletData = null;
         
         if (walletData) {
           const parsedWallet = JSON.parse(walletData);
           
           // Verify wallet connection
-          const response = await api.get(`/wallet/${parsedWallet.id}/status`);
+          const response = await get(`/wallet/${parsedWallet.id}/status`);
           
-          if (response && response.data && response.data.connected) {
+          if (response && response.success && response.data?.connected) {
             setWallet(parsedWallet);
             await fetchBalance(parsedWallet.id);
             await fetchTransactions(parsedWallet.id);
           } else {
-            // Wallet is not connected, remove from local storage
-            localStorage.removeItem('wallet');
+            // Wallet is not connected, remove from storage
+            // await AsyncStorage.removeItem('wallet');
           }
         }
       } catch (error) {
         console.error('Error checking wallet connection:', error);
-        localStorage.removeItem('wallet');
+        // await AsyncStorage.removeItem('wallet');
       }
     };
     
     checkWalletConnection();
-  }, [api]);
+  }, []);
   
   // Fetch wallet balance
   const fetchBalance = async (walletId: string) => {
     try {
-      const response = await api.get(`/wallet/${walletId}/balance`);
+      const response = await get<{ balances: Balance[] }>(`/wallet/${walletId}/balance`);
       
-      if (response && response.data) {
+      if (response && response.success && response.data) {
         // Convert array of balances to record
         const balanceRecord: Record<string, number> = {};
         
@@ -90,9 +91,9 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   // Fetch wallet transactions
   const fetchTransactions = async (walletId: string) => {
     try {
-      const response = await api.get(`/wallet/${walletId}/transactions`);
+      const response = await get<{ transactions: Transaction[] }>(`/wallet/${walletId}/transactions`);
       
-      if (response && response.data) {
+      if (response && response.success && response.data) {
         setTransactions(response.data.transactions || []);
       }
     } catch (error) {
@@ -107,54 +108,51 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      // Check if wallet provider is available
-      if (typeof window.bitcoin === 'undefined') {
-        throw new Error('No Bitcoin wallet provider found');
-      }
+      // In a mobile app, we would use a native module or deep linking
+      // For this example, we'll simulate a wallet connection
       
       // Request wallet connection
-      const accounts = await window.bitcoin.request({ method: 'requestAccounts' });
+      const accounts = ['bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq']; // Example address
       
       if (!accounts || accounts.length === 0) {
         throw new Error('No accounts found');
       }
       
       // Get wallet information
-      const walletInfo = await api.post('/wallet/connect', {
+      const walletInfo = await post<{ wallet: Wallet }>('/wallet/connect', {
         address: accounts[0],
         type: 'external'
       });
       
-      if (!walletInfo || !walletInfo.data || !walletInfo.data.wallet) {
+      if (!walletInfo || !walletInfo.success || !walletInfo.data?.wallet) {
         throw new Error('Failed to connect wallet');
       }
       
       const connectedWallet = walletInfo.data.wallet;
       
-      // Store wallet in state and local storage
+      // Store wallet in state and storage
       setWallet(connectedWallet);
-      localStorage.setItem('wallet', JSON.stringify(connectedWallet));
+      // In a real app, you would use AsyncStorage
+      // await AsyncStorage.setItem('wallet', JSON.stringify(connectedWallet));
       
       // Fetch balance and transactions
       await fetchBalance(connectedWallet.id);
       await fetchTransactions(connectedWallet.id);
       
       // Show notification
-      addNotification({
-        type: 'success',
-        title: 'Wallet Connected',
-        message: `Connected to wallet ${connectedWallet.name}`
-      });
-    } catch (error) {
+      Alert.alert(
+        'Wallet Connected',
+        `Connected to wallet ${connectedWallet.name}`
+      );
+    } catch (error: any) {
       console.error('Error connecting wallet:', error);
       setError(error instanceof Error ? error.message : 'Failed to connect wallet');
       
       // Show notification
-      addNotification({
-        type: 'error',
-        title: 'Connection Failed',
-        message: error instanceof Error ? error.message : 'Failed to connect wallet'
-      });
+      Alert.alert(
+        'Connection Failed',
+        error instanceof Error ? error.message : 'Failed to connect wallet'
+      );
     } finally {
       setLoading(false);
     }
@@ -167,15 +165,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setBalance({});
     setTransactions([]);
     
-    // Remove from local storage
-    localStorage.removeItem('wallet');
+    // Remove from storage
+    // In a real app, you would use AsyncStorage
+    // await AsyncStorage.removeItem('wallet');
     
     // Show notification
-    addNotification({
-      type: 'info',
-      title: 'Wallet Disconnected',
-      message: 'Your wallet has been disconnected'
-    });
+    Alert.alert(
+      'Wallet Disconnected',
+      'Your wallet has been disconnected'
+    );
   };
   
   // Refresh wallet balance
@@ -208,52 +206,30 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     
     try {
       // Create transaction
-      const createResponse = await api.post('/wallet/transaction', {
+      const createResponse = await post<{ transaction: { hex: string } }>('/wallet/transaction', {
         walletId: wallet.id,
         to,
         amount,
         asset
       });
       
-      if (!createResponse || !createResponse.data || !createResponse.data.transaction) {
+      if (!createResponse || !createResponse.success || !createResponse.data?.transaction) {
         throw new Error('Failed to create transaction');
       }
       
       const transaction = createResponse.data.transaction;
       
       // Sign transaction
-      let signedTx;
-      
-      if (wallet.type === 'built-in') {
-        // Sign with built-in wallet
-        const signResponse = await api.post(`/wallet/${wallet.id}/sign`, {
-          transaction: transaction.hex
-        });
-        
-        if (!signResponse || !signResponse.data || !signResponse.data.signedTransaction) {
-          throw new Error('Failed to sign transaction');
-        }
-        
-        signedTx = signResponse.data.signedTransaction;
-      } else {
-        // Sign with external wallet
-        // Add null check for window.bitcoin
-        if (!window.bitcoin) {
-          throw new Error('Bitcoin wallet provider not available');
-        }
-        
-        signedTx = await window.bitcoin.request({
-          method: 'signTransaction',
-          params: [transaction.hex]
-        });
-      }
+      // In a mobile app, we would use a native module or deep linking
+      // For this example, we'll simulate signing
+      const signedTx = `signed_${transaction.hex}`;
       
       // Broadcast transaction
-      const broadcastResponse = await api.post('/wallet/broadcast', {
+      const broadcastResponse = await post<{ txid: string }>('/wallet/broadcast', {
         signedTransaction: signedTx
       });
       
-      if (!broadcastResponse || !broadcastResponse.data || !broadcastResponse.data.txid) {
+      if (!broadcastResponse || !broadcastResponse.success || !broadcastResponse.data?.txid) {
         throw new Error('Failed to broadcast transaction');
       }
       
@@ -263,14 +239,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       await refreshBalance();
       
       // Show notification
-      addNotification({
-        type: 'success',
-        title: 'Transaction Sent',
-        message: `Transaction ${txid.substring(0, 8)}... has been sent`
-      });
+      Alert.alert(
+        'Transaction Sent',
+        `Transaction ${txid.substring(0, 8)}... has been sent`
+      );
       
       return txid;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending transaction:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Failed to send transaction';
@@ -278,11 +253,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       setError(errorMessage);
       
       // Show notification
-      addNotification({
-        type: 'error',
-        title: 'Transaction Failed',
-        message: errorMessage
-      });
+      Alert.alert(
+        'Transaction Failed',
+        errorMessage
+      );
       
       throw error;
     } finally {
@@ -320,12 +294,3 @@ export const useWallet = (): WalletContextType => {
   
   return context;
 };
-
-// Add Bitcoin wallet interface
-declare global {
-  interface Window {
-    bitcoin?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-    };
-  }
-}
