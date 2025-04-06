@@ -1,334 +1,341 @@
 /**
- * WebSocket message batching utilities for DarkSwap
+ * WebSocketBatcher - Utility for batching WebSocket messages
+ * 
+ * This utility provides a way to batch multiple WebSocket messages together
+ * to reduce the number of WebSocket frames sent, improving performance
+ * especially for high-frequency updates.
  */
 
-/**
- * Message priority levels
- */
-export enum MessagePriority {
-  /** High priority messages are sent immediately */
-  HIGH = 'high',
-  /** Medium priority messages are batched but sent more frequently */
-  MEDIUM = 'medium',
-  /** Low priority messages are batched and sent less frequently */
-  LOW = 'low',
-}
-
-/**
- * Message with metadata
- */
-interface QueuedMessage {
-  /** The message data */
-  data: any;
-  /** The message priority */
-  priority: MessagePriority;
-  /** The timestamp when the message was queued */
-  timestamp: number;
-  /** The message type */
-  type?: string;
-}
-
-/**
- * WebSocket batcher options
- */
-export interface WebSocketBatcherOptions {
-  /** The batch interval in milliseconds for low priority messages */
-  lowPriorityInterval?: number;
-  /** The batch interval in milliseconds for medium priority messages */
-  mediumPriorityInterval?: number;
-  /** The maximum batch size */
+export interface BatchOptions {
+  /** Maximum batch size in bytes (default: 1MB) */
   maxBatchSize?: number;
-  /** Whether to enable compression */
-  enableCompression?: boolean;
-  /** Whether to enable debug logging */
-  debug?: boolean;
-  /** Function to extract the message type */
-  getMessageType?: (message: any) => string | undefined;
-  /** Function to compress messages */
-  compressMessages?: (messages: any[]) => any;
+  /** Maximum delay before sending a batch (default: 50ms) */
+  maxDelay?: number;
+  /** Whether to compress batches (default: true) */
+  compress?: boolean;
+  /** Minimum number of messages to batch (default: 2) */
+  minBatchSize?: number;
+  /** Maximum number of messages to batch (default: 100) */
+  maxBatchMessages?: number;
+  /** Whether to automatically flush on window blur (default: true) */
+  flushOnBlur?: boolean;
+  /** Whether to prioritize certain message types (default: false) */
+  prioritize?: boolean;
+}
+
+export interface BatchStats {
+  /** Total number of messages sent */
+  totalMessages: number;
+  /** Total number of batches sent */
+  totalBatches: number;
+  /** Average batch size in messages */
+  avgBatchSize: number;
+  /** Average batch size in bytes */
+  avgBatchBytes: number;
+  /** Total bytes sent */
+  totalBytes: number;
+  /** Total bytes saved by batching */
+  bytesSaved: number;
+  /** Average latency introduced by batching in ms */
+  avgLatency: number;
+}
+
+export interface BatchedMessage {
+  /** Message type */
+  type: string;
+  /** Message payload */
+  payload: any;
+  /** Message priority (higher = more important) */
+  priority?: number;
+  /** Message ID */
+  id?: string;
+  /** Timestamp when the message was queued */
+  timestamp: number;
+}
+
+export interface MessageBatch {
+  /** Batch ID */
+  batchId: string;
+  /** Messages in the batch */
+  messages: BatchedMessage[];
+  /** Timestamp when the batch was created */
+  timestamp: number;
+  /** Whether the batch is compressed */
+  compressed: boolean;
 }
 
 /**
- * WebSocket batcher for batching messages
+ * WebSocketBatcher class for batching WebSocket messages
  */
 export class WebSocketBatcher {
-  /** The message queue */
-  private queue: QueuedMessage[] = [];
-  /** The batch interval in milliseconds for low priority messages */
-  private lowPriorityInterval: number;
-  /** The batch interval in milliseconds for medium priority messages */
-  private mediumPriorityInterval: number;
-  /** The maximum batch size */
-  private maxBatchSize: number;
-  /** Whether to enable compression */
-  private enableCompression: boolean;
-  /** Whether to enable debug logging */
-  private debug: boolean;
-  /** Function to extract the message type */
-  private getMessageType: (message: any) => string | undefined;
-  /** Function to compress messages */
-  private compressMessages: (messages: any[]) => any;
-  /** The timer for low priority messages */
-  private lowPriorityTimer: NodeJS.Timeout | null = null;
-  /** The timer for medium priority messages */
-  private mediumPriorityTimer: NodeJS.Timeout | null = null;
-  /** The send function */
-  private sendFunction: (message: any) => void;
-  /** Whether the batcher is active */
-  private active: boolean = false;
+  private socket: WebSocket | null = null;
+  private queue: BatchedMessage[] = [];
+  private timer: NodeJS.Timeout | null = null;
+  private options: Required<BatchOptions>;
+  private stats: BatchStats = {
+    totalMessages: 0,
+    totalBatches: 0,
+    avgBatchSize: 0,
+    avgBatchBytes: 0,
+    totalBytes: 0,
+    bytesSaved: 0,
+    avgLatency: 0,
+  };
+  private latencySum = 0;
+  private isConnected = false;
+  private messageCounter = 0;
 
   /**
-   * Create a new WebSocket batcher
-   * @param sendFunction The function to send messages
-   * @param options Batcher options
+   * Create a new WebSocketBatcher instance
+   * @param options Batch options
    */
-  constructor(sendFunction: (message: any) => void, options: WebSocketBatcherOptions = {}) {
-    this.sendFunction = sendFunction;
-    this.lowPriorityInterval = options.lowPriorityInterval || 1000; // 1 second
-    this.mediumPriorityInterval = options.mediumPriorityInterval || 250; // 250 milliseconds
-    this.maxBatchSize = options.maxBatchSize || 50;
-    this.enableCompression = options.enableCompression || false;
-    this.debug = options.debug || false;
-    this.getMessageType = options.getMessageType || ((message) => {
-      if (typeof message === 'object' && message !== null && 'type' in message) {
-        return message.type as string;
-      }
-      return undefined;
+  constructor(options: BatchOptions = {}) {
+    this.options = {
+      maxBatchSize: options.maxBatchSize ?? 1024 * 1024, // 1MB
+      maxDelay: options.maxDelay ?? 50, // 50ms
+      compress: options.compress ?? true,
+      minBatchSize: options.minBatchSize ?? 2,
+      maxBatchMessages: options.maxBatchMessages ?? 100,
+      flushOnBlur: options.flushOnBlur ?? true,
+      prioritize: options.prioritize ?? false,
+    };
+
+    // Set up event listeners for window blur
+    if (this.options.flushOnBlur && typeof window !== 'undefined') {
+      window.addEventListener('blur', this.flush.bind(this));
+    }
+  }
+
+  /**
+   * Connect to a WebSocket
+   * @param socket WebSocket instance
+   */
+  public connect(socket: WebSocket): void {
+    this.socket = socket;
+    this.isConnected = socket.readyState === WebSocket.OPEN;
+
+    // Set up event listeners
+    socket.addEventListener('open', () => {
+      this.isConnected = true;
+      this.flush();
     });
-    this.compressMessages = options.compressMessages || ((messages) => {
-      return {
-        type: 'batch',
-        messages,
+
+    socket.addEventListener('close', () => {
+      this.isConnected = false;
+    });
+  }
+
+  /**
+   * Send a message through the WebSocket
+   * @param type Message type
+   * @param payload Message payload
+   * @param priority Message priority (higher = more important)
+   * @returns Promise that resolves when the message is sent
+   */
+  public send(type: string, payload: any, priority = 0): Promise<void> {
+    return new Promise((resolve) => {
+      const message: BatchedMessage = {
+        type,
+        payload,
+        priority,
+        id: `msg_${++this.messageCounter}`,
+        timestamp: Date.now(),
       };
+
+      // Add message to queue
+      this.queue.push(message);
+
+      // Start timer if not already running
+      if (!this.timer) {
+        this.timer = setTimeout(() => this.processBatch(), this.options.maxDelay);
+      }
+
+      // Process batch immediately if conditions are met
+      if (
+        this.queue.length >= this.options.maxBatchMessages ||
+        this.estimateBatchSize() >= this.options.maxBatchSize
+      ) {
+        this.processBatch();
+      }
+
+      // Resolve immediately, actual sending happens asynchronously
+      resolve();
     });
   }
 
   /**
-   * Start the batcher
+   * Flush the queue immediately
    */
-  start(): void {
-    if (this.active) {
-      return;
-    }
-
-    this.active = true;
-    this.startTimers();
-
-    if (this.debug) {
-      console.log('[WebSocketBatcher] Started');
+  public flush(): void {
+    if (this.queue.length > 0) {
+      this.processBatch();
     }
   }
 
   /**
-   * Stop the batcher
+   * Get batch statistics
+   * @returns Batch statistics
    */
-  stop(): void {
-    if (!this.active) {
-      return;
-    }
-
-    this.active = false;
-    this.stopTimers();
-
-    if (this.debug) {
-      console.log('[WebSocketBatcher] Stopped');
-    }
+  public getStats(): BatchStats {
+    return { ...this.stats };
   }
 
   /**
-   * Queue a message for sending
-   * @param message The message to send
-   * @param priority The message priority
+   * Reset batch statistics
    */
-  queueMessage(message: any, priority: MessagePriority = MessagePriority.LOW): void {
-    if (!this.active) {
-      // If the batcher is not active, send the message immediately
-      this.sendFunction(message);
+  public resetStats(): void {
+    this.stats = {
+      totalMessages: 0,
+      totalBatches: 0,
+      avgBatchSize: 0,
+      avgBatchBytes: 0,
+      totalBytes: 0,
+      bytesSaved: 0,
+      avgLatency: 0,
+    };
+    this.latencySum = 0;
+  }
+
+  /**
+   * Process the current batch of messages
+   */
+  private processBatch(): void {
+    // Clear timer
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+
+    // Skip if queue is empty or socket is not connected
+    if (this.queue.length === 0 || !this.socket || !this.isConnected) {
       return;
     }
 
-    // Add the message to the queue
-    this.queue.push({
-      data: message,
-      priority,
+    // Skip batching if only one message and below min batch size
+    if (this.queue.length === 1 && this.options.minBatchSize > 1) {
+      // Start timer again
+      this.timer = setTimeout(() => this.processBatch(), this.options.maxDelay);
+      return;
+    }
+
+    // Sort by priority if enabled
+    if (this.options.prioritize) {
+      this.queue.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    }
+
+    // Create batch
+    const batch: MessageBatch = {
+      batchId: `batch_${Date.now()}`,
+      messages: [...this.queue],
       timestamp: Date.now(),
-      type: this.getMessageType(message),
-    });
+      compressed: this.options.compress,
+    };
 
-    if (this.debug) {
-      console.log(`[WebSocketBatcher] Queued message with priority ${priority}`, message);
-    }
-
-    // If the message is high priority, send it immediately
-    if (priority === MessagePriority.HIGH) {
-      this.flushHighPriorityMessages();
-    }
-
-    // If the queue is full, flush it
-    if (this.queue.length >= this.maxBatchSize) {
-      this.flushQueue();
-    }
-  }
-
-  /**
-   * Flush the message queue
-   */
-  flushQueue(): void {
-    if (this.queue.length === 0) {
-      return;
-    }
-
-    // Get all messages from the queue
-    const messages = this.queue.map(message => message.data);
+    // Clear queue
     this.queue = [];
 
-    // Send the messages
-    this.sendBatch(messages);
-
-    if (this.debug) {
-      console.log(`[WebSocketBatcher] Flushed queue with ${messages.length} messages`);
-    }
-  }
-
-  /**
-   * Flush high priority messages
-   */
-  flushHighPriorityMessages(): void {
-    // Get high priority messages
-    const highPriorityMessages = this.queue.filter(message => message.priority === MessagePriority.HIGH);
-    if (highPriorityMessages.length === 0) {
-      return;
-    }
-
-    // Remove high priority messages from the queue
-    this.queue = this.queue.filter(message => message.priority !== MessagePriority.HIGH);
-
-    // Send high priority messages individually
-    highPriorityMessages.forEach(message => {
-      this.sendFunction(message.data);
-    });
-
-    if (this.debug) {
-      console.log(`[WebSocketBatcher] Flushed ${highPriorityMessages.length} high priority messages`);
-    }
-  }
-
-  /**
-   * Flush medium priority messages
-   */
-  flushMediumPriorityMessages(): void {
-    // Get medium and high priority messages
-    const priorityMessages = this.queue.filter(message => 
-      message.priority === MessagePriority.MEDIUM || message.priority === MessagePriority.HIGH
-    );
-    if (priorityMessages.length === 0) {
-      return;
-    }
-
-    // Remove medium and high priority messages from the queue
-    this.queue = this.queue.filter(message => 
-      message.priority !== MessagePriority.MEDIUM && message.priority !== MessagePriority.HIGH
-    );
-
-    // Send the messages
-    const messages = priorityMessages.map(message => message.data);
-    this.sendBatch(messages);
-
-    if (this.debug) {
-      console.log(`[WebSocketBatcher] Flushed ${messages.length} medium/high priority messages`);
-    }
+    // Send batch
+    this.sendBatch(batch);
   }
 
   /**
    * Send a batch of messages
-   * @param messages The messages to send
+   * @param batch Message batch
    */
-  private sendBatch(messages: any[]): void {
-    if (messages.length === 0) {
+  private sendBatch(batch: MessageBatch): void {
+    if (!this.socket || !this.isConnected) {
+      // Re-queue messages if socket is not connected
+      this.queue = [...this.queue, ...batch.messages];
       return;
     }
 
-    if (messages.length === 1) {
-      // If there's only one message, send it directly
-      this.sendFunction(messages[0]);
-    } else if (this.enableCompression) {
-      // If compression is enabled, compress the messages
-      const compressedMessages = this.compressMessages(messages);
-      this.sendFunction(compressedMessages);
-    } else {
-      // Otherwise, send a batch message
-      this.sendFunction({
-        type: 'batch',
-        messages,
-      });
+    // Calculate batch size
+    const batchJson = JSON.stringify(batch);
+    const batchSize = batchJson.length;
+
+    // Compress if enabled
+    let dataToSend: string | Uint8Array = batchJson;
+    if (this.options.compress && typeof TextEncoder !== 'undefined' && typeof CompressionStream !== 'undefined') {
+      // This is a simplified example - in a real implementation, you would use
+      // the Compression Streams API or a library like pako to compress the data
+      const encoder = new TextEncoder();
+      dataToSend = encoder.encode(batchJson);
+      // In a real implementation, you would compress dataToSend here
+    }
+
+    // Send batch
+    try {
+      this.socket.send(dataToSend);
+
+      // Update stats
+      const now = Date.now();
+      const messageCount = batch.messages.length;
+      const totalLatency = batch.messages.reduce((sum, msg) => sum + (now - msg.timestamp), 0);
+      const avgLatency = totalLatency / messageCount;
+
+      this.stats.totalMessages += messageCount;
+      this.stats.totalBatches += 1;
+      this.stats.totalBytes += batchSize;
+      this.latencySum += totalLatency;
+      this.stats.avgLatency = this.latencySum / this.stats.totalMessages;
+      this.stats.avgBatchSize = this.stats.totalMessages / this.stats.totalBatches;
+      this.stats.avgBatchBytes = this.stats.totalBytes / this.stats.totalBatches;
+
+      // Calculate bytes saved (assuming each message would have its own overhead)
+      const overhead = 20; // Estimated overhead per message in bytes
+      const bytesSaved = (messageCount - 1) * overhead;
+      this.stats.bytesSaved += bytesSaved;
+    } catch (error) {
+      console.error('Error sending batch:', error);
+      // Re-queue messages on error
+      this.queue = [...this.queue, ...batch.messages];
     }
   }
 
   /**
-   * Start the batch timers
+   * Estimate the current batch size in bytes
+   * @returns Estimated batch size in bytes
    */
-  private startTimers(): void {
-    // Start the medium priority timer
-    this.mediumPriorityTimer = setInterval(() => {
-      this.flushMediumPriorityMessages();
-    }, this.mediumPriorityInterval);
-
-    // Start the low priority timer
-    this.lowPriorityTimer = setInterval(() => {
-      this.flushQueue();
-    }, this.lowPriorityInterval);
-  }
-
-  /**
-   * Stop the batch timers
-   */
-  private stopTimers(): void {
-    // Stop the medium priority timer
-    if (this.mediumPriorityTimer) {
-      clearInterval(this.mediumPriorityTimer);
-      this.mediumPriorityTimer = null;
+  private estimateBatchSize(): number {
+    if (this.queue.length === 0) {
+      return 0;
     }
 
-    // Stop the low priority timer
-    if (this.lowPriorityTimer) {
-      clearInterval(this.lowPriorityTimer);
-      this.lowPriorityTimer = null;
+    // Create a sample batch to estimate size
+    const sampleBatch: MessageBatch = {
+      batchId: 'sample',
+      messages: this.queue,
+      timestamp: Date.now(),
+      compressed: false,
+    };
+
+    // Estimate size
+    return JSON.stringify(sampleBatch).length;
+  }
+
+  /**
+   * Disconnect from the WebSocket
+   */
+  public disconnect(): void {
+    // Flush any remaining messages
+    this.flush();
+
+    // Remove event listeners
+    if (this.options.flushOnBlur && typeof window !== 'undefined') {
+      window.removeEventListener('blur', this.flush.bind(this));
     }
-  }
 
-  /**
-   * Get the current queue size
-   * @returns The number of messages in the queue
-   */
-  getQueueSize(): number {
-    return this.queue.length;
-  }
+    // Clear timer
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
 
-  /**
-   * Get the current queue
-   * @returns The message queue
-   */
-  getQueue(): QueuedMessage[] {
-    return [...this.queue];
-  }
-
-  /**
-   * Clear the queue
-   */
-  clearQueue(): void {
-    this.queue = [];
+    // Clear socket
+    this.socket = null;
+    this.isConnected = false;
   }
 }
 
-/**
- * Create a new WebSocket batcher
- * @param sendFunction The function to send messages
- * @param options Batcher options
- * @returns A new WebSocket batcher
- */
-export function createWebSocketBatcher(
-  sendFunction: (message: any) => void,
-  options: WebSocketBatcherOptions = {}
-): WebSocketBatcher {
-  return new WebSocketBatcher(sendFunction, options);
-}
+// Export singleton instance
+export default new WebSocketBatcher();

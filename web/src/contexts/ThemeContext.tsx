@@ -1,131 +1,150 @@
+/**
+ * ThemeContext - Context for managing theme
+ * 
+ * This context provides theme management functionality for the application,
+ * including light/dark mode and system preference detection.
+ */
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Theme types
-type ThemeMode = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
-  theme: ThemeMode;
-  isDark: boolean;
+  /** Current theme */
+  theme: Theme;
+  /** Current active theme (light or dark) */
+  activeTheme: 'light' | 'dark';
+  /** Set theme */
+  setTheme: (theme: Theme) => void;
+  /** Toggle between light and dark themes */
   toggleTheme: () => void;
-  setTheme: (theme: ThemeMode) => void;
 }
 
-// Create theme context
-export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+// Create context
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Theme provider props
 interface ThemeProviderProps {
+  /** Initial theme */
+  initialTheme?: Theme;
+  /** Children components */
   children: ReactNode;
-  defaultTheme?: ThemeMode;
 }
 
-// Theme provider component
+/**
+ * ThemeProvider component
+ */
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
+  initialTheme = 'system',
   children,
-  defaultTheme = 'dark'
 }) => {
-  // State
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    // Get theme from localStorage
-    const savedTheme = localStorage.getItem('theme');
+  const [theme, setThemeState] = useState<Theme>(initialTheme);
+  const [activeTheme, setActiveTheme] = useState<'light' | 'dark'>('light');
+
+  // Get system preference
+  const getSystemTheme = (): 'light' | 'dark' => {
+    if (typeof window === 'undefined') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  };
+
+  // Update active theme
+  const updateActiveTheme = (newTheme: Theme) => {
+    const computedTheme = newTheme === 'system' ? getSystemTheme() : newTheme;
+    setActiveTheme(computedTheme);
     
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      return savedTheme;
+    // Update document attributes
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', computedTheme);
+      
+      // Update meta theme-color
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute(
+          'content',
+          computedTheme === 'dark' ? '#121212' : '#ffffff'
+        );
+      }
     }
+  };
+
+  // Set theme
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    updateActiveTheme(newTheme);
     
-    // Check system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
+    // Save to localStorage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('theme', newTheme);
     }
-    
-    return defaultTheme;
-  });
-  
+  };
+
   // Toggle theme
   const toggleTheme = () => {
-    setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
-  
-  // Set theme
-  const setTheme = (newTheme: ThemeMode) => {
-    setThemeState(newTheme);
-  };
-  
-  // Update localStorage and document class when theme changes
-  useEffect(() => {
-    // Save to localStorage
-    localStorage.setItem('theme', theme);
-    
-    // Update document class
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark-theme');
-      document.documentElement.classList.remove('light-theme');
+    if (theme === 'system') {
+      setTheme(getSystemTheme() === 'light' ? 'dark' : 'light');
     } else {
-      document.documentElement.classList.add('light-theme');
-      document.documentElement.classList.remove('dark-theme');
+      setTheme(theme === 'light' ? 'dark' : 'light');
     }
-    
-    // Update meta theme-color
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute(
-        'content',
-        theme === 'dark' ? '#121212' : '#ffffff'
-      );
+  };
+
+  // Initialize theme from localStorage or system preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme') as Theme | null;
+      if (savedTheme) {
+        setThemeState(savedTheme);
+        updateActiveTheme(savedTheme);
+      } else {
+        updateActiveTheme(initialTheme);
+      }
     }
-  }, [theme]);
-  
+  }, [initialTheme]);
+
   // Listen for system preference changes
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    const handleChange = (e: MediaQueryListEvent) => {
-      // Only update if user hasn't explicitly set a preference
-      if (!localStorage.getItem('theme')) {
-        setThemeState(e.matches ? 'dark' : 'light');
+    const handleChange = () => {
+      if (theme === 'system') {
+        updateActiveTheme('system');
       }
     };
     
-    // Add listener
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
-    } else {
-      // Fallback for older browsers
-      mediaQuery.addListener(handleChange);
-    }
+    mediaQuery.addEventListener('change', handleChange);
     
-    // Cleanup
     return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleChange);
-      } else {
-        // Fallback for older browsers
-        mediaQuery.removeListener(handleChange);
-      }
+      mediaQuery.removeEventListener('change', handleChange);
     };
-  }, []);
-  
-  // Return provider
+  }, [theme]);
+
+  // Context value
+  const contextValue: ThemeContextType = {
+    theme,
+    activeTheme,
+    setTheme,
+    toggleTheme,
+  };
+
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        isDark: theme === 'dark',
-        toggleTheme,
-        setTheme
-      }}
-    >
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-// Hook to use theme context
+/**
+ * useTheme hook
+ * @returns Theme context
+ * @throws Error if used outside of ThemeProvider
+ */
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
+  
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
+  
   return context;
 };
 

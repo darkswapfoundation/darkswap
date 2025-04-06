@@ -1,109 +1,160 @@
-import React, { useState } from 'react';
-import '../styles/Trade.css';
-import { TradeForm } from '../components/TradeForm';
-import { PeerStatus } from '../components/PeerStatus';
-import { TradeList } from '../components/TradeList';
-import { TradeHistory } from '../components/TradeHistory';
-import { PriceChart } from '../components/PriceChart';
-import { WalletBalance } from '../components/WalletBalance';
+/**
+ * Trade - Trading page component
+ * 
+ * This page allows users to view the order book, trade history,
+ * and place orders for trading assets.
+ */
 
-export const Trade: React.FC = () => {
-  // State for notifications
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
+import React, { useState } from 'react';
+import { useDarkSwapContext } from '../contexts/DarkSwapContext';
+import { AssetType, Order } from '../wasm/DarkSwapWasm';
+import OrderBook from '../components/OrderBook';
+import TradeHistory from '../components/TradeHistory';
+import WalletIntegration from '../components/WalletIntegration';
+import P2PStatus from '../components/P2PStatus';
+import { Card } from '../components/MemoizedComponents';
+
+/**
+ * Trade component
+ */
+const Trade: React.FC = () => {
+  const { isInitialized } = useDarkSwapContext();
   
-  // Handle trade offer creation success
-  const handleTradeOfferSuccess = (offerId: string) => {
-    setNotification({
-      type: 'success',
-      message: `Trade offer created successfully! Offer ID: ${offerId}`,
-    });
-    
-    // Clear notification after 5 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 5000);
-  };
+  // Trading pair state
+  const [baseAssetType] = useState<AssetType>(AssetType.Bitcoin);
+  const [baseAssetId] = useState<string>('BTC');
+  const [quoteAssetType] = useState<AssetType>(AssetType.Bitcoin);
+  const [quoteAssetId] = useState<string>('USD');
   
-  // Handle trade offer creation error
-  const handleTradeOfferError = (error: Error) => {
-    setNotification({
-      type: 'error',
-      message: `Failed to create trade offer: ${error.message}`,
-    });
-    
-    // Clear notification after 5 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 5000);
-  };
+  // Selected order state
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   
-  // Handle trade offer acceptance success
-  const handleAcceptSuccess = (offerId: string) => {
-    setNotification({
-      type: 'success',
-      message: `Trade offer accepted successfully! Offer ID: ${offerId}`,
-    });
-    
-    // Clear notification after 5 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 5000);
-  };
-  
-  // Handle trade offer acceptance error
-  const handleAcceptError = (error: Error) => {
-    setNotification({
-      type: 'error',
-      message: `Failed to accept trade offer: ${error.message}`,
-    });
-    
-    // Clear notification after 5 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 5000);
+  // Handle order selection
+  const handleOrderSelected = (order: Order) => {
+    setSelectedOrder(order);
   };
   
   return (
     <div className="trade-page">
-      <h1>Trade</h1>
+      <h1>Trade {baseAssetId}/{quoteAssetId}</h1>
       
-      {notification && (
-        <div className={`notification ${notification.type}`}>
-          {notification.message}
-        </div>
-      )}
-      
-      <div className="trade-layout">
-        <div className="trade-layout-left">
-          <PeerStatus />
+      <div className="trade-page-content">
+        <div className="trade-page-left">
+          <OrderBook
+            baseAssetType={baseAssetType}
+            baseAssetId={baseAssetId}
+            quoteAssetType={quoteAssetType}
+            quoteAssetId={quoteAssetId}
+            onOrderSelected={handleOrderSelected}
+          />
           
-          <WalletBalance
-            runeIds={['rune1', 'rune2']}
-            alkaneIds={['alkane1', 'alkane2']}
+          <TradeHistory
+            baseAssetType={baseAssetType}
+            baseAssetId={baseAssetId}
+            quoteAssetType={quoteAssetType}
+            quoteAssetId={quoteAssetId}
           />
         </div>
         
-        <div className="trade-layout-right">
-          <PriceChart assetType="bitcoin" />
+        <div className="trade-page-right">
+          <WalletIntegration />
           
-          <TradeForm
-            onSuccess={handleTradeOfferSuccess}
-            onError={handleTradeOfferError}
-          />
+          <Card className="trade-form">
+            <h2>Place Order</h2>
+            
+            {!isInitialized ? (
+              <div className="not-initialized">
+                <p>DarkSwap is not initialized.</p>
+                <p>Please go to the Settings page to initialize DarkSwap.</p>
+              </div>
+            ) : selectedOrder ? (
+              <div className="take-order-form">
+                <h3>Take Order</h3>
+                
+                <div className="order-details">
+                  <div className="order-detail">
+                    <span className="label">Type:</span>
+                    <span className="value">{selectedOrder.side === 0 ? 'Buy' : 'Sell'}</span>
+                  </div>
+                  
+                  <div className="order-detail">
+                    <span className="label">Price:</span>
+                    <span className="value">{selectedOrder.price} {quoteAssetId}</span>
+                  </div>
+                  
+                  <div className="order-detail">
+                    <span className="label">Amount:</span>
+                    <span className="value">{selectedOrder.amount} {baseAssetId}</span>
+                  </div>
+                  
+                  <div className="order-detail">
+                    <span className="label">Total:</span>
+                    <span className="value">
+                      {(parseFloat(selectedOrder.price) * parseFloat(selectedOrder.amount)).toFixed(2)} {quoteAssetId}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="form-actions">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      // This is a placeholder for actual order taking
+                      alert(`Taking order ${selectedOrder.id}`);
+                    }}
+                  >
+                    Take Order
+                  </button>
+                  
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setSelectedOrder(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="create-order-form">
+                <h3>Create Order</h3>
+                
+                <div className="form-group">
+                  <label htmlFor="orderType">Order Type</label>
+                  <select id="orderType">
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="price">Price ({quoteAssetId})</label>
+                  <input type="number" id="price" placeholder="0.00" />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="amount">Amount ({baseAssetId})</label>
+                  <input type="number" id="amount" placeholder="0.00000000" />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="total">Total ({quoteAssetId})</label>
+                  <input type="number" id="total" placeholder="0.00" readOnly />
+                </div>
+                
+                <div className="form-actions">
+                  <button className="btn btn-primary">
+                    Place Order
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
           
-          <TradeList
-            onAcceptSuccess={handleAcceptSuccess}
-            onAcceptError={handleAcceptError}
-          />
-          
-          <TradeHistory />
+          <P2PStatus />
         </div>
       </div>
-      
-      {/* Styles are in Trade.css */}
     </div>
   );
 };
+
+export default Trade;

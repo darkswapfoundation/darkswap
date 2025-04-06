@@ -1,14 +1,11 @@
+# DarkSwap Web Application Dockerfile
+# Multi-stage build for optimized production image
+
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:18-alpine AS build
 
 # Set working directory
 WORKDIR /app
-
-# Set build arguments with defaults
-ARG API_URL=http://localhost:3000
-ARG WS_URL=ws://localhost:3000/ws
-ENV REACT_APP_API_URL=$API_URL
-ENV REACT_APP_WS_URL=$WS_URL
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
@@ -23,28 +20,36 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:18-alpine
 
-# Copy nginx configuration
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# Set working directory
+WORKDIR /app
 
-# Copy built application from builder stage
-COPY --from=builder /app/build /usr/share/nginx/html
+# Install production dependencies
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Copy health check script
-COPY nginx/health-check.sh /usr/local/bin/health-check.sh
-RUN chmod +x /usr/local/bin/health-check.sh
+# Copy built application from build stage
+COPY --from=build /app/build ./build
+COPY --from=build /app/server.js ./
+COPY --from=build /app/api ./api
 
-# Create directory for SSL certificates
-RUN mkdir -p /etc/nginx/certs
+# Create directories for logs and certificates
+RUN mkdir -p logs certs
+
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=80
 
 # Expose ports
-EXPOSE 80
-EXPOSE 443
+EXPOSE 80 443
+
+# Set user to node for security
+USER node
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD /usr/local/bin/health-check.sh
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget -qO- http://localhost/api/health || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the server
+CMD ["node", "server.js"]

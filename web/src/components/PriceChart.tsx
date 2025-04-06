@@ -1,405 +1,297 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ChartOptions,
+} from 'chart.js';
 
-interface PriceChartProps {
-  assetType: 'bitcoin' | 'rune' | 'alkane';
-  assetId?: string;
-  timeframe?: '1h' | '1d' | '1w' | '1m' | '1y';
-  className?: string;
-}
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
-interface PricePoint {
+interface PriceData {
   timestamp: number;
   price: number;
+  volume?: number;
 }
 
-export const PriceChart: React.FC<PriceChartProps> = ({
-  assetType,
-  assetId = '',
-  timeframe = '1d',
-  className,
+interface PriceChartProps {
+  baseAsset: string;
+  quoteAsset: string;
+  data?: PriceData[];
+  timeframe?: '1h' | '24h' | '7d' | '30d' | '1y';
+  height?: number;
+  width?: string;
+  loading?: boolean;
+  error?: string | null;
+  onTimeframeChange?: (timeframe: '1h' | '24h' | '7d' | '30d' | '1y') => void;
+}
+
+const PriceChart: React.FC<PriceChartProps> = ({
+  baseAsset,
+  quoteAsset,
+  data = [],
+  timeframe = '24h',
+  height = 300,
+  width = '100%',
+  loading = false,
+  error = null,
+  onTimeframeChange,
 }) => {
-  // Price data (mock data)
-  const [priceData, setPriceData] = useState<PricePoint[]>([]);
-  
-  // Loading state
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-  
-  // Selected timeframe
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'1h' | '1d' | '1w' | '1m' | '1y'>(timeframe);
-  
-  // Fetch price data
+  const { theme, isDark } = useTheme();
+  const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+
+  // Set current price from the last data point
   useEffect(() => {
-    // In a real implementation, we would fetch this from an API
-    const fetchPriceData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Generate mock data
-        const now = Date.now();
-        const data: PricePoint[] = [];
-        
-        // Different data points based on timeframe
-        let dataPoints = 24;
-        let interval = 3600000; // 1 hour in milliseconds
-        
-        switch (selectedTimeframe) {
-          case '1h':
-            dataPoints = 60;
-            interval = 60000; // 1 minute
-            break;
-          case '1d':
-            dataPoints = 24;
-            interval = 3600000; // 1 hour
-            break;
-          case '1w':
-            dataPoints = 7;
-            interval = 86400000; // 1 day
-            break;
-          case '1m':
-            dataPoints = 30;
-            interval = 86400000; // 1 day
-            break;
-          case '1y':
-            dataPoints = 12;
-            interval = 2592000000; // 1 month
-            break;
-        }
-        
-        // Base price based on asset type
-        let basePrice = 0;
-        let volatility = 0;
-        
-        switch (assetType) {
-          case 'bitcoin':
-            basePrice = 65000;
-            volatility = 0.02; // 2%
-            break;
-          case 'rune':
-            basePrice = 0.0001;
-            volatility = 0.05; // 5%
-            break;
-          case 'alkane':
-            basePrice = 0.0002;
-            volatility = 0.04; // 4%
-            break;
-        }
-        
-        // Generate price points
-        for (let i = 0; i < dataPoints; i++) {
-          const timestamp = now - (dataPoints - i) * interval;
-          const randomChange = (Math.random() - 0.5) * 2 * volatility;
-          const price = basePrice * (1 + randomChange);
-          
-          data.push({
-            timestamp,
-            price,
-          });
-          
-          // Update base price for next point
-          basePrice = price;
-        }
-        
-        setPriceData(data);
-      } catch (err) {
-        console.error('Failed to fetch price data:', err);
-        setError('Failed to fetch price data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchPriceData();
-  }, [assetType, assetId, selectedTimeframe]);
-  
-  // Calculate chart dimensions
-  const chartWidth = 600;
-  const chartHeight = 300;
-  const padding = 40;
-  
-  // Calculate min and max values
-  const minPrice = Math.min(...priceData.map(point => point.price));
-  const maxPrice = Math.max(...priceData.map(point => point.price));
-  
-  // Calculate price range with 10% padding
-  const priceRange = maxPrice - minPrice;
-  const paddedMinPrice = minPrice - priceRange * 0.1;
-  const paddedMaxPrice = maxPrice + priceRange * 0.1;
-  
-  // Calculate scale factors
-  const xScale = (chartWidth - padding * 2) / (priceData.length - 1);
-  const yScale = (chartHeight - padding * 2) / (paddedMaxPrice - paddedMinPrice);
-  
-  // Generate SVG path
-  const generatePath = (): string => {
-    if (priceData.length === 0) {
-      return '';
+    if (data && data.length > 0) {
+      setCurrentPrice(data[data.length - 1].price);
     }
+  }, [data]);
+
+  // Format timestamps based on timeframe
+  const formatTimestamp = (timestamp: number): string => {
+    const date = new Date(timestamp);
     
-    return priceData.reduce((path, point, index) => {
-      const x = padding + index * xScale;
-      const y = chartHeight - padding - (point.price - paddedMinPrice) * yScale;
-      
-      if (index === 0) {
-        return `M ${x} ${y}`;
-      }
-      
-      return `${path} L ${x} ${y}`;
-    }, '');
-  };
-  
-  // Generate area path (for fill)
-  const generateAreaPath = (): string => {
-    if (priceData.length === 0) {
-      return '';
-    }
-    
-    const path = generatePath();
-    const lastX = padding + (priceData.length - 1) * xScale;
-    const baseline = chartHeight - padding;
-    
-    return `${path} L ${lastX} ${baseline} L ${padding} ${baseline} Z`;
-  };
-  
-  // Format price
-  const formatPrice = (price: number): string => {
-    switch (assetType) {
-      case 'bitcoin':
-        return `$${price.toLocaleString()}`;
-      case 'rune':
-      case 'alkane':
-        return `${price.toFixed(8)} BTC`;
+    switch (timeframe) {
+      case '1h':
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      case '24h':
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      case '7d':
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      case '30d':
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      case '1y':
+        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
+      default:
+        return date.toLocaleDateString();
     }
   };
-  
-  // Format asset name
-  const formatAssetName = (): string => {
-    switch (assetType) {
-      case 'bitcoin':
-        return 'Bitcoin (BTC)';
-      case 'rune':
-        return `Rune (${assetId})`;
-      case 'alkane':
-        return `Alkane (${assetId})`;
+
+  // Calculate price change percentage
+  const calculatePriceChange = (): { change: number; percentage: number } => {
+    if (data.length < 2) return { change: 0, percentage: 0 };
+    
+    const firstPrice = data[0].price;
+    const lastPrice = data[data.length - 1].price;
+    const change = lastPrice - firstPrice;
+    const percentage = (change / firstPrice) * 100;
+    
+    return { change, percentage };
+  };
+
+  const priceChange = calculatePriceChange();
+  const isPriceUp = priceChange.change >= 0;
+
+  // Chart data
+  const chartData = {
+    labels: data.map(item => formatTimestamp(item.timestamp)),
+    datasets: [
+      {
+        label: `${baseAsset}/${quoteAsset}`,
+        data: data.map(item => item.price),
+        borderColor: isPriceUp ? theme.success : theme.error,
+        backgroundColor: (context: any) => {
+          const ctx = context.chart.ctx;
+          const gradient = ctx.createLinearGradient(0, 0, 0, height);
+          gradient.addColorStop(0, `${isPriceUp ? theme.success : theme.error}20`);
+          gradient.addColorStop(1, `${isPriceUp ? theme.success : theme.error}01`);
+          return gradient;
+        },
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: isPriceUp ? theme.success : theme.error,
+        pointHoverBorderColor: theme.background,
+      },
+    ],
+  };
+
+  // Chart options
+  const chartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        enabled: true,
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          label: (context) => {
+            const price = context.parsed.y;
+            setHoveredPrice(price);
+            return `Price: ${price.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} ${quoteAsset}`;
+          },
+        },
+        backgroundColor: isDark ? '#2A2D3E' : '#FFFFFF',
+        titleColor: isDark ? '#FFFFFF' : '#000000',
+        bodyColor: isDark ? '#FFFFFF' : '#000000',
+        borderColor: theme.border,
+        borderWidth: 1,
+      },
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: theme.text,
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
+        },
+      },
+      y: {
+        grid: {
+          color: `${theme.border}40`,
+        },
+        ticks: {
+          color: theme.text,
+          callback: (value) => {
+            return `${value.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`;
+          },
+        },
+        position: 'right',
+      },
+    },
+    hover: {
+      mode: 'index',
+      intersect: false,
+    },
+  };
+
+  // Handle timeframe button click
+  const handleTimeframeClick = (newTimeframe: '1h' | '24h' | '7d' | '30d' | '1y') => {
+    if (onTimeframeChange) {
+      onTimeframeChange(newTimeframe);
     }
   };
-  
-  // Get current price
-  const currentPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : 0;
-  
-  // Calculate price change
-  const previousPrice = priceData.length > 0 ? priceData[0].price : 0;
-  const priceChange = currentPrice - previousPrice;
-  const priceChangePercent = previousPrice !== 0 ? (priceChange / previousPrice) * 100 : 0;
-  
+
   return (
-    <div className={`price-chart ${className || ''}`}>
-      <div className="price-chart-header">
-        <h2>{formatAssetName()}</h2>
-        <div className="price-info">
-          <div className="current-price">{formatPrice(currentPrice)}</div>
-          <div className={`price-change ${priceChange >= 0 ? 'positive' : 'negative'}`}>
-            {priceChange >= 0 ? '+' : ''}{formatPrice(priceChange)} ({priceChangePercent.toFixed(2)}%)
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{
+        backgroundColor: theme.card,
+        width,
+        height: 'auto',
+      }}
+    >
+      <div className="p-4 border-b" style={{ borderColor: theme.border }}>
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
+            {baseAsset}/{quoteAsset}
+          </h2>
+          <div className="flex items-center">
+            <span
+              className="text-lg font-bold mr-2"
+              style={{ color: theme.text }}
+            >
+              {currentPrice?.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span
+              className="text-sm"
+              style={{
+                color: isPriceUp ? theme.success : theme.error,
+              }}
+            >
+              {isPriceUp ? '+' : ''}
+              {priceChange.change.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{' '}
+              ({isPriceUp ? '+' : ''}
+              {priceChange.percentage.toFixed(2)}%)
+            </span>
           </div>
         </div>
       </div>
-      
-      <div className="timeframe-selector">
-        <button
-          className={selectedTimeframe === '1h' ? 'active' : ''}
-          onClick={() => setSelectedTimeframe('1h')}
-        >
-          1H
-        </button>
-        <button
-          className={selectedTimeframe === '1d' ? 'active' : ''}
-          onClick={() => setSelectedTimeframe('1d')}
-        >
-          1D
-        </button>
-        <button
-          className={selectedTimeframe === '1w' ? 'active' : ''}
-          onClick={() => setSelectedTimeframe('1w')}
-        >
-          1W
-        </button>
-        <button
-          className={selectedTimeframe === '1m' ? 'active' : ''}
-          onClick={() => setSelectedTimeframe('1m')}
-        >
-          1M
-        </button>
-        <button
-          className={selectedTimeframe === '1y' ? 'active' : ''}
-          onClick={() => setSelectedTimeframe('1y')}
-        >
-          1Y
-        </button>
+
+      <div className="p-4">
+        {/* Timeframe selector */}
+        <div className="flex mb-4 space-x-2">
+          {(['1h', '24h', '7d', '30d', '1y'] as const).map((tf) => (
+            <button
+              key={tf}
+              className="px-3 py-1 text-xs rounded"
+              style={{
+                backgroundColor:
+                  timeframe === tf ? theme.primary : theme.background,
+                color: timeframe === tf ? '#FFFFFF' : theme.text,
+              }}
+              onClick={() => handleTimeframeClick(tf)}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+
+        {/* Chart */}
+        <div style={{ height: `${height}px`, position: 'relative' }}>
+          {loading ? (
+            <div
+              className="flex items-center justify-center"
+              style={{ height: `${height}px` }}
+            >
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: theme.primary }}></div>
+            </div>
+          ) : error ? (
+            <div
+              className="flex items-center justify-center"
+              style={{ height: `${height}px` }}
+            >
+              <p style={{ color: theme.error }}>{error}</p>
+            </div>
+          ) : data.length === 0 ? (
+            <div
+              className="flex items-center justify-center"
+              style={{ height: `${height}px` }}
+            >
+              <p style={{ color: theme.text }}>No data available</p>
+            </div>
+          ) : (
+            <Line data={chartData} options={chartOptions} />
+          )}
+        </div>
       </div>
-      
-      <div className="chart-container">
-        {isLoading ? (
-          <div className="loading">Loading chart data...</div>
-        ) : error ? (
-          <div className="error">{error}</div>
-        ) : (
-          <svg width={chartWidth} height={chartHeight}>
-            {/* X and Y axes */}
-            <line
-              x1={padding}
-              y1={chartHeight - padding}
-              x2={chartWidth - padding}
-              y2={chartHeight - padding}
-              stroke="#ddd"
-              strokeWidth="1"
-            />
-            <line
-              x1={padding}
-              y1={padding}
-              x2={padding}
-              y2={chartHeight - padding}
-              stroke="#ddd"
-              strokeWidth="1"
-            />
-            
-            {/* Price line */}
-            <path
-              d={generatePath()}
-              fill="none"
-              stroke={priceChange >= 0 ? '#28a745' : '#dc3545'}
-              strokeWidth="2"
-            />
-            
-            {/* Area fill */}
-            <path
-              d={generateAreaPath()}
-              fill={priceChange >= 0 ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'}
-            />
-            
-            {/* Price labels */}
-            <text x={padding - 5} y={padding} textAnchor="end" fontSize="12" fill="#666">
-              {formatPrice(paddedMaxPrice)}
-            </text>
-            <text x={padding - 5} y={chartHeight - padding} textAnchor="end" fontSize="12" fill="#666">
-              {formatPrice(paddedMinPrice)}
-            </text>
-            
-            {/* Time labels */}
-            <text x={padding} y={chartHeight - padding + 20} textAnchor="middle" fontSize="12" fill="#666">
-              {new Date(priceData[0]?.timestamp || Date.now()).toLocaleTimeString()}
-            </text>
-            <text x={chartWidth - padding} y={chartHeight - padding + 20} textAnchor="middle" fontSize="12" fill="#666">
-              {new Date(priceData[priceData.length - 1]?.timestamp || Date.now()).toLocaleTimeString()}
-            </text>
-          </svg>
-        )}
-      </div>
-      
-      <style>
-        {`
-          .price-chart {
-            background-color: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            margin-bottom: 30px;
-          }
-          
-          .price-chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-          }
-          
-          .price-chart-header h2 {
-            margin: 0;
-            color: #333;
-            font-size: 1.5rem;
-          }
-          
-          .price-info {
-            text-align: right;
-          }
-          
-          .current-price {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #333;
-          }
-          
-          .price-change {
-            font-size: 1rem;
-            font-weight: 500;
-          }
-          
-          .price-change.positive {
-            color: #28a745;
-          }
-          
-          .price-change.negative {
-            color: #dc3545;
-          }
-          
-          .timeframe-selector {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-          }
-          
-          .timeframe-selector button {
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            padding: 5px 15px;
-            margin: 0 5px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            border-radius: 4px;
-            transition: all 0.2s;
-          }
-          
-          .timeframe-selector button:hover {
-            background-color: #e9ecef;
-          }
-          
-          .timeframe-selector button.active {
-            background-color: #007bff;
-            color: #fff;
-            border-color: #007bff;
-          }
-          
-          .chart-container {
-            position: relative;
-            height: ${chartHeight}px;
-          }
-          
-          .loading, .error {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(255, 255, 255, 0.8);
-          }
-          
-          .loading {
-            color: #6c757d;
-          }
-          
-          .error {
-            color: #dc3545;
-          }
-        `}
-      </style>
     </div>
   );
 };
+
+export default PriceChart;

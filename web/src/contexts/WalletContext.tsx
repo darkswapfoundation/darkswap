@@ -1,331 +1,50 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Wallet, Balance, Transaction } from '../utils/types';
-import { useApi } from './ApiContext';
-import { useNotification } from './NotificationContext';
+/**
+ * WalletContext - Context for Bitcoin wallet
+ * 
+ * This context provides access to the Bitcoin wallet from React components.
+ */
 
-interface WalletContextType {
-  wallet: Wallet | null;
-  balance: Record<string, number>;
-  transactions: Transaction[];
-  loading: boolean;
-  error: string | null;
-  connect: () => Promise<void>;
-  disconnect: () => void;
-  refreshBalance: () => Promise<void>;
-  sendTransaction: (to: string, amount: number, asset: string) => Promise<string>;
-}
+import React, { createContext, useContext, ReactNode } from 'react';
+import useWallet, { UseWalletResult } from '../hooks/useWallet';
 
+// Wallet context
+const WalletContext = createContext<UseWalletResult | undefined>(undefined);
+
+// Wallet provider props
 interface WalletProviderProps {
-  children: React.ReactNode;
+  /** Children components */
+  children: ReactNode;
 }
 
-// Create context
-const WalletContext = createContext<WalletContextType | undefined>(undefined);
-
-// Wallet provider component
-export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
-  // Hooks
-  const { api } = useApi();
-  const { addNotification } = useNotification();
-  
-  // State
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [balance, setBalance] = useState<Record<string, number>>({});
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Check if wallet is already connected
-  useEffect(() => {
-    const checkWalletConnection = async () => {
-      try {
-        // Check local storage for wallet connection
-        const walletData = localStorage.getItem('wallet');
-        
-        if (walletData) {
-          const parsedWallet = JSON.parse(walletData);
-          
-          // Verify wallet connection
-          const response = await api.get(`/wallet/${parsedWallet.id}/status`);
-          
-          if (response && response.data && response.data.connected) {
-            setWallet(parsedWallet);
-            await fetchBalance(parsedWallet.id);
-            await fetchTransactions(parsedWallet.id);
-          } else {
-            // Wallet is not connected, remove from local storage
-            localStorage.removeItem('wallet');
-          }
-        }
-      } catch (error) {
-        console.error('Error checking wallet connection:', error);
-        localStorage.removeItem('wallet');
-      }
-    };
-    
-    checkWalletConnection();
-  }, [api]);
-  
-  // Fetch wallet balance
-  const fetchBalance = async (walletId: string) => {
-    try {
-      const response = await api.get(`/wallet/${walletId}/balance`);
-      
-      if (response && response.data) {
-        // Convert array of balances to record
-        const balanceRecord: Record<string, number> = {};
-        
-        response.data.balances.forEach((item: Balance) => {
-          balanceRecord[item.asset] = item.available;
-        });
-        
-        setBalance(balanceRecord);
-      }
-    } catch (error) {
-      console.error('Error fetching wallet balance:', error);
-      setError('Failed to fetch wallet balance');
-    }
-  };
-  
-  // Fetch wallet transactions
-  const fetchTransactions = async (walletId: string) => {
-    try {
-      const response = await api.get(`/wallet/${walletId}/transactions`);
-      
-      if (response && response.data) {
-        setTransactions(response.data.transactions || []);
-      }
-    } catch (error) {
-      console.error('Error fetching wallet transactions:', error);
-      setError('Failed to fetch wallet transactions');
-    }
-  };
-  
-  // Connect wallet
-  const connect = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Check if wallet provider is available
-      if (typeof window.bitcoin === 'undefined') {
-        throw new Error('No Bitcoin wallet provider found');
-      }
-      
-      // Request wallet connection
-      const accounts = await window.bitcoin.request({ method: 'requestAccounts' });
-      
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts found');
-      }
-      
-      // Get wallet information
-      const walletInfo = await api.post('/wallet/connect', {
-        address: accounts[0],
-        type: 'external'
-      });
-      
-      if (!walletInfo || !walletInfo.data || !walletInfo.data.wallet) {
-        throw new Error('Failed to connect wallet');
-      }
-      
-      const connectedWallet = walletInfo.data.wallet;
-      
-      // Store wallet in state and local storage
-      setWallet(connectedWallet);
-      localStorage.setItem('wallet', JSON.stringify(connectedWallet));
-      
-      // Fetch balance and transactions
-      await fetchBalance(connectedWallet.id);
-      await fetchTransactions(connectedWallet.id);
-      
-      // Show notification
-      addNotification({
-        type: 'success',
-        title: 'Wallet Connected',
-        message: `Connected to wallet ${connectedWallet.name}`
-      });
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      setError(error instanceof Error ? error.message : 'Failed to connect wallet');
-      
-      // Show notification
-      addNotification({
-        type: 'error',
-        title: 'Connection Failed',
-        message: error instanceof Error ? error.message : 'Failed to connect wallet'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Disconnect wallet
-  const disconnect = () => {
-    // Clear wallet data
-    setWallet(null);
-    setBalance({});
-    setTransactions([]);
-    
-    // Remove from local storage
-    localStorage.removeItem('wallet');
-    
-    // Show notification
-    addNotification({
-      type: 'info',
-      title: 'Wallet Disconnected',
-      message: 'Your wallet has been disconnected'
-    });
-  };
-  
-  // Refresh wallet balance
-  const refreshBalance = async () => {
-    if (!wallet) {
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      await fetchBalance(wallet.id);
-      await fetchTransactions(wallet.id);
-    } catch (error) {
-      console.error('Error refreshing wallet:', error);
-      setError(error instanceof Error ? error.message : 'Failed to refresh wallet');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Send transaction
-  const sendTransaction = async (to: string, amount: number, asset: string): Promise<string> => {
-    if (!wallet) {
-      throw new Error('Wallet not connected');
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Create transaction
-      const createResponse = await api.post('/wallet/transaction', {
-        walletId: wallet.id,
-        to,
-        amount,
-        asset
-      });
-      
-      if (!createResponse || !createResponse.data || !createResponse.data.transaction) {
-        throw new Error('Failed to create transaction');
-      }
-      
-      const transaction = createResponse.data.transaction;
-      
-      // Sign transaction
-      let signedTx;
-      
-      if (wallet.type === 'built-in') {
-        // Sign with built-in wallet
-        const signResponse = await api.post(`/wallet/${wallet.id}/sign`, {
-          transaction: transaction.hex
-        });
-        
-        if (!signResponse || !signResponse.data || !signResponse.data.signedTransaction) {
-          throw new Error('Failed to sign transaction');
-        }
-        
-        signedTx = signResponse.data.signedTransaction;
-      } else {
-        // Sign with external wallet
-        // Add null check for window.bitcoin
-        if (!window.bitcoin) {
-          throw new Error('Bitcoin wallet provider not available');
-        }
-        
-        signedTx = await window.bitcoin.request({
-          method: 'signTransaction',
-          params: [transaction.hex]
-        });
-      }
-      
-      // Broadcast transaction
-      const broadcastResponse = await api.post('/wallet/broadcast', {
-        signedTransaction: signedTx
-      });
-      
-      if (!broadcastResponse || !broadcastResponse.data || !broadcastResponse.data.txid) {
-        throw new Error('Failed to broadcast transaction');
-      }
-      
-      const txid = broadcastResponse.data.txid;
-      
-      // Refresh balance and transactions
-      await refreshBalance();
-      
-      // Show notification
-      addNotification({
-        type: 'success',
-        title: 'Transaction Sent',
-        message: `Transaction ${txid.substring(0, 8)}... has been sent`
-      });
-      
-      return txid;
-    } catch (error) {
-      console.error('Error sending transaction:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Failed to send transaction';
-      
-      setError(errorMessage);
-      
-      // Show notification
-      addNotification({
-        type: 'error',
-        title: 'Transaction Failed',
-        message: errorMessage
-      });
-      
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Context value
-  const value: WalletContextType = {
-    wallet,
-    balance,
-    transactions,
-    loading,
-    error,
-    connect,
-    disconnect,
-    refreshBalance,
-    sendTransaction
-  };
+/**
+ * WalletProvider component
+ */
+export const WalletProvider: React.FC<WalletProviderProps> = ({
+  children,
+}) => {
+  // Use wallet hook
+  const wallet = useWallet();
   
   return (
-    <WalletContext.Provider value={value}>
+    <WalletContext.Provider value={wallet}>
       {children}
     </WalletContext.Provider>
   );
 };
 
-// Hook for using wallet context
-export const useWallet = (): WalletContextType => {
+/**
+ * useWalletContext hook
+ * @returns Wallet context
+ * @throws Error if used outside of WalletProvider
+ */
+export const useWalletContext = (): UseWalletResult => {
   const context = useContext(WalletContext);
   
   if (context === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider');
+    throw new Error('useWalletContext must be used within a WalletProvider');
   }
   
   return context;
 };
 
-// Add Bitcoin wallet interface
-declare global {
-  interface Window {
-    bitcoin?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-    };
-  }
-}
+export default WalletContext;

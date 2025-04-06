@@ -1,286 +1,156 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { useWallet } from '../contexts/WalletContext';
 import { useApi } from '../contexts/ApiContext';
-import { Price } from '../utils/types';
-import { formatPrice, formatPercent } from '../utils/formatters';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { MainTabParamList } from '../navigation/types';
-
-type HomeScreenNavigationProp = StackNavigationProp<MainTabParamList, 'Home'>;
+import { useWallet } from '../contexts/WalletContext';
+import AssetCard from '../components/AssetCard';
+import PriceChart from '../components/PriceChart';
 
 interface HomeScreenProps {
-  navigation: HomeScreenNavigationProp;
+  navigation: any;
+}
+
+interface Asset {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  marketCap: number;
+  volume24h: number;
+  icon?: string;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const { theme, isDark } = useTheme();
-  const { wallet, balance, refreshBalance } = useWallet();
-  const { get } = useApi();
-  
-  const [prices, setPrices] = useState<Price[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Fetch prices on mount
+  const { isDark } = useTheme();
+  const { get, loading, error } = useApi();
+  const { wallet, balance } = useWallet();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [featuredAsset, setFeaturedAsset] = useState<Asset | null>(null);
+
   useEffect(() => {
-    fetchPrices();
+    fetchAssets();
   }, []);
-  
-  // Fetch prices
-  const fetchPrices = async () => {
+
+  const fetchAssets = async () => {
     try {
-      const response = await get<Price[]>('/market/prices');
-      
+      const response = await get('/api/assets');
       if (response.success && response.data) {
-        setPrices(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching prices:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Handle refresh
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    
-    try {
-      await Promise.all([
-        refreshBalance(),
-        fetchPrices()
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-  
-  // Get top assets by market cap
-  const topAssets = prices
-    .sort((a, b) => b.volume24h - a.volume24h)
-    .slice(0, 5);
-  
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={[theme.primary]}
-          tintColor={theme.primary}
-        />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text.primary }]}>
-          DarkSwap
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-          Decentralized Trading
-        </Text>
-      </View>
-      
-      {/* Wallet Section */}
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-          Your Wallet
-        </Text>
+        const assetData = response.data as Asset[];
+        setAssets(assetData);
         
-        {wallet ? (
-          <View>
-            <Text style={[styles.walletName, { color: theme.text.primary }]}>
-              {wallet.name}
-            </Text>
-            <Text style={[styles.walletAddress, { color: theme.text.secondary }]}>
-              {Object.values(wallet.addresses)[0] || 'No address available'}
-            </Text>
-            
-            {/* Balance Cards */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.balanceCards}
-            >
-              {Object.entries(balance).map(([asset, amount]) => (
-                <View
-                  key={asset}
-                  style={[styles.balanceCard, { backgroundColor: isDark ? '#333333' : '#f0f0f0' }]}
-                >
-                  <Text style={[styles.assetSymbol, { color: theme.text.primary }]}>
-                    {asset}
-                  </Text>
-                  <Text style={[styles.assetBalance, { color: theme.text.primary }]}>
-                    {formatPrice(amount)}
-                  </Text>
-                  
-                  {prices.find(p => p.pair === `${asset}/BTC`) && (
-                    <Text
-                      style={[
-                        styles.assetPrice,
-                        {
-                          color: theme.text.secondary,
-                        },
-                      ]}
-                    >
-                      {formatPrice(prices.find(p => p.pair === `${asset}/BTC`)?.price || 0)} BTC
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        ) : (
-          <View style={styles.connectWallet}>
-            <Text style={[styles.connectWalletText, { color: theme.text.primary }]}>
-              Connect your wallet to start trading
-            </Text>
-            {/* In a real app, you would add a connect button here */}
-          </View>
-        )}
+        // Set BTC as featured asset
+        const btc = assetData.find(asset => asset.symbol === 'BTC');
+        if (btc) {
+          setFeaturedAsset(btc);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch assets:', err);
+    }
+  };
+
+  const handleAssetPress = (asset: Asset) => {
+    navigation.navigate('AssetDetails', { assetId: asset.id });
+  };
+
+  const renderAssetCard = ({ item }: { item: Asset }) => {
+    const assetBalance = balance && balance[item.symbol] ? balance[item.symbol] : 0;
+    
+    return (
+      <AssetCard
+        symbol={item.symbol}
+        price={item.price}
+        change24h={item.change24h}
+        balance={assetBalance}
+        icon={item.icon ? { uri: item.icon } : undefined}
+        onPress={() => handleAssetPress(item)}
+      />
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? '#1A1D2E' : '#FFFFFF' }]}>
+        <ActivityIndicator size="large" color={isDark ? '#FFFFFF' : '#000000'} testID="loading-indicator" />
       </View>
-      
-      {/* Market Section */}
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: isDark ? '#1A1D2E' : '#FFFFFF' }]}>
+      <ScrollView style={styles.scrollView}>
+        <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
           Market Overview
         </Text>
         
-        {loading ? (
-          <Text style={[styles.loadingText, { color: theme.text.secondary }]}>
-            Loading market data...
-          </Text>
-        ) : (
-          <View style={styles.marketTable}>
-            {/* Table Header */}
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableHeaderCell, { color: theme.text.secondary }]}>Asset</Text>
-              <Text style={[styles.tableHeaderCell, { color: theme.text.secondary }]}>Price</Text>
-              <Text style={[styles.tableHeaderCell, { color: theme.text.secondary }]}>24h Change</Text>
-            </View>
-            
-            {/* Table Rows */}
-            {topAssets.map((price) => (
-              <View key={price.pair} style={[styles.tableRow, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.tableCell, { color: theme.text.primary }]}>
-                  {price.pair.split('/')[0]}
-                </Text>
-                <Text style={[styles.tableCell, { color: theme.text.primary }]}>
-                  {formatPrice(price.price)}
-                </Text>
-                <Text
-                  style={[
-                    styles.tableCell,
-                    {
-                      color:
-                        price.change24h > 0
-                          ? theme.chart.positive
-                          : price.change24h < 0
-                          ? theme.chart.negative
-                          : theme.text.primary
-                    }
-                  ]}
-                >
-                  {formatPercent(price.change24h)}
-                </Text>
-              </View>
-            ))}
+        {featuredAsset && (
+          <View style={styles.chartContainer}>
+            <PriceChart 
+              symbol={featuredAsset.symbol} 
+              timeframe="24h" 
+              height={200} 
+            />
           </View>
         )}
-      </View>
-    </ScrollView>
+        
+        <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+          Your Assets
+        </Text>
+        
+        {wallet ? (
+          <FlatList
+            data={assets}
+            renderItem={renderAssetCard}
+            keyExtractor={(item) => item.id}
+            horizontal={false}
+            scrollEnabled={false}
+          />
+        ) : (
+          <Text style={[styles.emptyText, { color: isDark ? '#AAAAAA' : '#666666' }]}>
+            Connect your wallet to see your assets
+          </Text>
+        )}
+        
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
   },
-  header: {
-    padding: 20,
-    alignItems: 'center',
+  scrollView: {
+    flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-  },
-  section: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    marginTop: 24,
     marginBottom: 16,
   },
-  walletName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
+  chartContainer: {
+    marginVertical: 16,
   },
-  walletAddress: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  balanceCards: {
-    flexDirection: 'row',
-    marginHorizontal: -8,
-  },
-  balanceCard: {
-    padding: 16,
-    borderRadius: 8,
-    marginRight: 12,
-    minWidth: 120,
-  },
-  assetSymbol: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  assetBalance: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  assetPrice: {
-    fontSize: 14,
-  },
-  connectWallet: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  connectWalletText: {
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  marketTable: {
-    marginTop: 8,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  tableHeaderCell: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  tableCell: {
-    flex: 1,
-    fontSize: 14,
-  },
-  loadingText: {
+  emptyText: {
     textAlign: 'center',
-    padding: 20,
+    marginVertical: 24,
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#F44336',
+    marginVertical: 16,
+    textAlign: 'center',
   },
 });
 

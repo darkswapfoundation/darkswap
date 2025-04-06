@@ -1,113 +1,86 @@
+/**
+ * App - Main application component
+ * 
+ * This component is the root component of the application.
+ * It provides the application layout and global providers.
+ */
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Layout } from './components/Layout';
-import { Home } from './pages/Home';
-import { Trade } from './pages/Trade';
-import { Settings } from './pages/Settings';
-import { About } from './pages/About';
-import { NotFound } from './pages/NotFound';
-import { ApiProvider } from './contexts/ApiContext';
-import { WebSocketProvider } from './contexts/WebSocketContext';
-import { NotificationProvider } from './contexts/NotificationContext';
 import { DarkSwapProvider } from './contexts/DarkSwapContext';
-import { WebSocketManager } from './components/WebSocketManager';
-import { Notifications } from './components/Notifications';
+import { ErrorToastManager } from './components/ErrorToast';
+import ErrorBoundary from './components/ErrorBoundary';
+import Header from './components/Header';
+import { Footer } from './components/Footer';
+import { Navigation } from './components/Navigation';
+import Home from './pages/Home';
+import Trade from './pages/Trade';
+import Orders from './pages/Orders';
+import Vault from './pages/Vault';
+import Settings from './pages/Settings';
+import About from './pages/About';
+import NotFound from './pages/NotFound';
+import { initializeErrorReporting } from './utils/ErrorReporting';
+import './styles/App.css';
 
-// API and WebSocket URLs
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws';
+// Initialize error reporting
+const cleanupErrorReporting = initializeErrorReporting({
+  enabled: process.env.NODE_ENV === 'production',
+  appVersion: process.env.REACT_APP_VERSION || '1.0.0',
+  tags: {
+    environment: process.env.NODE_ENV || 'development',
+  },
+});
 
-export const App: React.FC = () => {
+/**
+ * App component
+ */
+const App: React.FC = () => {
+  // Clean up error reporting on unmount
+  React.useEffect(() => {
+    return () => {
+      cleanupErrorReporting();
+    };
+  }, []);
+  
   return (
-    <NotificationProvider>
-      <ApiProvider options={{ baseUrl: API_URL }}>
-        <WebSocketProvider url={WS_URL}>
-          <DarkSwapProvider options={{ apiUrl: API_URL, wsUrl: WS_URL }}>
-            <Router>
-              <WebSocketManager />
-              <Notifications position="top-right" />
-              <Routes>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<Home />} />
-                  <Route path="trade" element={<Trade />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="about" element={<About />} />
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-              </Routes>
+    <ErrorBoundary
+      componentName="App"
+      showErrorDetails={process.env.NODE_ENV !== 'production'}
+    >
+      <ErrorToastManager>
+        <DarkSwapProvider>
+          <Router>
+            <div className="app">
+              <Header />
               
-              <style>
-                {`
-                  /* Global styles */
-                  * {
-                    box-sizing: border-box;
-                    margin: 0;
-                    padding: 0;
-                  }
-                  
-                  body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-                      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-                    line-height: 1.5;
-                    color: #333;
-                    background-color: #f8f9fa;
-                  }
-                  
-                  a {
-                    color: #007bff;
-                    text-decoration: none;
-                  }
-                  
-                  a:hover {
-                    text-decoration: underline;
-                  }
-                  
-                  button {
-                    cursor: pointer;
-                  }
-                  
-                  /* Utility classes */
-                  .container {
-                    max-width: 1200px;
-                    margin: 0 auto;
-                    padding: 0 20px;
-                  }
-                  
-                  .text-center {
-                    text-align: center;
-                  }
-                  
-                  .mt-1 { margin-top: 0.25rem; }
-                  .mt-2 { margin-top: 0.5rem; }
-                  .mt-3 { margin-top: 1rem; }
-                  .mt-4 { margin-top: 1.5rem; }
-                  .mt-5 { margin-top: 3rem; }
-                  
-                  .mb-1 { margin-bottom: 0.25rem; }
-                  .mb-2 { margin-bottom: 0.5rem; }
-                  .mb-3 { margin-bottom: 1rem; }
-                  .mb-4 { margin-bottom: 1.5rem; }
-                  .mb-5 { margin-bottom: 3rem; }
-                  
-                  /* Responsive utilities */
-                  @media (max-width: 768px) {
-                    .hide-sm {
-                      display: none;
-                    }
-                  }
-                  
-                  @media (min-width: 769px) {
-                    .hide-lg {
-                      display: none;
-                    }
-                  }
-                `}
-              </style>
-            </Router>
-          </DarkSwapProvider>
-        </WebSocketProvider>
-      </ApiProvider>
-    </NotificationProvider>
+              <div className="app-content">
+                <Navigation />
+                
+                <main className="main-content">
+                  <ErrorBoundary
+                    componentName="Routes"
+                    showErrorDetails={process.env.NODE_ENV !== 'production'}
+                  >
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/trade" element={<Trade />} />
+                      <Route path="/orders" element={<Orders />} />
+                      <Route path="/vault" element={<Vault />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </ErrorBoundary>
+                </main>
+              </div>
+              
+              <Footer />
+            </div>
+          </Router>
+        </DarkSwapProvider>
+      </ErrorToastManager>
+    </ErrorBoundary>
   );
 };
 

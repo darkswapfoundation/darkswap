@@ -1,282 +1,175 @@
+/**
+ * TradeHistory - Component for displaying trade history
+ * 
+ * This component displays the trade history for a trading pair, showing
+ * recent trades with price, amount, and timestamp information.
+ */
+
 import React, { useState, useEffect } from 'react';
-import { AssetType } from '../hooks/useDarkSwap';
+import { useDarkSwapContext } from '../contexts/DarkSwapContext';
+import { AssetType, OrderSide, Trade } from '../wasm/DarkSwapWasm';
+import { Card } from './MemoizedComponents';
+import { EventType, TradeExecutedEvent } from '../wasm/EventTypes';
 
-interface TradeHistoryProps {
+export interface TradeHistoryProps {
+  /** CSS class name */
   className?: string;
+  
+  /** Base asset type */
+  baseAssetType: AssetType;
+  
+  /** Base asset ID */
+  baseAssetId: string;
+  
+  /** Quote asset type */
+  quoteAssetType: AssetType;
+  
+  /** Quote asset ID */
+  quoteAssetId: string;
 }
 
-interface TradeHistoryItem {
-  id: string;
-  timestamp: number;
-  type: 'buy' | 'sell';
-  assetType: AssetType;
-  amount: number;
-  price: number;
-  status: 'completed' | 'pending' | 'failed';
-}
-
-export const TradeHistory: React.FC<TradeHistoryProps> = ({ className }) => {
-  // Trade history (mock data)
-  const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
+/**
+ * TradeHistory component
+ */
+export const TradeHistory: React.FC<TradeHistoryProps> = ({ 
+  className = '',
+  baseAssetType,
+  baseAssetId,
+  quoteAssetType,
+  quoteAssetId,
+}) => {
+  // DarkSwap context
+  const { isInitialized, on, off } = useDarkSwapContext();
   
-  // Loading state
-  const [isLoading, setIsLoading] = useState(true);
+  // Trade history state
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
   
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-  
-  // Fetch trade history
+  // Load trade history
   useEffect(() => {
-    // In a real implementation, we would fetch this from the DarkSwap instance
-    const fetchTradeHistory = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    if (!isInitialized) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // This is a placeholder for actual trade history loading
+      // In a real implementation, this would load trade history from the DarkSwap WebAssembly module
+      
+      // Simulate loading trade history
+      setTimeout(() => {
+        // Generate mock trades
+        const mockTrades: Trade[] = [];
+        const now = Date.now();
         
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        for (let i = 0; i < 10; i++) {
+          mockTrades.push({
+            id: `trade-${i}`,
+            orderId: `order-${i}`,
+            side: i % 2 === 0 ? OrderSide.Buy : OrderSide.Sell,
+            baseAsset: baseAssetId,
+            quoteAsset: quoteAssetId,
+            amount: (Math.random() * 2).toFixed(8),
+            price: (50000 + Math.random() * 1000 - 500).toFixed(2),
+            timestamp: now - i * 60000, // 1 minute apart
+            maker: `peer-${i}`,
+            taker: `peer-${i + 1}`,
+          });
+        }
         
-        // Generate mock data
-        const mockHistory: TradeHistoryItem[] = [
-          {
-            id: '1',
-            timestamp: Date.now() - 3600000, // 1 hour ago
-            type: 'buy',
-            assetType: { type: 'bitcoin' },
-            amount: 0.01,
-            price: 65000,
-            status: 'completed',
-          },
-          {
-            id: '2',
-            timestamp: Date.now() - 7200000, // 2 hours ago
-            type: 'sell',
-            assetType: { type: 'rune', id: 'rune1' },
-            amount: 100,
-            price: 0.0001,
-            status: 'completed',
-          },
-          {
-            id: '3',
-            timestamp: Date.now() - 86400000, // 1 day ago
-            type: 'buy',
-            assetType: { type: 'alkane', id: 'alkane1' },
-            amount: 50,
-            price: 0.0002,
-            status: 'completed',
-          },
-          {
-            id: '4',
-            timestamp: Date.now() - 172800000, // 2 days ago
-            type: 'sell',
-            assetType: { type: 'bitcoin' },
-            amount: 0.005,
-            price: 64000,
-            status: 'completed',
-          },
-          {
-            id: '5',
-            timestamp: Date.now() - 259200000, // 3 days ago
-            type: 'buy',
-            assetType: { type: 'rune', id: 'rune2' },
-            amount: 200,
-            price: 0.00015,
-            status: 'completed',
-          },
-        ];
+        // Sort trades by timestamp (newest first)
+        mockTrades.sort((a, b) => b.timestamp - a.timestamp);
         
-        setTradeHistory(mockHistory);
-      } catch (err) {
-        console.error('Failed to fetch trade history:', err);
-        setError('Failed to fetch trade history. Please try again later.');
-      } finally {
+        // Update state
+        setTrades(mockTrades);
         setIsLoading(false);
+      }, 500);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+      setIsLoading(false);
+    }
+  }, [isInitialized, baseAssetId, quoteAssetId]);
+  
+  // Handle trade events
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    // Define event handlers
+    const handleTradeExecuted = (event: TradeExecutedEvent) => {
+      const trade = event.data;
+      
+      // Check if trade matches current trading pair
+      if (
+        trade.baseAsset === baseAssetId &&
+        trade.quoteAsset === quoteAssetId
+      ) {
+        // Add trade to trade history
+        setTrades(prevTrades => {
+          const newTrades = [trade, ...prevTrades];
+          // Keep only the most recent 100 trades
+          return newTrades.slice(0, 100);
+        });
       }
     };
     
-    fetchTradeHistory();
-  }, []);
-  
-  // Format asset type
-  const formatAssetType = (assetType: AssetType): string => {
-    switch (assetType.type) {
-      case 'bitcoin':
-        return 'BTC';
-      case 'rune':
-        return `RUNE (${assetType.id})`;
-      case 'alkane':
-        return `ALKANE (${assetType.id})`;
-    }
-  };
+    // Register event handlers
+    on<TradeExecutedEvent>(EventType.TradeExecuted, handleTradeExecuted);
+    
+    // Clean up event handlers
+    return () => {
+      off<TradeExecutedEvent>(EventType.TradeExecuted, handleTradeExecuted);
+    };
+  }, [isInitialized, baseAssetId, quoteAssetId, on, off]);
   
   // Format timestamp
   const formatTimestamp = (timestamp: number): string => {
     const date = new Date(timestamp);
-    return date.toLocaleString();
-  };
-  
-  // Format amount
-  const formatAmount = (amount: number, assetType: AssetType): string => {
-    switch (assetType.type) {
-      case 'bitcoin':
-        return `${amount.toFixed(8)} BTC`;
-      case 'rune':
-        return `${amount} RUNE`;
-      case 'alkane':
-        return `${amount} ALKANE`;
-    }
-  };
-  
-  // Format price
-  const formatPrice = (price: number, assetType: AssetType): string => {
-    switch (assetType.type) {
-      case 'bitcoin':
-        return `$${price.toLocaleString()}`;
-      case 'rune':
-      case 'alkane':
-        return `${price.toFixed(8)} BTC`;
-    }
-  };
-  
-  // Format total
-  const formatTotal = (amount: number, price: number, assetType: AssetType): string => {
-    switch (assetType.type) {
-      case 'bitcoin':
-        return `$${(amount * price).toLocaleString()}`;
-      case 'rune':
-      case 'alkane':
-        return `${(amount * price).toFixed(8)} BTC`;
-    }
+    return date.toLocaleTimeString();
   };
   
   return (
-    <div className={`trade-history ${className || ''}`}>
+    <Card className={`trade-history ${className}`}>
       <h2>Trade History</h2>
       
-      {isLoading ? (
+      {isLoading && (
         <div className="loading">Loading trade history...</div>
-      ) : error ? (
-        <div className="error">{error}</div>
-      ) : tradeHistory.length === 0 ? (
-        <div className="no-history">No trade history available</div>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Asset</th>
-              <th>Amount</th>
-              <th>Price</th>
-              <th>Total</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tradeHistory.map(trade => (
-              <tr key={trade.id} className={trade.type}>
-                <td>{formatTimestamp(trade.timestamp)}</td>
-                <td className={`type ${trade.type}`}>
-                  {trade.type === 'buy' ? 'Buy' : 'Sell'}
-                </td>
-                <td>{formatAssetType(trade.assetType)}</td>
-                <td>{formatAmount(trade.amount, trade.assetType)}</td>
-                <td>{formatPrice(trade.price, trade.assetType)}</td>
-                <td>{formatTotal(trade.amount, trade.price, trade.assetType)}</td>
-                <td className={`status ${trade.status}`}>
-                  {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
       
-      <style>
-        {`
-          .trade-history {
-            background-color: #fff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            margin-top: 30px;
-          }
+      {error && (
+        <div className="error-message">
+          {error.message}
+        </div>
+      )}
+      
+      <div className="trade-history-content">
+        <div className="trade-history-header">
+          <div className="time">Time</div>
+          <div className="price">Price</div>
+          <div className="amount">Amount</div>
+          <div className="side">Side</div>
+        </div>
+        
+        <div className="trades">
+          {trades.map((trade) => (
+            <div
+              key={trade.id}
+              className={`trade ${trade.side === OrderSide.Buy ? 'buy' : 'sell'}`}
+            >
+              <div className="time">{formatTimestamp(trade.timestamp)}</div>
+              <div className="price">{trade.price}</div>
+              <div className="amount">{trade.amount}</div>
+              <div className="side">{trade.side === OrderSide.Buy ? 'Buy' : 'Sell'}</div>
+            </div>
+          ))}
           
-          .trade-history h2 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #333;
-            font-size: 1.5rem;
-          }
-          
-          .loading {
-            color: #6c757d;
-            text-align: center;
-            padding: 20px;
-          }
-          
-          .error {
-            color: #dc3545;
-            text-align: center;
-            padding: 20px;
-          }
-          
-          .no-history {
-            color: #6c757d;
-            text-align: center;
-            padding: 20px;
-            font-style: italic;
-          }
-          
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          
-          th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-          }
-          
-          th {
-            font-weight: 600;
-            color: #555;
-          }
-          
-          tr:last-child td {
-            border-bottom: none;
-          }
-          
-          .type {
-            font-weight: 600;
-          }
-          
-          .type.buy {
-            color: #28a745;
-          }
-          
-          .type.sell {
-            color: #dc3545;
-          }
-          
-          .status {
-            font-weight: 500;
-          }
-          
-          .status.completed {
-            color: #28a745;
-          }
-          
-          .status.pending {
-            color: #ffc107;
-          }
-          
-          .status.failed {
-            color: #dc3545;
-          }
-        `}
-      </style>
-    </div>
+          {trades.length === 0 && (
+            <div className="no-trades">No trades</div>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 };
+
+export default TradeHistory;

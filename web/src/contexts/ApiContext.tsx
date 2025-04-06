@@ -1,100 +1,99 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import { ApiContextType } from '../utils/types';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// Create API context
-export const ApiContext = createContext<ApiContextType | undefined>(undefined);
-
-// API provider props
-interface ApiProviderProps {
-  children: ReactNode;
-  baseURL?: string;
+interface ApiContextType {
+  get: <T>(url: string) => Promise<T>;
+  post: <T>(url: string, data: any) => Promise<T>;
+  loading: boolean;
+  error: string | null;
+  clearError: () => void;
 }
 
-// API provider component
+const ApiContext = createContext<ApiContextType | undefined>(undefined);
+
+interface ApiProviderProps {
+  children: ReactNode;
+  baseUrl?: string;
+}
+
 export const ApiProvider: React.FC<ApiProviderProps> = ({ 
   children, 
-  baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api'
+  baseUrl = 'https://api.darkswap.io' 
 }) => {
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Create API instance
-  const api = React.useMemo(() => {
-    const instance = axios.create({
-      baseURL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000, // 30 seconds
-    });
+
+  const clearError = () => setError(null);
+
+  const get = async <T,>(url: string): Promise<T> => {
+    setLoading(true);
+    clearError();
     
-    // Request interceptor
-    instance.interceptors.request.use(
-      (config) => {
-        // Get token from localStorage
-        const token = localStorage.getItem('token');
-        
-        // Add authorization header if token exists
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        
-        return config;
-      },
-      (error) => {
-        return Promise.reject(error);
+    try {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'An error occurred');
       }
-    );
-    
-    // Response interceptor
-    instance.interceptors.response.use(
-      (response) => {
-        return response;
-      },
-      (error: AxiosError) => {
-        // Handle 401 Unauthorized errors
-        if (error.response && error.response.status === 401) {
-          // Clear token
-          localStorage.removeItem('token');
-          
-          // Redirect to login page
-          window.location.href = '/login';
-        }
-        
-        return Promise.reject(error);
-      }
-    );
-    
-    return {
-      get: <T = any>(url: string, config?: any) => instance.get<T>(url, config),
-      post: <T = any>(url: string, data?: any, config?: any) => instance.post<T>(url, data, config),
-      put: <T = any>(url: string, data?: any, config?: any) => instance.put<T>(url, data, config),
-      delete: <T = any>(url: string, config?: any) => instance.delete<T>(url, config),
-    };
-  }, [baseURL]);
-  
-  // Clear error
-  const clearError = () => {
-    setError(null);
+      
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
-  
-  // Return provider
-  return (
-    <ApiContext.Provider
-      value={{
-        api,
-        loading,
-        error,
-        clearError,
-      }}
-    >
-      {children}
-    </ApiContext.Provider>
-  );
+
+  const post = async <T,>(url: string, data: any): Promise<T> => {
+    setLoading(true);
+    clearError();
+    
+    try {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'An error occurred');
+      }
+      
+      const responseData = await response.json();
+      return responseData;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const value = {
+    get,
+    post,
+    loading,
+    error,
+    clearError,
+  };
+
+  return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
 };
 
-// Hook to use API context
 export const useApi = (): ApiContextType => {
   const context = useContext(ApiContext);
   if (context === undefined) {
@@ -102,5 +101,3 @@ export const useApi = (): ApiContextType => {
   }
   return context;
 };
-
-export default ApiContext;

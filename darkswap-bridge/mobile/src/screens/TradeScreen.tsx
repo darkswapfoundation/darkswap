@@ -1,411 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useApi } from '../contexts/ApiContext';
-import { Price, OrderType } from '../utils/types';
-import { formatPrice, formatPercent } from '../utils/formatters';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { TradeStackParamList } from '../navigation/types';
-
-type TradeScreenNavigationProp = StackNavigationProp<TradeStackParamList, 'TradeHome'>;
+import PriceChart from '../components/PriceChart';
+import OrderBook from '../components/OrderBook';
+import TradeForm from '../components/TradeForm';
+import Button from '../components/Button';
 
 interface TradeScreenProps {
-  navigation: TradeScreenNavigationProp;
+  navigation: any;
+}
+
+interface MarketData {
+  price: number;
+  change24h: number;
+  volume24h: number;
+  high24h: number;
+  low24h: number;
+}
+
+interface Order {
+  id: string;
+  price: number;
+  amount: number;
+  total: number;
+  type: 'buy' | 'sell';
+}
+
+interface OrderBookData {
+  buyOrders: Order[];
+  sellOrders: Order[];
 }
 
 const TradeScreen: React.FC<TradeScreenProps> = ({ navigation }) => {
-  const { theme, isDark } = useTheme();
-  const { wallet, balance } = useWallet();
-  const { get } = useApi();
-  
-  // State
-  const [prices, setPrices] = useState<Price[]>([]);
-  const [selectedPair, setSelectedPair] = useState<string>('BTC/USD');
-  const [orderType, setOrderType] = useState<OrderType>('buy');
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Fetch prices on mount
+  const { isDark } = useTheme();
+  const { wallet, connect } = useWallet();
+  const { get, loading, error } = useApi();
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [buyOrders, setBuyOrders] = useState<Order[]>([]);
+  const [sellOrders, setSellOrders] = useState<Order[]>([]);
+
   useEffect(() => {
-    fetchPrices();
+    fetchMarketData();
+    fetchOrderBook();
   }, []);
-  
-  // Fetch prices
-  const fetchPrices = async () => {
+
+  const fetchMarketData = async () => {
     try {
-      const response = await get<Price[]>('/market/prices');
-      
+      const response = await get('/api/market/btc');
       if (response.success && response.data) {
-        setPrices(response.data);
-        
-        // Set default selected pair if not already set
-        if (!selectedPair && response.data.length > 0) {
-          setSelectedPair(response.data[0].pair);
-        }
+        setMarketData(response.data as MarketData);
       }
-    } catch (error) {
-      console.error('Error fetching prices:', error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch market data:', err);
     }
   };
-  
-  // Handle refresh
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    
+
+  const fetchOrderBook = async () => {
     try {
-      await fetchPrices();
-    } finally {
-      setRefreshing(false);
+      const response = await get('/api/orderbook/btc');
+      if (response.success && response.data) {
+        const orderBookData = response.data as OrderBookData;
+        setBuyOrders(orderBookData.buyOrders);
+        setSellOrders(orderBookData.sellOrders);
+      }
+    } catch (err) {
+      console.error('Failed to fetch order book:', err);
     }
   };
-  
-  // Get selected price
-  const selectedPrice = prices.find(price => price.pair === selectedPair);
-  
-  // Get base and quote assets from pair
-  const [baseAsset, quoteAsset] = selectedPair ? selectedPair.split('/') : ['', ''];
-  
-  // Get base and quote balances
-  const baseBalance = balance[baseAsset] || 0;
-  const quoteBalance = balance[quoteAsset] || 0;
-  
-  // Handle place order
-  const handlePlaceOrder = () => {
-    navigation.navigate('PlaceOrder', { pair: selectedPair, type: orderType });
+
+  const handleOrderSubmit = (order: { type: 'buy' | 'sell'; amount: number; price: number }) => {
+    navigation.navigate('OrderConfirmation', order);
   };
-  
-  // Handle view order book
-  const handleViewOrderBook = () => {
-    navigation.navigate('OrderBook', { pair: selectedPair });
-  };
-  
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? '#1A1D2E' : '#FFFFFF' }]}>
+        <ActivityIndicator size="large" color={isDark ? '#FFFFFF' : '#000000'} testID="loading-indicator" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={[theme.primary]}
-          tintColor={theme.primary}
+    <View style={[styles.container, { backgroundColor: isDark ? '#1A1D2E' : '#FFFFFF' }]}>
+      <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>Trade</Text>
+      
+      <ScrollView style={styles.scrollView}>
+        <PriceChart 
+          symbol="BTC" 
+          timeframe="24h" 
+          height={200} 
         />
-      }
-    >
-      {/* Pair Selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.pairSelector}
-      >
-        {prices.map(price => (
-          <TouchableOpacity
-            key={price.pair}
-            style={[
-              styles.pairButton,
-              {
-                backgroundColor: selectedPair === price.pair ? theme.primary : theme.surface,
-                borderColor: theme.border,
-              },
-            ]}
-            onPress={() => setSelectedPair(price.pair)}
-          >
-            <Text
-              style={[
-                styles.pairButtonText,
-                {
-                  color: selectedPair === price.pair ? '#ffffff' : theme.text.primary,
-                },
-              ]}
-            >
-              {price.pair}
+        
+        <OrderBook 
+          buyOrders={buyOrders}
+          sellOrders={sellOrders}
+          maxOrders={5}
+        />
+        
+        {wallet ? (
+          <TradeForm 
+            symbol="BTC" 
+            onSubmit={handleOrderSubmit} 
+          />
+        ) : (
+          <View style={styles.connectWalletContainer}>
+            <Text style={[styles.connectWalletText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+              Connect wallet to trade
             </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      
-      {/* Price Card */}
-      {selectedPrice && (
-        <View style={[styles.priceCard, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.pairTitle, { color: theme.text.primary }]}>
-            {selectedPair}
-          </Text>
-          
-          <Text style={[styles.price, { color: theme.text.primary }]}>
-            {formatPrice(selectedPrice.price)}
-          </Text>
-          
-          <Text
-            style={[
-              styles.priceChange,
-              {
-                color:
-                  selectedPrice.change24h > 0
-                    ? theme.chart.positive
-                    : selectedPrice.change24h < 0
-                    ? theme.chart.negative
-                    : theme.text.secondary,
-              },
-            ]}
-          >
-            {formatPercent(selectedPrice.change24h)} (24h)
-          </Text>
-          
-          <View style={styles.priceStats}>
-            <View style={styles.priceStat}>
-              <Text style={[styles.priceStatLabel, { color: theme.text.secondary }]}>
-                24h High
-              </Text>
-              <Text style={[styles.priceStatValue, { color: theme.text.primary }]}>
-                {formatPrice(selectedPrice.high24h)}
-              </Text>
-            </View>
-            
-            <View style={styles.priceStat}>
-              <Text style={[styles.priceStatLabel, { color: theme.text.secondary }]}>
-                24h Low
-              </Text>
-              <Text style={[styles.priceStatValue, { color: theme.text.primary }]}>
-                {formatPrice(selectedPrice.low24h)}
-              </Text>
-            </View>
-            
-            <View style={styles.priceStat}>
-              <Text style={[styles.priceStatLabel, { color: theme.text.secondary }]}>
-                24h Volume
-              </Text>
-              <Text style={[styles.priceStatValue, { color: theme.text.primary }]}>
-                {formatPrice(selectedPrice.volume24h)}
-              </Text>
-            </View>
+            <Button 
+              title="Connect Wallet" 
+              onPress={connect} 
+              variant="primary"
+            />
           </View>
-        </View>
-      )}
-      
-      {/* Order Type Tabs */}
-      <View style={[styles.orderTypeTabs, { backgroundColor: theme.surface }]}>
-        <TouchableOpacity
-          style={[
-            styles.orderTypeTab,
-            {
-              borderBottomColor: orderType === 'buy' ? theme.primary : 'transparent',
-            },
-          ]}
-          onPress={() => setOrderType('buy')}
-        >
-          <Text
-            style={[
-              styles.orderTypeText,
-              {
-                color: orderType === 'buy' ? theme.primary : theme.text.secondary,
-              },
-            ]}
-          >
-            Buy
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.orderTypeTab,
-            {
-              borderBottomColor: orderType === 'sell' ? theme.primary : 'transparent',
-            },
-          ]}
-          onPress={() => setOrderType('sell')}
-        >
-          <Text
-            style={[
-              styles.orderTypeText,
-              {
-                color: orderType === 'sell' ? theme.primary : theme.text.secondary,
-              },
-            ]}
-          >
-            Sell
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      {/* Trade Form */}
-      <View style={[styles.tradeForm, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.tradeFormTitle, { color: theme.text.primary }]}>
-          {orderType === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
-        </Text>
-        
-        <Text style={[styles.balanceText, { color: theme.text.secondary }]}>
-          {orderType === 'buy'
-            ? `Available: ${quoteBalance} ${quoteAsset}`
-            : `Available: ${baseBalance} ${baseAsset}`}
-        </Text>
-        
-        {/* Placeholder for trade form inputs */}
-        <View style={[styles.formPlaceholder, { backgroundColor: theme.background }]}>
-          <Text style={[styles.placeholderText, { color: theme.text.secondary }]}>
-            Trade form inputs would go here
-          </Text>
-        </View>
-        
-        {/* Trade Button */}
-        <TouchableOpacity
-          style={[
-            styles.tradeButton,
-            {
-              backgroundColor: orderType === 'buy' ? theme.chart.positive : theme.chart.negative,
-            },
-          ]}
-          disabled={!wallet}
-          onPress={handlePlaceOrder}
-        >
-          <Text style={styles.tradeButtonText}>
-            {orderType === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
-          </Text>
-        </TouchableOpacity>
-        
-        {!wallet && (
-          <Text style={[styles.connectWalletText, { color: theme.text.secondary }]}>
-            Connect your wallet to trade
-          </Text>
         )}
-      </View>
-      
-      {/* Order Book Button */}
-      <TouchableOpacity
-        style={[styles.orderBookButton, { backgroundColor: theme.surface }]}
-        onPress={handleViewOrderBook}
-      >
-        <Text style={[styles.orderBookButtonText, { color: theme.text.primary }]}>
-          View Order Book
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  pairSelector: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  pairButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  pairButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  priceCard: {
-    margin: 16,
     padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
   },
-  pairTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  price: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  priceChange: {
-    fontSize: 16,
-    fontWeight: '500',
     marginBottom: 16,
   },
-  priceStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  priceStat: {
-    alignItems: 'center',
-  },
-  priceStatLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  priceStatValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  orderTypeTabs: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  orderTypeTab: {
+  scrollView: {
     flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
   },
-  orderTypeText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  tradeForm: {
-    margin: 16,
+  connectWalletContainer: {
     padding: 16,
-    borderRadius: 12,
-  },
-  tradeFormTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  balanceText: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  formPlaceholder: {
-    padding: 24,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  placeholderText: {
-    fontSize: 14,
-  },
-  tradeButton: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  tradeButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    marginVertical: 16,
   },
   connectWalletText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  orderBookButton: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  orderBookButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#F44336',
+    marginVertical: 16,
+    textAlign: 'center',
   },
 });
 

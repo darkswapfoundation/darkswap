@@ -1,65 +1,153 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { useWasmWallet } from '../contexts/WasmWalletContext';
-import OrderHistory from '../components/OrderHistory';
+/**
+ * Orders - Orders page component
+ * 
+ * This page displays the user's active and historical orders.
+ */
 
-// Icons
-import {
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { Card } from '../components/MemoizedComponents';
 
+// Mock data for demonstration
+const mockOrders = [
+  {
+    id: 'order-1',
+    pair: 'BTC/USD',
+    type: 'limit',
+    side: 'buy',
+    amount: 1.5,
+    price: 50000,
+    total: 75000,
+    filled: 0,
+    status: 'open',
+    created: '2025-04-05T12:00:00Z',
+  },
+  {
+    id: 'order-2',
+    pair: 'BTC/USD',
+    type: 'limit',
+    side: 'sell',
+    amount: 0.5,
+    price: 51000,
+    total: 25500,
+    filled: 0,
+    status: 'open',
+    created: '2025-04-05T11:30:00Z',
+  },
+  {
+    id: 'order-3',
+    pair: 'BTC/USD',
+    type: 'limit',
+    side: 'buy',
+    amount: 1.0,
+    price: 49500,
+    total: 49500,
+    filled: 1.0,
+    status: 'filled',
+    created: '2025-04-04T15:45:00Z',
+  },
+  {
+    id: 'order-4',
+    pair: 'BTC/USD',
+    type: 'limit',
+    side: 'sell',
+    amount: 2.0,
+    price: 52000,
+    total: 104000,
+    filled: 0,
+    status: 'cancelled',
+    created: '2025-04-03T09:20:00Z',
+  },
+];
+
+/**
+ * Orders component
+ */
 const Orders: React.FC = () => {
-  // Get wallet context
-  const { isConnected: isWalletConnected, isInitialized: isSDKInitialized } = useWasmWallet();
+  const [activeTab, setActiveTab] = useState<'open' | 'filled' | 'cancelled'>('open');
+
+  // Filter orders based on active tab
+  const filteredOrders = mockOrders.filter(order => {
+    if (activeTab === 'open') return order.status === 'open';
+    if (activeTab === 'filled') return order.status === 'filled';
+    if (activeTab === 'cancelled') return order.status === 'cancelled';
+    return true;
+  });
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold">
-            <span className="text-white">My Orders</span>
-          </h1>
-          <p className="text-gray-400 mt-1">
-            View and manage your open and past orders
-          </p>
-        </div>
+    <div className="orders-page">
+      <h1>Orders</h1>
+      
+      <div className="orders-tabs">
+        <button
+          className={`tab-button ${activeTab === 'open' ? 'active' : ''}`}
+          onClick={() => setActiveTab('open')}
+        >
+          Open Orders
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'filled' ? 'active' : ''}`}
+          onClick={() => setActiveTab('filled')}
+        >
+          Filled Orders
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'cancelled' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cancelled')}
+        >
+          Cancelled Orders
+        </button>
       </div>
-
-      {/* Connection Warning */}
-      {!isWalletConnected && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-glass p-4 border border-ui-warning border-opacity-50"
-        >
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
-            <span className="text-ui-warning">
-              Connect your wallet to view your orders
-            </span>
+      
+      <Card className="orders-card">
+        <div className="orders-table">
+          <div className="orders-header">
+            <div className="order-cell">Pair</div>
+            <div className="order-cell">Type</div>
+            <div className="order-cell">Side</div>
+            <div className="order-cell">Amount</div>
+            <div className="order-cell">Price</div>
+            <div className="order-cell">Total</div>
+            <div className="order-cell">Filled</div>
+            <div className="order-cell">Created</div>
+            <div className="order-cell">Actions</div>
           </div>
-        </motion.div>
-      )}
-
-      {/* SDK Warning */}
-      {isWalletConnected && !isSDKInitialized && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-glass p-4 border border-ui-warning border-opacity-50"
-        >
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="w-5 h-5 text-ui-warning mr-2" />
-            <span className="text-ui-warning">
-              Initializing DarkSwap SDK...
-            </span>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Orders */}
-      <OrderHistory />
+          
+          {filteredOrders.length === 0 ? (
+            <div className="no-orders">
+              No {activeTab} orders found.
+            </div>
+          ) : (
+            filteredOrders.map(order => (
+              <div key={order.id} className={`order-row ${order.side}`}>
+                <div className="order-cell">{order.pair}</div>
+                <div className="order-cell">{order.type}</div>
+                <div className="order-cell">{order.side}</div>
+                <div className="order-cell">{order.amount.toFixed(4)}</div>
+                <div className="order-cell">${order.price.toLocaleString()}</div>
+                <div className="order-cell">${order.total.toLocaleString()}</div>
+                <div className="order-cell">{order.filled.toFixed(4)}</div>
+                <div className="order-cell">{formatDate(order.created)}</div>
+                <div className="order-cell">
+                  {order.status === 'open' && (
+                    <button
+                      className="cancel-button"
+                      onClick={() => alert(`Cancel order ${order.id}`)}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
     </div>
   );
 };

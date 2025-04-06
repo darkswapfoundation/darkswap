@@ -1,172 +1,210 @@
+/**
+ * WalletConnect - Component for connecting to Bitcoin wallets
+ * 
+ * This component provides a UI for connecting to Bitcoin wallets.
+ */
+
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useWallet } from '../contexts/WalletContext';
-import { useNotification } from '../contexts/NotificationContext';
+import { useWalletContext } from '../contexts/WalletContext';
+import { WalletType, BitcoinNetwork } from '../wallet/BitcoinWallet';
+import { Card } from './MemoizedComponents';
 
-// Icons
-import {
-  WalletIcon,
-  ArrowRightOnRectangleIcon,
-  ChevronDownIcon,
-  DocumentDuplicateIcon,
-  CheckIcon,
-} from '@heroicons/react/24/outline';
-
-interface WalletConnectProps {
-  onConnect?: (address: string) => void;
-  onDisconnect?: () => void;
-  isConnected?: boolean;
-  address?: string;
+export interface WalletConnectProps {
+  /** CSS class name */
+  className?: string;
 }
 
-const WalletConnect: React.FC<WalletConnectProps> = ({
-  onConnect,
-  onDisconnect,
-  isConnected: isConnectedProp,
-  address: addressProp,
+/**
+ * WalletConnect component
+ */
+export const WalletConnect: React.FC<WalletConnectProps> = ({ 
+  className = '',
 }) => {
-  const walletContext = useWallet();
-  const { addNotification } = useNotification();
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
-
-  // Use props if provided, otherwise use context
-  const isConnected = isConnectedProp !== undefined ? isConnectedProp : walletContext.isConnected;
-  const address = addressProp || walletContext.address;
-  const isConnecting = walletContext.isConnecting;
-
-  const handleConnect = async () => {
-    if (isConnected) {
-      setIsDropdownOpen(!isDropdownOpen);
-      return;
-    }
-
+  // Wallet context
+  const { 
+    isConnected, 
+    isConnecting, 
+    error, 
+    createWallet, 
+    importWallet, 
+    connectHardwareWallet, 
+    disconnectWallet,
+    getAddress,
+    getBalance,
+  } = useWalletContext();
+  
+  // Form state
+  const [walletType, setWalletType] = useState<WalletType>(WalletType.BIP39);
+  const [network, setNetwork] = useState<BitcoinNetwork>(BitcoinNetwork.Testnet);
+  const [seed, setSeed] = useState<string>('');
+  const [showSeed, setShowSeed] = useState<boolean>(false);
+  
+  // Handle connect
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      await walletContext.connect();
-      if (onConnect && walletContext.address) {
-        onConnect(walletContext.address);
+      if (walletType === WalletType.Hardware) {
+        await connectHardwareWallet(network);
+      } else if (walletType === WalletType.BIP39 || walletType === WalletType.WIF || walletType === WalletType.Xprv) {
+        if (seed.trim() === '') {
+          throw new Error('Please enter a seed phrase or private key');
+        }
+        
+        await importWallet(walletType, network, seed);
       }
-      addNotification('success', 'Wallet connected successfully');
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
-      addNotification('error', 'Failed to connect wallet');
+    } catch (err) {
+      console.error('Failed to connect wallet:', err);
     }
   };
-
-  const handleDisconnect = () => {
-    walletContext.disconnect();
-    if (onDisconnect) {
-      onDisconnect();
-    }
-    setIsDropdownOpen(false);
-    addNotification('info', 'Wallet disconnected');
-  };
-
-  const copyToClipboard = () => {
-    if (address) {
-      navigator.clipboard.writeText(address);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-      addNotification('success', 'Address copied to clipboard');
+  
+  // Handle disconnect
+  const handleDisconnect = async () => {
+    try {
+      await disconnectWallet();
+    } catch (err) {
+      console.error('Failed to disconnect wallet:', err);
     }
   };
-
-  // Format address for display
-  const formatAddress = (addr: string) => {
-    if (!addr) return '';
-    if (addr.length < 10) return addr;
-    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  
+  // Handle create wallet
+  const handleCreateWallet = async () => {
+    try {
+      // Generate a random seed phrase
+      const randomSeed = Array.from({ length: 12 }, () => {
+        const words = [
+          'abandon', 'ability', 'able', 'about', 'above', 'absent',
+          'absorb', 'abstract', 'absurd', 'abuse', 'access', 'accident',
+          'account', 'accuse', 'achieve', 'acid', 'acoustic', 'acquire',
+          'across', 'act', 'action', 'actor', 'actress', 'actual',
+        ];
+        return words[Math.floor(Math.random() * words.length)];
+      }).join(' ');
+      
+      setSeed(randomSeed);
+      await createWallet(WalletType.BIP39, network, randomSeed);
+    } catch (err) {
+      console.error('Failed to create wallet:', err);
+    }
   };
-
+  
   return (
-    <div className="relative">
-      <button
-        onClick={handleConnect}
-        disabled={isConnecting}
-        className={`btn ${
-          isConnected ? 'btn-secondary' : 'btn-neon'
-        } flex items-center justify-center`}
-      >
-        {isConnecting ? (
-          <div className="flex items-center">
-            <svg
-              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            Connecting...
-          </div>
-        ) : isConnected ? (
-          <div className="flex items-center">
-            <WalletIcon className="w-4 h-4 mr-2" />
-            <span>{formatAddress(address || '')}</span>
-            <ChevronDownIcon className="w-4 h-4 ml-2" />
-          </div>
-        ) : (
-          <div className="flex items-center">
-            <WalletIcon className="w-4 h-4 mr-2" />
-            Connect Wallet
-          </div>
-        )}
-      </button>
-
-      {/* Dropdown Menu */}
-      {isConnected && isDropdownOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className="absolute right-0 mt-2 w-56 rounded-lg bg-twilight-primary border border-twilight-accent shadow-lg z-50"
-        >
-          <div className="p-3 border-b border-twilight-dark">
-            <div className="text-sm text-gray-400">Connected Wallet</div>
-            <div className="font-medium flex items-center justify-between">
-              <span>{formatAddress(address || '')}</span>
-              <button
-                onClick={copyToClipboard}
-                className="p-1 hover:bg-twilight-dark rounded-md transition-colors duration-200"
-                title="Copy address"
-              >
-                {isCopied ? (
-                  <CheckIcon className="w-4 h-4 text-green-400" />
-                ) : (
-                  <DocumentDuplicateIcon className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
+    <Card className={`wallet-connect ${className}`}>
+      <h2>Connect Wallet</h2>
+      
+      {isConnected ? (
+        <div className="wallet-connected">
+          <div className="wallet-info">
+            <div className="wallet-address">
+              <span className="label">Address:</span>
+              <span className="value">{getAddress()}</span>
+            </div>
+            
+            <div className="wallet-balance">
+              <span className="label">Balance:</span>
+              <span className="value">{getBalance()} BTC</span>
             </div>
           </div>
-          <div className="p-3 border-b border-twilight-dark">
-            <div className="text-sm text-gray-400">Balance</div>
-            <div className="font-medium">{walletContext.balance} BTC</div>
-          </div>
-          <div className="p-2">
-            <button
-              onClick={handleDisconnect}
-              className="w-full text-left px-3 py-2 text-red-400 hover:bg-twilight-dark rounded-md transition-colors duration-200 flex items-center"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-              Disconnect
-            </button>
-          </div>
-        </motion.div>
+          
+          <button
+            className="btn btn-secondary"
+            onClick={handleDisconnect}
+          >
+            Disconnect Wallet
+          </button>
+        </div>
+      ) : (
+        <div className="wallet-disconnected">
+          <form onSubmit={handleConnect}>
+            <div className="form-group">
+              <label htmlFor="walletType">Wallet Type</label>
+              <select
+                id="walletType"
+                value={walletType}
+                onChange={(e) => setWalletType(e.target.value as WalletType)}
+                disabled={isConnecting}
+              >
+                <option value={WalletType.BIP39}>BIP39 Seed Phrase</option>
+                <option value={WalletType.WIF}>WIF Private Key</option>
+                <option value={WalletType.Xprv}>Extended Private Key</option>
+                <option value={WalletType.Hardware}>Hardware Wallet</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="network">Network</label>
+              <select
+                id="network"
+                value={network}
+                onChange={(e) => setNetwork(Number(e.target.value) as BitcoinNetwork)}
+                disabled={isConnecting}
+              >
+                <option value={BitcoinNetwork.Mainnet}>Mainnet</option>
+                <option value={BitcoinNetwork.Testnet}>Testnet</option>
+                <option value={BitcoinNetwork.Regtest}>Regtest</option>
+                <option value={BitcoinNetwork.Signet}>Signet</option>
+              </select>
+            </div>
+            
+            {walletType !== WalletType.Hardware && (
+              <div className="form-group">
+                <label htmlFor="seed">
+                  {walletType === WalletType.BIP39 ? 'Seed Phrase' : 
+                   walletType === WalletType.WIF ? 'WIF Private Key' : 
+                   'Extended Private Key'}
+                </label>
+                <div className="seed-input-container">
+                  <input
+                    type={showSeed ? 'text' : 'password'}
+                    id="seed"
+                    value={seed}
+                    onChange={(e) => setSeed(e.target.value)}
+                    disabled={isConnecting}
+                    placeholder={
+                      walletType === WalletType.BIP39 ? 'Enter your 12/24 word seed phrase' : 
+                      walletType === WalletType.WIF ? 'Enter your WIF private key' : 
+                      'Enter your extended private key'
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="toggle-seed-visibility"
+                    onClick={() => setShowSeed(!showSeed)}
+                  >
+                    {showSeed ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {error && (
+              <div className="error-message">
+                {error.message}
+              </div>
+            )}
+            
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              </button>
+              
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCreateWallet}
+                disabled={isConnecting}
+              >
+                Create New Wallet
+              </button>
+            </div>
+          </form>
+        </div>
       )}
-    </div>
+    </Card>
   );
 };
 

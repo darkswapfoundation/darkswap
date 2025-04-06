@@ -1,388 +1,317 @@
 # DarkSwap User Guide
 
-Welcome to DarkSwap, the decentralized trading platform for Bitcoin, runes, and alkanes. This guide will help you get started with DarkSwap and explain how to use its features.
-
 ## Table of Contents
 
-- [Introduction](#introduction)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Connecting a Wallet](#connecting-a-wallet)
-  - [User Interface Overview](#user-interface-overview)
-- [Trading](#trading)
-  - [Creating Orders](#creating-orders)
-  - [Taking Orders](#taking-orders)
-  - [Managing Orders](#managing-orders)
-  - [Trade History](#trade-history)
-- [Wallet Management](#wallet-management)
-  - [Viewing Balances](#viewing-balances)
-  - [Sending Assets](#sending-assets)
-  - [Receiving Assets](#receiving-assets)
-- [Runes and Alkanes](#runes-and-alkanes)
-  - [Understanding Runes](#understanding-runes)
-  - [Understanding Alkanes](#understanding-alkanes)
-  - [Trading Runes and Alkanes](#trading-runes-and-alkanes)
-- [Advanced Features](#advanced-features)
-  - [Predicate Alkanes](#predicate-alkanes)
-  - [Market Analysis](#market-analysis)
-  - [Notifications](#notifications)
-- [Troubleshooting](#troubleshooting)
-  - [Common Issues](#common-issues)
-  - [Getting Help](#getting-help)
-- [Security Best Practices](#security-best-practices)
-  - [Protecting Your Wallet](#protecting-your-wallet)
-  - [Verifying Transactions](#verifying-transactions)
-  - [Avoiding Scams](#avoiding-scams)
+1. [Introduction](#introduction)
+2. [Getting Started](#getting-started)
+   - [Installation](#installation)
+   - [Creating an Account](#creating-an-account)
+   - [Connecting a Wallet](#connecting-a-wallet)
+3. [Trading Guide](#trading-guide)
+   - [Understanding the Interface](#understanding-the-interface)
+   - [Creating Orders](#creating-orders)
+   - [Taking Orders](#taking-orders)
+   - [Managing Orders](#managing-orders)
+   - [Viewing Trade History](#viewing-trade-history)
+4. [Wallet Management](#wallet-management)
+   - [Supported Wallet Types](#supported-wallet-types)
+   - [Viewing Balances](#viewing-balances)
+   - [Depositing Funds](#depositing-funds)
+   - [Withdrawing Funds](#withdrawing-funds)
+5. [Settings and Preferences](#settings-and-preferences)
+   - [General Settings](#general-settings)
+   - [Network Settings](#network-settings)
+   - [Notification Settings](#notification-settings)
+   - [Wallet Settings](#wallet-settings)
+6. [Runes and Alkanes](#runes-and-alkanes)
+   - [What are Runes?](#what-are-runes)
+   - [What are Alkanes?](#what-are-alkanes)
+   - [Trading Runes and Alkanes](#trading-runes-and-alkanes)
+7. [Security Best Practices](#security-best-practices)
+   - [Securing Your Wallet](#securing-your-wallet)
+   - [Verifying Transactions](#verifying-transactions)
+   - [Avoiding Scams](#avoiding-scams)
+8. [Troubleshooting](#troubleshooting)
+   - [Common Issues](#common-issues)
+   - [Error Messages](#error-messages)
+   - [Getting Support](#getting-support)
 
 ## Introduction
 
-DarkSwap is a decentralized trading platform that allows you to trade Bitcoin, runes, and alkanes directly with other users without the need for intermediaries. It uses a peer-to-peer network to connect traders and execute trades securely and efficiently.
+DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It enables users to trade these assets without requiring a central server or authority, using WebRTC for browser-to-browser communication and circuit relay for NAT traversal.
 
-Key features of DarkSwap include:
-
-- **Decentralized Trading**: Trade directly with other users without intermediaries.
-- **Bitcoin, Runes, and Alkanes Support**: Trade a variety of assets on the Bitcoin network.
-- **Secure Transactions**: All trades are executed using Partially Signed Bitcoin Transactions (PSBTs) for security.
-- **Real-Time Updates**: Receive real-time updates on orders, trades, and market data.
-- **User-Friendly Interface**: Easy-to-use interface for creating and taking orders.
+This user guide will help you understand how to use DarkSwap effectively, from setting up your account and connecting your wallet to creating and taking orders, managing your trades, and configuring your settings.
 
 ## Getting Started
 
 ### Installation
 
-#### Desktop Application
+DarkSwap is a web-based application, so there's no need to install any software. Simply visit [https://darkswap.io](https://darkswap.io) in your web browser to get started.
 
-1. Download the DarkSwap desktop application from the [official website](https://darkswap.io/download).
-2. Run the installer and follow the on-screen instructions.
-3. Launch the DarkSwap application.
+For the best experience, we recommend using one of the following browsers:
 
-#### Web Application
+- Google Chrome (version 90 or later)
+- Mozilla Firefox (version 88 or later)
+- Microsoft Edge (version 90 or later)
+- Safari (version 14 or later)
 
-1. Visit the [DarkSwap web application](https://app.darkswap.io) in your web browser.
-2. The web application works best with Chrome, Firefox, Safari, or Edge.
+### Creating an Account
+
+DarkSwap is a decentralized platform that doesn't require you to create an account. Instead, you'll connect your wallet to the platform to start trading.
 
 ### Connecting a Wallet
 
-To use DarkSwap, you need to connect a Bitcoin wallet. DarkSwap supports various wallet types:
+To use DarkSwap, you'll need to connect a compatible wallet. Follow these steps to connect your wallet:
 
-#### Simple Wallet
+1. Click the "Connect Wallet" button in the top-right corner of the page.
+2. Select your wallet type from the list of available options.
+3. Follow the prompts to connect your wallet.
+4. Once connected, you'll see your wallet address and balance in the top-right corner of the page.
 
-1. Click on the "Connect Wallet" button in the top-right corner of the application.
-2. Select "Simple Wallet" from the dropdown menu.
-3. Enter your private key or seed phrase.
-4. Click "Connect" to connect your wallet.
+DarkSwap supports the following wallet types:
 
-> **Warning**: Only use the Simple Wallet option for testing or with small amounts. For better security, use a hardware wallet or a wallet with BIP39 support.
+- Bitcoin wallets (via BDK)
+- Hardware wallets (Ledger, Trezor)
+- Browser wallets (MetaMask, Phantom)
+- Mobile wallets (via QR code)
 
-#### Hardware Wallet
+## Trading Guide
 
-1. Click on the "Connect Wallet" button in the top-right corner of the application.
-2. Select your hardware wallet type (e.g., Ledger, Trezor) from the dropdown menu.
-3. Connect your hardware wallet to your computer and follow the on-screen instructions.
-4. Approve the connection on your hardware wallet.
+### Understanding the Interface
 
-#### BIP39 Wallet
+The DarkSwap trading interface consists of several key components:
 
-1. Click on the "Connect Wallet" button in the top-right corner of the application.
-2. Select "BIP39 Wallet" from the dropdown menu.
-3. Enter your seed phrase.
-4. Select the derivation path.
-5. Click "Connect" to connect your wallet.
-
-### User Interface Overview
-
-The DarkSwap user interface is divided into several sections:
-
-#### Navigation
-
-The navigation menu is located on the left side of the application and provides access to the main sections:
-
-- **Home**: Overview of the platform and recent activity.
-- **Trade**: Create and take orders.
-- **Orders**: View and manage your orders.
-- **Wallet**: View your wallet balances and transaction history.
-- **Market**: View market data and price charts.
-- **Settings**: Configure application settings.
-
-#### Header
-
-The header is located at the top of the application and provides access to:
-
-- **Wallet Connection**: Connect and disconnect your wallet.
-- **Notifications**: View notifications about orders, trades, and other events.
-- **Theme Toggle**: Switch between light and dark themes.
-- **User Menu**: Access user-specific options.
-
-#### Main Content Area
-
-The main content area displays the content of the selected section.
-
-#### Footer
-
-The footer is located at the bottom of the application and provides:
-
-- **Links**: Links to important resources.
-- **Version**: The current version of the application.
-- **Copyright**: Copyright information.
-
-## Trading
+- **Market Selector**: Located at the top of the page, this allows you to select the trading pair you want to trade.
+- **Price Chart**: Displays the price history for the selected trading pair.
+- **Orderbook**: Shows the current buy and sell orders for the selected trading pair.
+- **Trade Form**: Allows you to create buy or sell orders.
+- **Order History**: Shows your open orders and trade history.
 
 ### Creating Orders
 
-To create a new order:
+To create a new order, follow these steps:
 
-1. Navigate to the "Trade" section using the navigation menu.
-2. Select the trading pair (e.g., BTC/RUNE:123) from the dropdown menu.
-3. Choose the order type (buy or sell).
-4. Enter the amount and price.
-5. Set the expiry time for the order.
-6. Click "Create Order" to submit the order.
+1. Select the trading pair you want to trade using the Market Selector.
+2. In the Trade Form, select "Buy" or "Sell" depending on the type of order you want to create.
+3. Enter the amount of the base asset you want to buy or sell.
+4. Enter the price per unit in terms of the quote asset.
+5. Review the total cost or proceeds of your order.
+6. Click "Place Buy Order" or "Place Sell Order" to create your order.
 
-#### Order Types
-
-DarkSwap supports the following order types:
-
-- **Buy**: Create an order to buy an asset.
-- **Sell**: Create an order to sell an asset.
-
-#### Order Parameters
-
-When creating an order, you need to specify the following parameters:
-
-- **Base Asset**: The asset you want to buy or sell (e.g., BTC).
-- **Quote Asset**: The asset you want to use for pricing (e.g., RUNE:123).
-- **Side**: Whether you want to buy or sell the base asset.
-- **Amount**: The amount of the base asset you want to buy or sell.
-- **Price**: The price of the base asset in terms of the quote asset.
-- **Expiry**: The time after which the order will expire if not filled.
+Your order will be added to the orderbook and will be visible to other users. If your order matches an existing order, it will be executed immediately.
 
 ### Taking Orders
 
-To take an existing order:
+To take an existing order, follow these steps:
 
-1. Navigate to the "Orders" section using the navigation menu.
-2. Browse the list of open orders or filter by trading pair and side.
-3. Click on an order to view its details.
-4. Enter the amount you want to take (can be less than the full order amount).
-5. Click "Take Order" to execute the trade.
+1. Browse the orderbook to find an order you want to take.
+2. Click on the order to fill in the Trade Form with the order details.
+3. Adjust the amount if you want to take only part of the order.
+4. Click "Take Order" to execute the trade.
 
-#### Partial Fills
-
-DarkSwap supports partial fills, which means you can take only a portion of an order. For example, if someone is selling 1 BTC, you can choose to buy only 0.5 BTC.
+When you take an order, a peer-to-peer connection will be established between you and the order creator using WebRTC. The trade will be executed using Partially Signed Bitcoin Transactions (PSBTs) to ensure security and trustlessness.
 
 ### Managing Orders
 
-To manage your orders:
+You can view and manage your open orders in the Order History section. To cancel an order, follow these steps:
 
-1. Navigate to the "Orders" section using the navigation menu.
-2. Click on the "My Orders" tab to view your orders.
-3. Filter your orders by status (open, filled, canceled).
-4. Click on an order to view its details.
-5. Click "Cancel" to cancel an open order.
+1. Find the order you want to cancel in the Order History section.
+2. Click the "Cancel" button next to the order.
+3. Confirm the cancellation when prompted.
 
-#### Order Status
+Your order will be removed from the orderbook and will no longer be visible to other users.
 
-Orders in DarkSwap can have the following statuses:
+### Viewing Trade History
 
-- **Open**: The order is active and can be taken by other users.
-- **Filled**: The order has been completely filled.
-- **Partially Filled**: The order has been partially filled and is still open for the remaining amount.
-- **Canceled**: The order has been canceled and is no longer active.
-- **Expired**: The order has expired and is no longer active.
+You can view your trade history in the Order History section. This includes all trades you've participated in, whether as a maker (creating an order) or a taker (taking an order).
 
-### Trade History
+For each trade, you can see the following information:
 
-To view your trade history:
+- Trading pair
+- Type (buy or sell)
+- Amount
+- Price
+- Total
+- Status
+- Timestamp
 
-1. Navigate to the "Orders" section using the navigation menu.
-2. Click on the "Trade History" tab to view your completed trades.
-3. Filter your trades by trading pair and date range.
-4. Click on a trade to view its details.
-
-#### Trade Details
-
-The trade details page shows the following information:
-
-- **Trade ID**: The unique identifier for the trade.
-- **Order ID**: The ID of the order that was taken.
-- **Trading Pair**: The base and quote assets involved in the trade.
-- **Side**: Whether you bought or sold the base asset.
-- **Amount**: The amount of the base asset that was traded.
-- **Price**: The price at which the trade was executed.
-- **Total**: The total value of the trade in the quote asset.
-- **Fee**: The fee paid for the trade.
-- **Date**: The date and time when the trade was executed.
-- **Status**: The status of the trade (completed, pending, failed).
-- **Transaction ID**: The ID of the Bitcoin transaction that executed the trade.
+Click on a trade to view more details, including the transaction ID and counterparty information.
 
 ## Wallet Management
 
+### Supported Wallet Types
+
+DarkSwap supports various wallet types, including:
+
+- **Bitcoin Core Wallet**: Connect to a Bitcoin Core node running on your local machine or a remote server.
+- **BDK Wallet**: Use the Bitcoin Development Kit wallet for a lightweight option.
+- **Hardware Wallets**: Connect to Ledger or Trezor hardware wallets for enhanced security.
+- **Browser Wallets**: Connect to browser-based wallets like MetaMask for Ethereum-based assets.
+- **Mobile Wallets**: Connect to mobile wallets via QR code scanning.
+
 ### Viewing Balances
 
-To view your wallet balances:
+Once your wallet is connected, you can view your balances in the Wallet section. This shows the amount of each asset you hold, including Bitcoin, runes, and alkanes.
 
-1. Navigate to the "Wallet" section using the navigation menu.
-2. The main page shows your Bitcoin balance and a list of your runes and alkanes.
-3. Click on an asset to view its details.
+To view your balances, follow these steps:
 
-#### Asset Details
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Wallet" from the dropdown menu.
+3. View your balances in the Balances section.
 
-The asset details page shows the following information:
+### Depositing Funds
 
-- **Asset Name**: The name of the asset.
-- **Asset Symbol**: The symbol of the asset.
-- **Balance**: Your current balance of the asset.
-- **Value**: The estimated value of your balance in USD.
-- **Transaction History**: A list of transactions involving the asset.
+To deposit funds into your wallet, follow these steps:
 
-### Sending Assets
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Wallet" from the dropdown menu.
+3. Click the "Deposit" button next to the asset you want to deposit.
+4. Follow the prompts to complete the deposit.
 
-To send assets to another address:
+For Bitcoin deposits, you'll be shown a deposit address. Send Bitcoin to this address to fund your wallet.
 
-1. Navigate to the "Wallet" section using the navigation menu.
-2. Click on the asset you want to send.
-3. Click the "Send" button.
-4. Enter the recipient's address.
-5. Enter the amount you want to send.
-6. Click "Review" to review the transaction details.
-7. Click "Send" to confirm and send the transaction.
+For runes and alkanes, you'll need to follow the specific deposit instructions for each asset.
 
-#### Transaction Fees
+### Withdrawing Funds
 
-When sending assets, you need to pay a transaction fee in Bitcoin. The fee is calculated based on the current network conditions and the size of the transaction.
+To withdraw funds from your wallet, follow these steps:
 
-### Receiving Assets
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Wallet" from the dropdown menu.
+3. Click the "Withdraw" button next to the asset you want to withdraw.
+4. Enter the withdrawal address and amount.
+5. Click "Withdraw" to initiate the withdrawal.
+6. Confirm the withdrawal when prompted.
 
-To receive assets:
+Withdrawals are processed on-chain and may take some time to complete depending on network congestion.
 
-1. Navigate to the "Wallet" section using the navigation menu.
-2. Click on the asset you want to receive.
-3. Click the "Receive" button.
-4. Your wallet address will be displayed along with a QR code.
-5. Share this address with the sender.
+## Settings and Preferences
 
-#### Multiple Addresses
+### General Settings
 
-For enhanced privacy, DarkSwap can generate a new address for each transaction. To generate a new address:
+The General Settings section allows you to customize your DarkSwap experience. To access General Settings, follow these steps:
 
-1. Navigate to the "Wallet" section using the navigation menu.
-2. Click on the asset you want to receive.
-3. Click the "Receive" button.
-4. Click "Generate New Address" to create a new receiving address.
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Settings" from the dropdown menu.
+3. Click on the "General" tab.
+
+In the General Settings section, you can configure the following options:
+
+- **Theme**: Choose between light and dark mode.
+- **Auto Connect Wallet**: Enable or disable automatic wallet connection on page load.
+- **Default Market**: Set your default trading pair.
+- **Chart Timeframe**: Set your default chart timeframe.
+- **Order Book Depth**: Set the number of orders to display in the orderbook.
+
+### Network Settings
+
+The Network Settings section allows you to configure your connection to the DarkSwap network. To access Network Settings, follow these steps:
+
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Settings" from the dropdown menu.
+3. Click on the "Network" tab.
+
+In the Network Settings section, you can configure the following options:
+
+- **API URL**: Set the URL for the DarkSwap API.
+- **WebSocket URL**: Set the URL for the DarkSwap WebSocket server.
+- **Relay Servers**: Add or remove relay servers for NAT traversal.
+- **Bootstrap Peers**: Add or remove bootstrap peers for the P2P network.
+
+### Notification Settings
+
+The Notification Settings section allows you to configure how you receive notifications. To access Notification Settings, follow these steps:
+
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Settings" from the dropdown menu.
+3. Click on the "Notifications" tab.
+
+In the Notification Settings section, you can configure the following options:
+
+- **Order Created**: Enable or disable notifications when an order is created.
+- **Order Cancelled**: Enable or disable notifications when an order is cancelled.
+- **Order Filled**: Enable or disable notifications when an order is filled.
+- **Trade Started**: Enable or disable notifications when a trade starts.
+- **Trade Completed**: Enable or disable notifications when a trade completes.
+- **Trade Failed**: Enable or disable notifications when a trade fails.
+- **Market Updates**: Enable or disable notifications for market updates.
+- **System Notifications**: Enable or disable system notifications.
+
+### Wallet Settings
+
+The Wallet Settings section allows you to configure your wallet connection. To access Wallet Settings, follow these steps:
+
+1. Click on your wallet address in the top-right corner of the page.
+2. Select "Settings" from the dropdown menu.
+3. Click on the "Wallet" tab.
+
+In the Wallet Settings section, you can view your wallet information and disconnect your wallet if needed.
 
 ## Runes and Alkanes
 
-### Understanding Runes
+### What are Runes?
 
-Runes are digital assets on the Bitcoin network that represent various types of tokens. They are created using the Runes protocol, which allows for the creation and transfer of tokens on the Bitcoin blockchain.
+Runes are a type of digital asset built on the Bitcoin blockchain. They are created using the Runes protocol, which allows for the creation of fungible tokens on Bitcoin.
 
-Key characteristics of runes:
+Runes have the following characteristics:
 
-- **Fungible**: Runes are fungible, meaning each unit is interchangeable with another unit of the same rune.
-- **Divisible**: Runes can be divided into smaller units, similar to Bitcoin.
-- **Transferable**: Runes can be transferred between Bitcoin addresses.
-- **Limited Supply**: Each rune has a fixed supply defined at creation.
+- **Fungibility**: Each rune of the same type is interchangeable with any other rune of the same type.
+- **Divisibility**: Runes can be divided into smaller units, similar to how Bitcoin can be divided into satoshis.
+- **Transferability**: Runes can be transferred between Bitcoin addresses.
+- **Scarcity**: The supply of each rune type is fixed at creation.
 
-### Understanding Alkanes
+### What are Alkanes?
 
-Alkanes are a special type of rune that includes additional logic in the form of predicates. Predicates are conditions that must be satisfied for the alkane to be transferred.
+Alkanes are another type of digital asset built on the Bitcoin blockchain. They are created using the Alkanes protocol, which is similar to the Runes protocol but with some key differences.
 
-Key characteristics of alkanes:
+Alkanes have the following characteristics:
 
-- **Predicate-Based**: Alkanes include predicates that define conditions for transfers.
-- **Programmable**: The predicates can be programmed to implement various types of logic.
-- **Conditional Transfers**: Transfers of alkanes are only valid if the predicates are satisfied.
-- **Complex Logic**: Alkanes can implement complex logic for transfers, such as time locks, price conditions, and more.
+- **Non-fungibility**: Each alkane is unique and cannot be interchanged with any other alkane, even of the same type.
+- **Indivisibility**: Alkanes cannot be divided into smaller units.
+- **Transferability**: Alkanes can be transferred between Bitcoin addresses.
+- **Uniqueness**: Each alkane has unique properties that distinguish it from other alkanes.
 
 ### Trading Runes and Alkanes
 
-Trading runes and alkanes on DarkSwap is similar to trading Bitcoin, with a few additional considerations:
+Trading runes and alkanes on DarkSwap is similar to trading Bitcoin. You can create buy or sell orders for runes and alkanes, and take existing orders from other users.
 
-1. **Asset Selection**: When creating or taking an order, make sure to select the correct rune or alkane by checking its ID.
-2. **Predicate Verification**: When trading alkanes, make sure to verify the predicates to ensure they match your expectations.
-3. **Liquidity**: Some runes and alkanes may have limited liquidity, which can affect the price and ease of trading.
+To trade runes or alkanes, follow these steps:
 
-## Advanced Features
+1. Select a trading pair that includes the rune or alkane you want to trade.
+2. Create a buy or sell order as described in the [Creating Orders](#creating-orders) section.
+3. Wait for your order to be matched, or take an existing order as described in the [Taking Orders](#taking-orders) section.
 
-### Predicate Alkanes
+When trading runes or alkanes, make sure to verify the asset ID to ensure you're trading the correct asset. Rune IDs typically start with "RUNE:" followed by a unique identifier, while alkane IDs typically start with "ALKANE:" followed by a unique identifier.
 
-Predicate alkanes are alkanes with specific predicates that implement advanced functionality. DarkSwap supports various types of predicate alkanes:
+## Security Best Practices
 
-#### Equality Predicate Alkanes
+### Securing Your Wallet
 
-Equality predicate alkanes can only be transferred if a specified condition is equal to a specified value. For example, an equality predicate alkane might require that the price of Bitcoin is equal to or greater than a specified value.
+To keep your assets safe, follow these security best practices:
 
-#### Range Predicate Alkanes
+- **Use a Hardware Wallet**: Hardware wallets provide the highest level of security by keeping your private keys offline.
+- **Backup Your Wallet**: Make sure to backup your wallet's seed phrase or private keys in a secure location.
+- **Use Strong Passwords**: If your wallet requires a password, use a strong, unique password and consider using a password manager.
+- **Enable Two-Factor Authentication**: If your wallet supports it, enable two-factor authentication for an extra layer of security.
+- **Keep Software Updated**: Keep your wallet software and operating system updated with the latest security patches.
 
-Range predicate alkanes can only be transferred if a specified condition falls within a specified range. For example, a range predicate alkane might require that the price of Bitcoin is between two specified values.
+### Verifying Transactions
 
-#### Time Lock Predicate Alkanes
+Before confirming any transaction, make sure to verify the following:
 
-Time lock predicate alkanes can only be transferred after a specified time. For example, a time lock predicate alkane might require that the current time is after a specified date.
+- **Recipient Address**: Double-check the recipient address to ensure you're sending funds to the correct address.
+- **Amount**: Verify the amount you're sending is correct.
+- **Fee**: Check the transaction fee to ensure it's reasonable.
+- **Asset**: Make sure you're sending the correct asset, especially when dealing with runes and alkanes.
 
-#### Composite Predicate Alkanes
+### Avoiding Scams
 
-Composite predicate alkanes combine multiple predicates using logical operators (AND, OR, NOT). For example, a composite predicate alkane might require that the price of Bitcoin is above a specified value AND the current time is after a specified date.
+To avoid scams and phishing attempts, follow these guidelines:
 
-### Market Analysis
-
-DarkSwap provides tools for market analysis to help you make informed trading decisions:
-
-#### Price Charts
-
-To view price charts:
-
-1. Navigate to the "Market" section using the navigation menu.
-2. Select the trading pair from the dropdown menu.
-3. Choose the time period (1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w).
-4. The chart will display the price history for the selected trading pair and time period.
-
-#### Order Book
-
-To view the order book:
-
-1. Navigate to the "Trade" section using the navigation menu.
-2. Select the trading pair from the dropdown menu.
-3. The order book will display the current buy and sell orders for the selected trading pair.
-
-#### Market Statistics
-
-To view market statistics:
-
-1. Navigate to the "Market" section using the navigation menu.
-2. Select the trading pair from the dropdown menu.
-3. The market statistics will display information such as:
-   - Last Price: The price of the most recent trade.
-   - 24h High: The highest price in the last 24 hours.
-   - 24h Low: The lowest price in the last 24 hours.
-   - 24h Volume: The trading volume in the last 24 hours.
-   - 24h Change: The price change in the last 24 hours.
-
-### Notifications
-
-DarkSwap provides notifications to keep you informed about important events:
-
-#### Types of Notifications
-
-- **Order Created**: Notifies you when your order is created.
-- **Order Filled**: Notifies you when your order is filled.
-- **Order Canceled**: Notifies you when your order is canceled.
-- **Order Expired**: Notifies you when your order expires.
-- **Trade Started**: Notifies you when a trade is initiated.
-- **Trade Completed**: Notifies you when a trade is completed.
-- **Trade Failed**: Notifies you when a trade fails.
-- **Wallet Connected**: Notifies you when your wallet is connected.
-- **Wallet Disconnected**: Notifies you when your wallet is disconnected.
-- **Network Status**: Notifies you about changes in the network status.
-
-#### Notification Settings
-
-To configure notification settings:
-
-1. Navigate to the "Settings" section using the navigation menu.
-2. Click on the "Notifications" tab.
-3. Enable or disable specific types of notifications.
-4. Configure notification delivery methods (in-app, email, browser).
+- **Verify URLs**: Always check that you're on the correct website (https://darkswap.io) before connecting your wallet.
+- **Be Wary of Offers**: If an offer seems too good to be true, it probably is.
+- **Don't Share Private Keys**: Never share your private keys or seed phrase with anyone, including DarkSwap support.
+- **Use Official Channels**: Only download wallet software from official sources and only use links provided on the official DarkSwap website.
 
 ## Troubleshooting
 
@@ -390,84 +319,70 @@ To configure notification settings:
 
 #### Wallet Connection Issues
 
-If you're having trouble connecting your wallet:
+If you're having trouble connecting your wallet, try the following:
 
-1. Make sure you're using a supported wallet type.
-2. Check that your wallet is properly set up and has funds.
-3. Try disconnecting and reconnecting your wallet.
-4. Restart the DarkSwap application.
-
-#### Order Creation Issues
-
-If you're having trouble creating orders:
-
-1. Make sure your wallet is connected and has sufficient funds.
-2. Check that you've entered valid values for amount and price.
-3. Ensure that the expiry time is in the future.
-4. Try creating the order again with different parameters.
+1. Make sure your wallet is unlocked and accessible.
+2. Refresh the page and try connecting again.
+3. Clear your browser cache and cookies, then try again.
+4. Try using a different browser.
+5. Check if your wallet software needs to be updated.
 
 #### Trade Execution Issues
 
-If you're having trouble executing trades:
+If you're having trouble executing trades, try the following:
 
-1. Make sure your wallet is connected and has sufficient funds.
-2. Check that the order you're trying to take is still available.
-3. Ensure that you've entered a valid amount to take.
-4. Try taking the order again with a different amount.
+1. Make sure you have sufficient balance to cover the trade amount and any fees.
+2. Check your network connection to ensure you're connected to the internet.
+3. If using a hardware wallet, make sure it's connected and unlocked.
+4. Try creating a smaller order to see if the issue is related to the order size.
+5. Check if there are any pending transactions in your wallet that might be causing conflicts.
 
-#### Network Connectivity Issues
+#### WebRTC Connection Issues
 
-If you're having trouble connecting to the DarkSwap network:
+If you're having trouble establishing WebRTC connections with other users, try the following:
 
-1. Check your internet connection.
-2. Make sure your firewall or antivirus software is not blocking the DarkSwap application.
-3. Try restarting the DarkSwap application.
-4. Check the DarkSwap status page for any known issues.
+1. Make sure your browser supports WebRTC (most modern browsers do).
+2. Check if your firewall or network configuration is blocking WebRTC connections.
+3. Try using a different network connection.
+4. Enable the use of relay servers in the Network Settings.
 
-### Getting Help
+### Error Messages
 
-If you're still having issues, you can get help from the following resources:
+Here are some common error messages you might encounter and how to resolve them:
 
-- **Documentation**: Check the [DarkSwap documentation](https://docs.darkswap.io) for more information.
-- **FAQ**: Check the [Frequently Asked Questions](https://darkswap.io/faq) for answers to common questions.
-- **Support**: Contact [DarkSwap support](https://darkswap.io/support) for assistance.
-- **Community**: Join the [DarkSwap community](https://discord.gg/darkswap) to get help from other users.
+#### "Insufficient Balance"
 
-## Security Best Practices
+This error occurs when you don't have enough balance to cover the trade amount and any fees. Make sure you have sufficient balance before creating or taking an order.
 
-### Protecting Your Wallet
+#### "Wallet Not Connected"
 
-To protect your wallet and funds:
+This error occurs when you try to perform an action that requires a connected wallet, but your wallet is not connected. Connect your wallet and try again.
 
-1. **Use a Hardware Wallet**: For maximum security, use a hardware wallet like Ledger or Trezor.
-2. **Keep Your Private Keys Safe**: Never share your private keys or seed phrases with anyone.
-3. **Use Strong Passwords**: Use strong, unique passwords for your wallet and DarkSwap account.
-4. **Enable Two-Factor Authentication**: If available, enable two-factor authentication for your wallet and DarkSwap account.
-5. **Keep Software Updated**: Keep your wallet software and the DarkSwap application updated to the latest version.
+#### "Order Not Found"
 
-### Verifying Transactions
+This error occurs when you try to take an order that no longer exists. The order may have been filled or cancelled by another user. Refresh the orderbook and try again.
 
-Before confirming any transaction:
+#### "Network Error"
 
-1. **Check the Recipient Address**: Make sure the recipient address is correct.
-2. **Verify the Amount**: Make sure the amount is correct.
-3. **Check the Fee**: Make sure the fee is reasonable.
-4. **Confirm on Hardware Wallet**: If using a hardware wallet, verify the transaction details on the device before confirming.
+This error occurs when there's an issue with your internet connection or the DarkSwap servers. Check your internet connection and try again later.
 
-### Avoiding Scams
+#### "WebRTC Connection Failed"
 
-To avoid scams:
+This error occurs when the WebRTC connection between you and the other user fails to establish. This could be due to network issues or incompatible browsers. Try using a different network connection or browser.
 
-1. **Verify URLs**: Always make sure you're on the official DarkSwap website or using the official DarkSwap application.
-2. **Be Wary of Phishing**: Be cautious of emails, messages, or websites asking for your private keys or seed phrases.
-3. **Check Order Details**: Before taking an order, carefully check the details to ensure they match your expectations.
-4. **Research Assets**: Before trading a new rune or alkane, research it to ensure it's legitimate.
-5. **Start Small**: When trying a new feature or trading a new asset, start with a small amount to minimize risk.
+### Getting Support
 
-## Conclusion
+If you're still experiencing issues after trying the troubleshooting steps, you can get support through the following channels:
 
-This guide has covered the basics of using DarkSwap for trading Bitcoin, runes, and alkanes. As you become more familiar with the platform, you'll discover additional features and capabilities that can enhance your trading experience.
+- **Discord**: Join our Discord community at [https://discord.gg/darkswap](https://discord.gg/darkswap) for real-time support from the community and team members.
+- **Email**: Contact our support team at support@darkswap.io for personalized assistance.
+- **GitHub**: Report bugs or suggest features on our GitHub repository at [https://github.com/darkswap/darkswap](https://github.com/darkswap/darkswap).
+- **Documentation**: Check our documentation at [https://docs.darkswap.io](https://docs.darkswap.io) for detailed guides and information.
 
-Remember to always prioritize security and do your own research before trading. If you have any questions or need assistance, don't hesitate to reach out to the DarkSwap community or support team.
+When seeking support, please provide as much information as possible about the issue you're experiencing, including:
 
-Happy trading!
+- A detailed description of the issue
+- Steps to reproduce the issue
+- Any error messages you're seeing
+- Your browser and operating system
+- Your wallet type and version

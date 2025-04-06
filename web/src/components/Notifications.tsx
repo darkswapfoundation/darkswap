@@ -1,216 +1,333 @@
-import React from 'react';
-import { useNotifications, Notification } from '../contexts/NotificationContext';
+import React, { useState, useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useNotification, Notification } from '../contexts/NotificationContext';
 
 interface NotificationsProps {
-  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
-  maxWidth?: string;
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  maxVisible?: number;
 }
 
-/**
- * Notifications component
- * @param props Component props
- * @returns Notifications component
- */
-export const Notifications: React.FC<NotificationsProps> = ({
+const Notifications: React.FC<NotificationsProps> = ({
   position = 'top-right',
-  maxWidth = '400px',
+  maxVisible = 5,
 }) => {
-  const { notifications, removeNotification } = useNotifications();
+  const { theme } = useTheme();
+  const { notifications, removeNotification } = useNotification();
+  const [visibleNotifications, setVisibleNotifications] = useState<Notification[]>([]);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Update visible notifications and unread count
+  useEffect(() => {
+    setVisibleNotifications(notifications.slice(0, maxVisible));
+    setUnreadCount(notifications.filter(notification => !notification.read).length);
+  }, [notifications, maxVisible]);
 
   // Get position styles
-  const getPositionStyles = () => {
+  const getPositionStyles = (): React.CSSProperties => {
     switch (position) {
-      case 'top-right':
-        return {
-          top: '20px',
-          right: '20px',
-        };
       case 'top-left':
-        return {
-          top: '20px',
-          left: '20px',
-        };
-      case 'bottom-right':
-        return {
-          bottom: '20px',
-          right: '20px',
-        };
+        return { top: '1rem', left: '1rem' };
+      case 'top-right':
+        return { top: '1rem', right: '1rem' };
       case 'bottom-left':
-        return {
-          bottom: '20px',
-          left: '20px',
-        };
+        return { bottom: '1rem', left: '1rem' };
+      case 'bottom-right':
+        return { bottom: '1rem', right: '1rem' };
+      default:
+        return { top: '1rem', right: '1rem' };
     }
   };
 
-  // Get notification icon
+  // Get notification background color based on type
+  const getNotificationColor = (type: Notification['type']): string => {
+    switch (type) {
+      case 'success':
+        return theme.success;
+      case 'error':
+        return theme.error;
+      case 'warning':
+        return theme.warning;
+      case 'info':
+        return theme.info;
+      default:
+        return theme.primary;
+    }
+  };
+
+  // Get notification icon based on type
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return '✓';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        );
       case 'error':
-        return '✕';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        );
       case 'warning':
-        return '⚠';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
       case 'info':
-        return 'ℹ';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        );
     }
   };
 
-  // Position styles
-  const positionStyles = getPositionStyles();
+  // Format timestamp
+  const formatTimestamp = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    // Less than a minute
+    if (diff < 60000) {
+      return 'Just now';
+    }
+    
+    // Less than an hour
+    if (diff < 3600000) {
+      const minutes = Math.floor(diff / 60000);
+      return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    }
+    
+    // Less than a day
+    if (diff < 86400000) {
+      const hours = Math.floor(diff / 3600000);
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    }
+    
+    // More than a day
+    const date = new Date(timestamp);
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Toggle notification center
+  const toggleNotificationCenter = () => {
+    setShowNotificationCenter(!showNotificationCenter);
+  };
 
   return (
-    <div className="notifications" style={{ ...positionStyles, maxWidth }}>
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`notification ${notification.type}`}
-          onClick={() => removeNotification(notification.id)}
-        >
-          <div className="notification-icon">
-            {getNotificationIcon(notification.type)}
-          </div>
-          <div className="notification-content">
-            {notification.message}
-          </div>
-          <button
-            className="notification-close"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeNotification(notification.id);
+    <>
+      {/* Toast Notifications */}
+      <div
+        className="fixed z-50 flex flex-col space-y-2 w-80"
+        style={getPositionStyles()}
+      >
+        {visibleNotifications.map((notification) => (
+          <div
+            key={notification.id}
+            className="flex items-start p-3 rounded-lg shadow-lg animate-slideIn"
+            style={{
+              backgroundColor: theme.card,
+              borderLeft: `4px solid ${getNotificationColor(notification.type)}`,
             }}
           >
-            ×
-          </button>
-        </div>
-      ))}
+            <div
+              className="flex-shrink-0 mr-2"
+              style={{ color: getNotificationColor(notification.type) }}
+            >
+              {getNotificationIcon(notification.type)}
+            </div>
+            <div className="flex-1 mr-2">
+              <h4 className="font-medium" style={{ color: theme.text }}>
+                {notification.title}
+              </h4>
+              <p className="text-sm" style={{ color: theme.secondary }}>
+                {notification.message}
+              </p>
+              <p className="text-xs mt-1" style={{ color: theme.secondary }}>
+                {formatTimestamp(notification.timestamp)}
+              </p>
+            </div>
+            <button
+              className="flex-shrink-0 p-1 rounded-full hover:bg-opacity-10"
+              style={{ backgroundColor: `${theme.text}10` }}
+              onClick={() => removeNotification(notification.id)}
+              aria-label="Close notification"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                style={{ color: theme.text }}
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
 
-      <style>
-        {`
-          .notifications {
-            position: fixed;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-          }
-          
-          .notification {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            animation: slideIn 0.3s ease-out;
-            pointer-events: auto;
-            cursor: pointer;
-          }
-          
-          .notification.success {
-            background-color: #d4edda;
-            color: #155724;
-            border-left: 4px solid #28a745;
-          }
-          
-          .notification.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-          }
-          
-          .notification.warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border-left: 4px solid #ffc107;
-          }
-          
-          .notification.info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border-left: 4px solid #17a2b8;
-          }
-          
-          .notification-icon {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            margin-right: 10px;
-            font-weight: bold;
-          }
-          
-          .success .notification-icon {
-            background-color: #28a745;
-            color: #fff;
-          }
-          
-          .error .notification-icon {
-            background-color: #dc3545;
-            color: #fff;
-          }
-          
-          .warning .notification-icon {
-            background-color: #ffc107;
-            color: #212529;
-          }
-          
-          .info .notification-icon {
-            background-color: #17a2b8;
-            color: #fff;
-          }
-          
-          .notification-content {
-            flex: 1;
-          }
-          
-          .notification-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            line-height: 1;
-            cursor: pointer;
-            padding: 0;
-            margin-left: 10px;
-            opacity: 0.5;
-            transition: opacity 0.2s;
-          }
-          
-          .notification-close:hover {
-            opacity: 1;
-          }
-          
-          @keyframes slideIn {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-          
-          @keyframes slideOut {
-            from {
-              transform: translateX(0);
-              opacity: 1;
-            }
-            to {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-          }
-          
-          .notification.removing {
-            animation: slideOut 0.3s ease-in forwards;
-          }
-        `}
-      </style>
-    </div>
+      {/* Notification Center Button */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          className="relative p-3 rounded-full shadow-lg"
+          style={{ backgroundColor: theme.primary }}
+          onClick={toggleNotificationCenter}
+          aria-label="Toggle notification center"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="#FFFFFF"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            />
+          </svg>
+          {unreadCount > 0 && (
+            <span
+              className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full"
+              style={{ backgroundColor: theme.error, color: '#FFFFFF' }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Notification Center */}
+      {showNotificationCenter && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-end p-4 sm:p-6 md:p-8"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowNotificationCenter(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg shadow-xl overflow-hidden"
+            style={{ backgroundColor: theme.card }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="p-4 border-b flex justify-between items-center"
+              style={{ borderColor: theme.border }}
+            >
+              <h3 className="text-lg font-semibold" style={{ color: theme.text }}>
+                Notifications
+              </h3>
+              <button
+                className="p-1 rounded-full hover:bg-opacity-10"
+                style={{ backgroundColor: `${theme.text}10` }}
+                onClick={() => setShowNotificationCenter(false)}
+                aria-label="Close notification center"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  style={{ color: theme.text }}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div
+                  className="p-8 text-center"
+                  style={{ color: theme.secondary }}
+                >
+                  No notifications
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className="p-4 border-b"
+                    style={{
+                      borderColor: theme.border,
+                      backgroundColor: notification.read
+                        ? 'transparent'
+                        : `${theme.primary}10`,
+                    }}
+                  >
+                    <div className="flex items-start">
+                      <div
+                        className="flex-shrink-0 mr-3"
+                        style={{ color: getNotificationColor(notification.type) }}
+                      >
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium" style={{ color: theme.text }}>
+                          {notification.title}
+                        </h4>
+                        <p className="text-sm" style={{ color: theme.secondary }}>
+                          {notification.message}
+                        </p>
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: theme.secondary }}
+                        >
+                          {formatTimestamp(notification.timestamp)}
+                        </p>
+                      </div>
+                      <button
+                        className="flex-shrink-0 p-1 rounded-full hover:bg-opacity-10"
+                        style={{ backgroundColor: `${theme.text}10` }}
+                        onClick={() => removeNotification(notification.id)}
+                        aria-label="Remove notification"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          style={{ color: theme.text }}
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

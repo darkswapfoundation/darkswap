@@ -1,249 +1,274 @@
-import React, { useState } from 'react';
-import { useCreateTradeOffer, useBitcoinBalance, useRuneBalance, useAlkaneBalance } from '../hooks/useTradeHooks';
+import React, { useState, useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useWallet } from '../contexts/WalletContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface TradeFormProps {
-  onSuccess?: (offerId: string) => void;
-  onError?: (error: Error) => void;
+  baseAsset: string;
+  quoteAsset: string;
+  currentPrice?: number;
+  onSubmit?: (order: {
+    type: 'buy' | 'sell';
+    baseAsset: string;
+    quoteAsset: string;
+    amount: number;
+    price: number;
+    total: number;
+  }) => void;
 }
 
-export const TradeForm: React.FC<TradeFormProps> = ({ onSuccess, onError }) => {
-  // Asset types
-  const [makerAssetType, setMakerAssetType] = useState<'bitcoin' | 'rune' | 'alkane'>('bitcoin');
-  const [takerAssetType, setTakerAssetType] = useState<'bitcoin' | 'rune' | 'alkane'>('rune');
-  
-  // Asset IDs (for runes and alkanes)
-  const [makerAssetId, setMakerAssetId] = useState('');
-  const [takerAssetId, setTakerAssetId] = useState('');
-  
-  // Amounts
-  const [makerAmount, setMakerAmount] = useState('');
-  const [takerAmount, setTakerAmount] = useState('');
-  
-  // Expiration
-  const [expiration, setExpiration] = useState('3600'); // 1 hour by default
-  
-  // Loading state
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-  
-  // Get balances
-  const { balance: bitcoinBalance } = useBitcoinBalance();
-  const runeBalance = makerAssetType === 'rune' ? useRuneBalance(makerAssetId).balance : 0;
-  const alkaneBalance = makerAssetType === 'alkane' ? useAlkaneBalance(makerAssetId).balance : 0;
-  
-  // Get the create trade offer function
-  const { create } = useCreateTradeOffer();
-  
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate form
-    if (!makerAmount || !takerAmount) {
-      setError('Please enter both maker and taker amounts');
-      return;
+const TradeForm: React.FC<TradeFormProps> = ({
+  baseAsset,
+  quoteAsset,
+  currentPrice,
+  onSubmit,
+}) => {
+  const { theme } = useTheme();
+  const { wallet, balance } = useWallet();
+  const { addNotification } = useNotification();
+
+  const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
+  const [amount, setAmount] = useState('');
+  const [price, setPrice] = useState(currentPrice ? currentPrice.toString() : '');
+  const [total, setTotal] = useState('0');
+
+  // Update price when currentPrice changes
+  useEffect(() => {
+    if (currentPrice) {
+      setPrice(currentPrice.toString());
+      updateTotal(amount, currentPrice.toString());
     }
-    
-    if (makerAssetType === 'rune' && !makerAssetId) {
-      setError('Please enter a rune ID for the maker asset');
-      return;
-    }
-    
-    if (makerAssetType === 'alkane' && !makerAssetId) {
-      setError('Please enter an alkane ID for the maker asset');
-      return;
-    }
-    
-    if (takerAssetType === 'rune' && !takerAssetId) {
-      setError('Please enter a rune ID for the taker asset');
-      return;
-    }
-    
-    if (takerAssetType === 'alkane' && !takerAssetId) {
-      setError('Please enter an alkane ID for the taker asset');
-      return;
-    }
-    
-    // Check balance
-    const makerAmountNumber = Number(makerAmount);
-    let hasEnoughBalance = false;
-    
-    switch (makerAssetType) {
-      case 'bitcoin':
-        hasEnoughBalance = bitcoinBalance >= makerAmountNumber;
-        break;
-      case 'rune':
-        hasEnoughBalance = runeBalance >= makerAmountNumber;
-        break;
-      case 'alkane':
-        hasEnoughBalance = alkaneBalance >= makerAmountNumber;
-        break;
-    }
-    
-    if (!hasEnoughBalance) {
-      setError(`Insufficient ${makerAssetType} balance`);
-      return;
-    }
-    
-    // Submit form
-    setIsSubmitting(true);
-    setError(null);
-    
-    try {
-      // Create maker asset
-      let makerAsset: any = { type: makerAssetType };
-      if (makerAssetType === 'rune' || makerAssetType === 'alkane') {
-        makerAsset.id = makerAssetId;
-      }
-      
-      // Create taker asset
-      let takerAsset: any = { type: takerAssetType };
-      if (takerAssetType === 'rune' || takerAssetType === 'alkane') {
-        takerAsset.id = takerAssetId;
-      }
-      
-      // Create trade offer
-      const offerId = await create(
-        makerAsset,
-        makerAmountNumber,
-        takerAsset,
-        Number(takerAmount)
-      );
-      
-      // Reset form
-      setMakerAssetType('bitcoin');
-      setTakerAssetType('rune');
-      setMakerAssetId('');
-      setTakerAssetId('');
-      setMakerAmount('');
-      setTakerAmount('');
-      setExpiration('3600');
-      
-      // Call onSuccess callback
-      if (onSuccess) {
-        onSuccess(offerId);
-      }
-    } catch (err) {
-      console.error('Failed to create trade offer:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      
-      // Call onError callback
-      if (onError && err instanceof Error) {
-        onError(err);
-      }
-    } finally {
-      setIsSubmitting(false);
+  }, [currentPrice]);
+
+  // Calculate total when amount or price changes
+  const updateTotal = (newAmount: string, newPrice: string) => {
+    if (newAmount && newPrice) {
+      const calculatedTotal = parseFloat(newAmount) * parseFloat(newPrice);
+      setTotal(calculatedTotal.toFixed(2));
+    } else {
+      setTotal('0');
     }
   };
-  
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newAmount = e.target.value;
+    setAmount(newAmount);
+    updateTotal(newAmount, price);
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPrice = e.target.value;
+    setPrice(newPrice);
+    updateTotal(amount, newPrice);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!wallet) {
+      addNotification({
+        type: 'warning',
+        title: 'Wallet Not Connected',
+        message: 'Please connect your wallet to place an order.',
+        autoClose: true,
+      });
+      return;
+    }
+
+    if (!amount || !price) {
+      addNotification({
+        type: 'warning',
+        title: 'Invalid Order',
+        message: 'Please enter a valid amount and price.',
+        autoClose: true,
+      });
+      return;
+    }
+
+    const parsedAmount = parseFloat(amount);
+    const parsedPrice = parseFloat(price);
+    const parsedTotal = parseFloat(total);
+
+    // Validate balance
+    if (orderType === 'buy' && balance[quoteAsset] < parsedTotal) {
+      addNotification({
+        type: 'error',
+        title: 'Insufficient Balance',
+        message: `You don't have enough ${quoteAsset} to place this order.`,
+        autoClose: true,
+      });
+      return;
+    }
+
+    if (orderType === 'sell' && balance[baseAsset] < parsedAmount) {
+      addNotification({
+        type: 'error',
+        title: 'Insufficient Balance',
+        message: `You don't have enough ${baseAsset} to place this order.`,
+        autoClose: true,
+      });
+      return;
+    }
+
+    if (onSubmit) {
+      onSubmit({
+        type: orderType,
+        baseAsset,
+        quoteAsset,
+        amount: parsedAmount,
+        price: parsedPrice,
+        total: parsedTotal,
+      });
+    }
+
+    // Reset form
+    setAmount('');
+    updateTotal('', price);
+  };
+
+  const handleSetMaxAmount = () => {
+    if (!wallet) return;
+
+    let maxAmount = '0';
+    if (orderType === 'buy' && balance[quoteAsset] && price) {
+      // For buy orders, max amount is balance / price
+      maxAmount = (balance[quoteAsset] / parseFloat(price)).toFixed(8);
+    } else if (orderType === 'sell' && balance[baseAsset]) {
+      // For sell orders, max amount is the balance
+      maxAmount = balance[baseAsset].toString();
+    }
+
+    setAmount(maxAmount);
+    updateTotal(maxAmount, price);
+  };
+
   return (
-    <div className="trade-form">
-      <h2>Create Trade Offer</h2>
-      {error && (
-        <div className="error">{error}</div>
-      )}
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="maker-asset-type">You Send:</label>
-          <select
-            id="maker-asset-type"
-            value={makerAssetType}
-            onChange={(e) => setMakerAssetType(e.target.value as 'bitcoin' | 'rune' | 'alkane')}
-            disabled={isSubmitting}
+    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: theme.card }}>
+      <div className="p-4 border-b" style={{ borderColor: theme.border }}>
+        <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
+          {baseAsset}/{quoteAsset} Trade
+        </h2>
+      </div>
+
+      <div className="p-4">
+        {/* Order Type Tabs */}
+        <div className="flex mb-4 rounded-lg overflow-hidden">
+          <button
+            className="flex-1 py-2 text-center font-medium transition-colors"
+            style={{
+              backgroundColor: orderType === 'buy' ? theme.success : theme.card,
+              color: orderType === 'buy' ? '#FFFFFF' : theme.text,
+            }}
+            onClick={() => setOrderType('buy')}
           >
-            <option value="bitcoin">Bitcoin</option>
-            <option value="rune">Rune</option>
-            <option value="alkane">Alkane</option>
-          </select>
-          {makerAssetType === 'rune' && (
-            <input
-              type="text"
-              placeholder="Rune ID"
-              value={makerAssetId}
-              onChange={(e) => setMakerAssetId(e.target.value)}
-              disabled={isSubmitting}
-            />
-          )}
-          {makerAssetType === 'alkane' && (
-            <input
-              type="text"
-              placeholder="Alkane ID"
-              value={makerAssetId}
-              onChange={(e) => setMakerAssetId(e.target.value)}
-              disabled={isSubmitting}
-            />
-          )}
-          <input
-            type="number"
-            placeholder="Amount"
-            value={makerAmount}
-            onChange={(e) => setMakerAmount(e.target.value)}
-            disabled={isSubmitting}
-            min="0"
-            step="0.00000001"
-          />
-          <div className="balance">
-            Balance: {makerAssetType === 'bitcoin' ? bitcoinBalance : makerAssetType === 'rune' ? runeBalance : alkaneBalance}
+            Buy
+          </button>
+          <button
+            className="flex-1 py-2 text-center font-medium transition-colors"
+            style={{
+              backgroundColor: orderType === 'sell' ? theme.error : theme.card,
+              color: orderType === 'sell' ? '#FFFFFF' : theme.text,
+            }}
+            onClick={() => setOrderType('sell')}
+          >
+            Sell
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {/* Amount Input */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+              Amount ({baseAsset})
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={handleAmountChange}
+                placeholder={`Enter ${baseAsset} amount`}
+                className="w-full p-2 rounded border focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                  borderColor: theme.border,
+                }}
+                step="0.00000001"
+                min="0"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-2 py-1 rounded"
+                style={{
+                  backgroundColor: theme.primary,
+                  color: '#FFFFFF',
+                }}
+                onClick={handleSetMaxAmount}
+              >
+                MAX
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="form-group">
-          <label htmlFor="taker-asset-type">You Receive:</label>
-          <select
-            id="taker-asset-type"
-            value={takerAssetType}
-            onChange={(e) => setTakerAssetType(e.target.value as 'bitcoin' | 'rune' | 'alkane')}
-            disabled={isSubmitting}
+
+          {/* Price Input */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+              Price ({quoteAsset})
+            </label>
+            <input
+              type="number"
+              value={price}
+              onChange={handlePriceChange}
+              placeholder={`Enter price in ${quoteAsset}`}
+              className="w-full p-2 rounded border focus:outline-none focus:ring-2"
+              style={{
+                backgroundColor: theme.background,
+                color: theme.text,
+                borderColor: theme.border,
+              }}
+              step="0.01"
+              min="0"
+            />
+          </div>
+
+          {/* Total */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+              Total ({quoteAsset})
+            </label>
+            <input
+              type="text"
+              value={total}
+              readOnly
+              className="w-full p-2 rounded border focus:outline-none"
+              style={{
+                backgroundColor: theme.background,
+                color: theme.text,
+                borderColor: theme.border,
+                opacity: 0.8,
+              }}
+            />
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="w-full py-3 rounded font-medium transition-opacity"
+            style={{
+              backgroundColor: orderType === 'buy' ? theme.success : theme.error,
+              color: '#FFFFFF',
+              opacity: wallet ? 1 : 0.7,
+            }}
+            disabled={!wallet}
           >
-            <option value="bitcoin">Bitcoin</option>
-            <option value="rune">Rune</option>
-            <option value="alkane">Alkane</option>
-          </select>
-          {takerAssetType === 'rune' && (
-            <input
-              type="text"
-              placeholder="Rune ID"
-              value={takerAssetId}
-              onChange={(e) => setTakerAssetId(e.target.value)}
-              disabled={isSubmitting}
-            />
-          )}
-          {takerAssetType === 'alkane' && (
-            <input
-              type="text"
-              placeholder="Alkane ID"
-              value={takerAssetId}
-              onChange={(e) => setTakerAssetId(e.target.value)}
-              disabled={isSubmitting}
-            />
-          )}
-          <input
-            type="number"
-            placeholder="Amount"
-            value={takerAmount}
-            onChange={(e) => setTakerAmount(e.target.value)}
-            disabled={isSubmitting}
-            min="0"
-            step="0.00000001"
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="expiration">Expiration (seconds):</label>
-          <input
-            id="expiration"
-            type="number"
-            value={expiration}
-            onChange={(e) => setExpiration(e.target.value)}
-            disabled={isSubmitting}
-            min="60"
-            step="60"
-          />
-        </div>
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating Offer...' : 'Create Offer'}
-        </button>
-      </form>
+            {wallet
+              ? `${orderType === 'buy' ? 'Buy' : 'Sell'} ${baseAsset}`
+              : 'Connect Wallet to Trade'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
+
+export default TradeForm;

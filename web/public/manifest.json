@@ -1,6 +1,6 @@
 {
   "short_name": "DarkSwap",
-  "name": "DarkSwap - Decentralized P2P Trading",
+  "name": "DarkSwap - Decentralized Trading",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#1a1a2e",
-  "background_color": "#f8f9fa"
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
 }
