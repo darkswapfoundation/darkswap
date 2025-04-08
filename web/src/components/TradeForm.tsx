@@ -1,272 +1,296 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useWallet } from '../contexts/WalletContext';
+import { useApi } from '../contexts/ApiContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { OrderSide, OrderType } from '../types';
+import '../styles/TradeForm.css';
 
 interface TradeFormProps {
   baseAsset: string;
   quoteAsset: string;
-  currentPrice?: number;
-  onSubmit?: (order: {
-    type: 'buy' | 'sell';
-    baseAsset: string;
-    quoteAsset: string;
-    amount: number;
-    price: number;
-    total: number;
-  }) => void;
+  lastPrice?: string;
 }
 
 const TradeForm: React.FC<TradeFormProps> = ({
   baseAsset,
   quoteAsset,
-  currentPrice,
-  onSubmit,
+  lastPrice = '',
 }) => {
   const { theme } = useTheme();
-  const { wallet, balance } = useWallet();
+  const { api } = useApi();
   const { addNotification } = useNotification();
-
-  const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
-  const [amount, setAmount] = useState('');
-  const [price, setPrice] = useState(currentPrice ? currentPrice.toString() : '');
-  const [total, setTotal] = useState('0');
-
-  // Update price when currentPrice changes
+  
+  const [side, setSide] = useState<OrderSide>(OrderSide.Buy);
+  const [type, setType] = useState<OrderType>(OrderType.Limit);
+  const [price, setPrice] = useState<string>('');
+  const [amount, setAmount] = useState<string>('');
+  const [total, setTotal] = useState<string>('');
+  const [baseBalance, setBaseBalance] = useState<string>('0');
+  const [quoteBalance, setQuoteBalance] = useState<string>('0');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch balances
+  const fetchBalances = useCallback(async () => {
+    try {
+      const balances = await api.getBalances();
+      
+      // Find base asset balance
+      const baseAssetBalance = balances.find(balance => balance.symbol === baseAsset);
+      if (baseAssetBalance) {
+        setBaseBalance(baseAssetBalance.available);
+      }
+      
+      // Find quote asset balance
+      const quoteAssetBalance = balances.find(balance => balance.symbol === quoteAsset);
+      if (quoteAssetBalance) {
+        setQuoteBalance(quoteAssetBalance.available);
+      }
+    } catch (error) {
+      console.error('Failed to fetch balances:', error);
+    }
+  }, [api, baseAsset, quoteAsset]);
+  
+  // Fetch balances on mount and when assets change
   useEffect(() => {
-    if (currentPrice) {
-      setPrice(currentPrice.toString());
-      updateTotal(amount, currentPrice.toString());
+    fetchBalances();
+  }, [fetchBalances]);
+  
+  // Update price when lastPrice changes
+  useEffect(() => {
+    if (lastPrice && !price) {
+      setPrice(lastPrice);
     }
-  }, [currentPrice]);
-
-  // Calculate total when amount or price changes
-  const updateTotal = (newAmount: string, newPrice: string) => {
-    if (newAmount && newPrice) {
-      const calculatedTotal = parseFloat(newAmount) * parseFloat(newPrice);
-      setTotal(calculatedTotal.toFixed(2));
+  }, [lastPrice, price]);
+  
+  // Calculate total when price or amount changes
+  useEffect(() => {
+    if (price && amount) {
+      const calculatedTotal = (parseFloat(price) * parseFloat(amount)).toString();
+      setTotal(calculatedTotal);
     } else {
-      setTotal('0');
+      setTotal('');
     }
+  }, [price, amount]);
+  
+  // Calculate amount when price or total changes
+  const calculateAmount = useCallback(() => {
+    if (price && total && parseFloat(price) > 0) {
+      const calculatedAmount = (parseFloat(total) / parseFloat(price)).toString();
+      setAmount(calculatedAmount);
+    }
+  }, [price, total]);
+  
+  // Handle side change
+  const handleSideChange = (newSide: OrderSide) => {
+    setSide(newSide);
+    setError(null);
   };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newAmount = e.target.value;
-    setAmount(newAmount);
-    updateTotal(newAmount, price);
+  
+  // Handle type change
+  const handleTypeChange = (newType: OrderType) => {
+    setType(newType);
+    setError(null);
   };
-
+  
+  // Handle price change
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPrice = e.target.value;
-    setPrice(newPrice);
-    updateTotal(amount, newPrice);
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setPrice(value);
+      setError(null);
+    }
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  
+  // Handle amount change
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setAmount(value);
+      setError(null);
+    }
+  };
+  
+  // Handle total change
+  const handleTotalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setTotal(value);
+      calculateAmount();
+      setError(null);
+    }
+  };
+  
+  // Handle max button click
+  const handleMaxClick = () => {
+    if (side === OrderSide.Buy) {
+      setTotal(quoteBalance);
+      calculateAmount();
+    } else {
+      setAmount(baseBalance);
+    }
+    setError(null);
+  };
+  
+  // Validate form
+  const validateForm = (): boolean => {
+    if (type === OrderType.Limit && (!price || parseFloat(price) <= 0)) {
+      setError('Please enter a valid price.');
+      return false;
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      setError('Please enter a valid amount.');
+      return false;
+    }
+    
+    if (side === OrderSide.Buy) {
+      const requiredBalance = parseFloat(total);
+      if (requiredBalance > parseFloat(quoteBalance)) {
+        setError(`Insufficient ${quoteAsset} balance.`);
+        return false;
+      }
+    } else {
+      const requiredBalance = parseFloat(amount);
+      if (requiredBalance > parseFloat(baseBalance)) {
+        setError(`Insufficient ${baseAsset} balance.`);
+        return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!wallet) {
-      addNotification({
-        type: 'warning',
-        title: 'Wallet Not Connected',
-        message: 'Please connect your wallet to place an order.',
-        autoClose: true,
-      });
+    
+    if (!validateForm()) {
       return;
     }
-
-    if (!amount || !price) {
-      addNotification({
-        type: 'warning',
-        title: 'Invalid Order',
-        message: 'Please enter a valid amount and price.',
-        autoClose: true,
-      });
-      return;
-    }
-
-    const parsedAmount = parseFloat(amount);
-    const parsedPrice = parseFloat(price);
-    const parsedTotal = parseFloat(total);
-
-    // Validate balance
-    if (orderType === 'buy' && balance[quoteAsset] < parsedTotal) {
-      addNotification({
-        type: 'error',
-        title: 'Insufficient Balance',
-        message: `You don't have enough ${quoteAsset} to place this order.`,
-        autoClose: true,
-      });
-      return;
-    }
-
-    if (orderType === 'sell' && balance[baseAsset] < parsedAmount) {
-      addNotification({
-        type: 'error',
-        title: 'Insufficient Balance',
-        message: `You don't have enough ${baseAsset} to place this order.`,
-        autoClose: true,
-      });
-      return;
-    }
-
-    if (onSubmit) {
-      onSubmit({
-        type: orderType,
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Create order
+      const orderId = await api.createOrder({
+        side,
+        type,
         baseAsset,
         quoteAsset,
-        amount: parsedAmount,
-        price: parsedPrice,
-        total: parsedTotal,
+        price: type === OrderType.Limit ? price : '0',
+        amount,
+        maker: 'user',
       });
+      
+      // Show success notification
+      addNotification({
+        type: 'success',
+        title: 'Order Created',
+        message: `Your ${side === OrderSide.Buy ? 'buy' : 'sell'} order has been created.`,
+      });
+      
+      // Reset form
+      if (side === OrderSide.Buy) {
+        setAmount('');
+        setTotal('');
+      } else {
+        setAmount('');
+      }
+      
+      // Refresh balances
+      fetchBalances();
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      setError('Failed to create order. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Reset form
-    setAmount('');
-    updateTotal('', price);
   };
-
-  const handleSetMaxAmount = () => {
-    if (!wallet) return;
-
-    let maxAmount = '0';
-    if (orderType === 'buy' && balance[quoteAsset] && price) {
-      // For buy orders, max amount is balance / price
-      maxAmount = (balance[quoteAsset] / parseFloat(price)).toFixed(8);
-    } else if (orderType === 'sell' && balance[baseAsset]) {
-      // For sell orders, max amount is the balance
-      maxAmount = balance[baseAsset].toString();
-    }
-
-    setAmount(maxAmount);
-    updateTotal(maxAmount, price);
-  };
-
+  
   return (
-    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: theme.card }}>
-      <div className="p-4 border-b" style={{ borderColor: theme.border }}>
-        <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
-          {baseAsset}/{quoteAsset} Trade
-        </h2>
-      </div>
-
-      <div className="p-4">
-        {/* Order Type Tabs */}
-        <div className="flex mb-4 rounded-lg overflow-hidden">
+    <div className={`trade-form trade-form-${theme}`}>
+      <div className="trade-form-header">
+        <h3>Place Order</h3>
+        <div className="trade-form-tabs">
           <button
-            className="flex-1 py-2 text-center font-medium transition-colors"
-            style={{
-              backgroundColor: orderType === 'buy' ? theme.success : theme.card,
-              color: orderType === 'buy' ? '#FFFFFF' : theme.text,
-            }}
-            onClick={() => setOrderType('buy')}
+            className={`${side === OrderSide.Buy ? 'active' : ''} buy`}
+            onClick={() => handleSideChange(OrderSide.Buy)}
           >
             Buy
           </button>
           <button
-            className="flex-1 py-2 text-center font-medium transition-colors"
-            style={{
-              backgroundColor: orderType === 'sell' ? theme.error : theme.card,
-              color: orderType === 'sell' ? '#FFFFFF' : theme.text,
-            }}
-            onClick={() => setOrderType('sell')}
+            className={`${side === OrderSide.Sell ? 'active' : ''} sell`}
+            onClick={() => handleSideChange(OrderSide.Sell)}
           >
             Sell
           </button>
         </div>
-
-        <form onSubmit={handleSubmit}>
-          {/* Amount Input */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
-              Amount ({baseAsset})
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={amount}
-                onChange={handleAmountChange}
-                placeholder={`Enter ${baseAsset} amount`}
-                className="w-full p-2 rounded border focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: theme.background,
-                  color: theme.text,
-                  borderColor: theme.border,
-                }}
-                step="0.00000001"
-                min="0"
-              />
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-2 py-1 rounded"
-                style={{
-                  backgroundColor: theme.primary,
-                  color: '#FFFFFF',
-                }}
-                onClick={handleSetMaxAmount}
-              >
-                MAX
-              </button>
-            </div>
-          </div>
-
-          {/* Price Input */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
-              Price ({quoteAsset})
-            </label>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        <div className="trade-form-group">
+          <label htmlFor="price">Price ({quoteAsset})</label>
+          <div className="trade-form-input-group">
             <input
-              type="number"
+              id="price"
+              type="text"
               value={price}
               onChange={handlePriceChange}
-              placeholder={`Enter price in ${quoteAsset}`}
-              className="w-full p-2 rounded border focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: theme.background,
-                color: theme.text,
-                borderColor: theme.border,
-              }}
-              step="0.01"
-              min="0"
+              placeholder="0.00"
+              disabled={type === OrderType.Market}
             />
           </div>
-
-          {/* Total */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
-              Total ({quoteAsset})
-            </label>
+        </div>
+        
+        <div className="trade-form-group">
+          <label htmlFor="amount">Amount ({baseAsset})</label>
+          <div className="trade-form-input-group">
             <input
+              id="amount"
               type="text"
-              value={total}
-              readOnly
-              className="w-full p-2 rounded border focus:outline-none"
-              style={{
-                backgroundColor: theme.background,
-                color: theme.text,
-                borderColor: theme.border,
-                opacity: 0.8,
-              }}
+              value={amount}
+              onChange={handleAmountChange}
+              placeholder="0.00"
             />
+            <button
+              type="button"
+              className="trade-form-max-button"
+              onClick={handleMaxClick}
+            >
+              MAX
+            </button>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-3 rounded font-medium transition-opacity"
-            style={{
-              backgroundColor: orderType === 'buy' ? theme.success : theme.error,
-              color: '#FFFFFF',
-              opacity: wallet ? 1 : 0.7,
-            }}
-            disabled={!wallet}
-          >
-            {wallet
-              ? `${orderType === 'buy' ? 'Buy' : 'Sell'} ${baseAsset}`
-              : 'Connect Wallet to Trade'}
-          </button>
-        </form>
-      </div>
+          <div className="trade-form-balance">
+            Available: {side === OrderSide.Buy ? quoteBalance : baseBalance} {side === OrderSide.Buy ? quoteAsset : baseAsset}
+          </div>
+        </div>
+        
+        {side === OrderSide.Buy && (
+          <div className="trade-form-group">
+            <label htmlFor="total">Total ({quoteAsset})</label>
+            <div className="trade-form-input-group">
+              <input
+                id="total"
+                type="text"
+                value={total}
+                onChange={handleTotalChange}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        )}
+        
+        {error && <div className="trade-form-error">{error}</div>}
+        
+        <button
+          type="submit"
+          className={`trade-form-submit-button ${side === OrderSide.Buy ? 'buy' : 'sell'}`}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Processing...' : `${side === OrderSide.Buy ? 'Buy' : 'Sell'} ${baseAsset}`}
+        </button>
+      </form>
     </div>
   );
 };

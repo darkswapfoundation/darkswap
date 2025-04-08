@@ -1,0 +1,173 @@
+/* TradeHistory.css - Styles for the TradeHistory component */
+
+.trade-history {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trade-history-light {
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.trade-history-dark {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.trade-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid;
+}
+
+.trade-history-light .trade-history-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.trade-history-dark .trade-history-header {
+  border-bottom-color: #2d2d3d;
+}
+
+.trade-history-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.trade-history-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.trade-history-table-header {
+  display: flex;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid;
+}
+
+.trade-history-light .trade-history-table-header {
+  border-bottom-color: #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.trade-history-dark .trade-history-table-header {
+  border-bottom-color: #2d2d3d;
+  background-color: #252535;
+}
+
+.trade-history-price {
+  flex: 1;
+  text-align: left;
+}
+
+.trade-history-amount {
+  flex: 1;
+  text-align: right;
+}
+
+.trade-history-time {
+  flex: 1;
+  text-align: right;
+}
+
+.trade-history-trades {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.trade-history-trade {
+  display: flex;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid;
+}
+
+.trade-history-light .trade-history-trade {
+  border-bottom-color: #f0f0f0;
+}
+
+.trade-history-dark .trade-history-trade {
+  border-bottom-color: #252535;
+}
+
+.trade-history-trade:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.trade-history-dark .trade-history-trade:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.buy-price {
+  color: #00c864;
+}
+
+.sell-price {
+  color: #ff3232;
+}
+
+.trade-history-loading,
+.trade-history-error,
+.trade-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  flex: 1;
+}
+
+.trade-history-loading .spinner {
+  margin-bottom: 16px;
+}
+
+.trade-history-error {
+  color: #ff3232;
+}
+
+.trade-history-error button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3861fb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-history-error button:hover {
+  background-color: #2a4cd8;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .trade-history-header {
+    padding: 8px 12px;
+  }
+  
+  .trade-history-header h3 {
+    font-size: 14px;
+  }
+  
+  .trade-history-table-header,
+  .trade-history-trade {
+    padding: 4px 12px;
+    font-size: 11px;
+  }
+}

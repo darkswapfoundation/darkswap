@@ -1,23 +1,18 @@
 //! Orderbook module for DarkSwap
 //!
-//! This module provides orderbook functionality for DarkSwap, including order creation,
-//! cancellation, and matching.
+//! This module provides orderbook functionality for DarkSwap.
 
-mod runes_alkanes;
-
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
+use std::collections::{HashMap, BTreeMap};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context as AnyhowContext, Result};
+use anyhow::Result;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
-use crate::p2p::P2PNetwork;
+use crate::error::Error;
 use crate::types::{Asset, Event};
 use crate::wallet::WalletInterface;
 
@@ -25,14 +20,21 @@ use crate::wallet::WalletInterface;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct OrderId(pub String);
 
-impl fmt::Display for OrderId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl OrderId {
+    /// Create a new order ID
+    pub fn new() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for OrderId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 /// Order side
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OrderSide {
     /// Buy
     Buy,
@@ -40,17 +42,40 @@ pub enum OrderSide {
     Sell,
 }
 
+impl std::fmt::Display for OrderSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrderSide::Buy => write!(f, "buy"),
+            OrderSide::Sell => write!(f, "sell"),
+        }
+    }
+}
+
 /// Order status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OrderStatus {
     /// Open
     Open,
+    /// Partially filled
+    PartiallyFilled,
     /// Filled
     Filled,
-    /// Canceled
-    Canceled,
+    /// Cancelled
+    Cancelled,
     /// Expired
     Expired,
+}
+
+impl std::fmt::Display for OrderStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrderStatus::Open => write!(f, "open"),
+            OrderStatus::PartiallyFilled => write!(f, "partially_filled"),
+            OrderStatus::Filled => write!(f, "filled"),
+            OrderStatus::Cancelled => write!(f, "cancelled"),
+            OrderStatus::Expired => write!(f, "expired"),
+        }
+    }
 }
 
 /// Order
@@ -58,13 +83,11 @@ pub enum OrderStatus {
 pub struct Order {
     /// Order ID
     pub id: OrderId,
-    /// Maker peer ID
-    pub maker: String,
     /// Base asset
     pub base_asset: Asset,
     /// Quote asset
     pub quote_asset: Asset,
-    /// Order side
+    /// Side
     pub side: OrderSide,
     /// Amount
     pub amount: Decimal,
@@ -72,209 +95,231 @@ pub struct Order {
     pub price: Decimal,
     /// Status
     pub status: OrderStatus,
-    /// Created timestamp
-    pub timestamp: u64,
-    /// Expiry timestamp
-    pub expiry: u64,
+    /// Filled amount
+    pub filled_amount: Decimal,
+    /// Created at
+    pub created_at: u64,
+    /// Updated at
+    pub updated_at: u64,
+    /// Expires at
+    pub expires_at: u64,
+    /// Maker
+    pub maker: String,
+    /// Signature
+    pub signature: Option<String>,
 }
 
 impl Order {
     /// Create a new order
     pub fn new(
-        maker: String,
         base_asset: Asset,
         quote_asset: Asset,
         side: OrderSide,
         amount: Decimal,
         price: Decimal,
-        expiry: Option<u64>,
+        maker: String,
+        expiry: Duration,
     ) -> Self {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
         
-        let expiry_time = match expiry {
-            Some(expiry) => now + expiry,
-            None => now + 86400, // Default expiry: 24 hours
-        };
-        
         Self {
-            id: OrderId(Uuid::new_v4().to_string()),
-            maker,
+            id: OrderId::new(),
             base_asset,
             quote_asset,
             side,
             amount,
             price,
             status: OrderStatus::Open,
-            timestamp: now,
-            expiry: expiry_time,
+            filled_amount: Decimal::ZERO,
+            created_at: now,
+            updated_at: now,
+            expires_at: now + expiry.as_secs(),
+            maker,
+            signature: None,
         }
     }
 
     /// Check if the order is expired
     pub fn is_expired(&self) -> bool {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
         
-        self.expiry < now
+        self.expires_at <= now
     }
 
-    /// Get the total value of the order
+    /// Get the remaining amount
+    pub fn remaining_amount(&self) -> Decimal {
+        self.amount - self.filled_amount
+    }
+
+    /// Get the total value
     pub fn total_value(&self) -> Decimal {
         self.amount * self.price
     }
-}
 
-/// Orderbook error
-#[derive(Debug, Error)]
-pub enum OrderbookError {
-    /// Order not found
-    #[error("Order not found: {0}")]
-    NotFound(OrderId),
-    /// Invalid order
-    #[error("Invalid order: {0}")]
-    InvalidOrder(String),
-    /// Insufficient funds
-    #[error("Insufficient funds")]
-    InsufficientFunds,
-    /// Network error
-    #[error("Network error: {0}")]
-    NetworkError(String),
-    /// Other error
-    #[error("Orderbook error: {0}")]
-    Other(String),
-}
+    /// Get the filled value
+    pub fn filled_value(&self) -> Decimal {
+        self.filled_amount * self.price
+    }
 
-/// Order message
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OrderMessage {
-    /// New order
-    NewOrder(Order),
-    /// Cancel order
-    CancelOrder {
-        /// Order ID
-        order_id: OrderId,
-        /// Maker peer ID
-        maker: String,
-    },
-    /// Update order
-    UpdateOrder {
-        /// Order ID
-        order_id: OrderId,
-        /// Maker peer ID
-        maker: String,
-        /// New amount
-        amount: Decimal,
-    },
+    /// Get the remaining value
+    pub fn remaining_value(&self) -> Decimal {
+        self.remaining_amount() * self.price
+    }
+
+    /// Fill the order
+    pub fn fill(&mut self, amount: Decimal) -> Result<()> {
+        if amount > self.remaining_amount() {
+            return Err(Error::OrderBookError("Fill amount exceeds remaining amount".to_string()).into());
+        }
+
+        self.filled_amount += amount;
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        if self.filled_amount == self.amount {
+            self.status = OrderStatus::Filled;
+        } else {
+            self.status = OrderStatus::PartiallyFilled;
+        }
+
+        Ok(())
+    }
+
+    /// Cancel the order
+    pub fn cancel(&mut self) -> Result<()> {
+        if self.status == OrderStatus::Filled {
+            return Err(Error::OrderBookError("Cannot cancel filled order".to_string()).into());
+        }
+
+        self.status = OrderStatus::Cancelled;
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        Ok(())
+    }
+
+    /// Expire the order
+    pub fn expire(&mut self) -> Result<()> {
+        if self.status == OrderStatus::Filled {
+            return Err(Error::OrderBookError("Cannot expire filled order".to_string()).into());
+        }
+
+        self.status = OrderStatus::Expired;
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        Ok(())
+    }
 }
 
 /// Orderbook
 pub struct Orderbook {
-    /// Orders by ID
+    /// Orders
     orders: Arc<RwLock<HashMap<OrderId, Order>>>,
-    /// Buy orders by price (highest first)
-    buy_orders: Arc<RwLock<BTreeMap<Decimal, Vec<OrderId>>>>,
-    /// Sell orders by price (lowest first)
-    sell_orders: Arc<RwLock<BTreeMap<Decimal, Vec<OrderId>>>>,
-    /// P2P network
-    network: Arc<RwLock<P2PNetwork>>,
+    /// Buy orders by price
+    buy_orders: Arc<RwLock<BTreeMap<(Asset, Asset, Decimal), Vec<OrderId>>>>,
+    /// Sell orders by price
+    sell_orders: Arc<RwLock<BTreeMap<(Asset, Asset, Decimal), Vec<OrderId>>>>,
     /// Wallet
-    wallet: Arc<dyn WalletInterface>,
+    wallet: Arc<dyn WalletInterface + Send + Sync>,
     /// Event sender
     event_sender: mpsc::Sender<Event>,
-    /// Order topic
-    order_topic: String,
+    /// Cleanup interval
+    cleanup_interval: Duration,
 }
 
 impl Orderbook {
     /// Create a new orderbook
     pub fn new(
-        network: Arc<RwLock<P2PNetwork>>,
-        wallet: Arc<dyn WalletInterface>,
+        wallet: Arc<dyn WalletInterface + Send + Sync>,
         event_sender: mpsc::Sender<Event>,
+        cleanup_interval: Duration,
     ) -> Self {
         Self {
             orders: Arc::new(RwLock::new(HashMap::new())),
             buy_orders: Arc::new(RwLock::new(BTreeMap::new())),
             sell_orders: Arc::new(RwLock::new(BTreeMap::new())),
-            network,
             wallet,
             event_sender,
-            order_topic: "darkswap/orders/v1".to_string(),
+            cleanup_interval,
         }
     }
 
     /// Start the orderbook
     pub async fn start(&self) -> Result<()> {
-        // Subscribe to order topic
-        let mut network = self.network.write().await;
-        network.subscribe(&self.order_topic).await?;
-        
-        // Start order expiry checker
-        self.start_expiry_checker().await?;
-        
-        Ok(())
-    }
-
-    /// Start order expiry checker
-    async fn start_expiry_checker(&self) -> Result<()> {
+        // Start the cleanup task
         let orders = self.orders.clone();
         let buy_orders = self.buy_orders.clone();
         let sell_orders = self.sell_orders.clone();
         let event_sender = self.event_sender.clone();
-        
+        let cleanup_interval = self.cleanup_interval;
+
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-            
             loop {
-                interval.tick().await;
-                
-                // Check for expired orders
-                let mut orders_write = orders.write().await;
-                let mut buy_orders_write = buy_orders.write().await;
-                let mut sell_orders_write = sell_orders.write().await;
-                
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
+                // Sleep for the cleanup interval
+                tokio::time::sleep(cleanup_interval).await;
+
+                // Get the current time
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
-                
-                let mut expired_orders = Vec::new();
-                
-                for (order_id, order) in orders_write.iter_mut() {
-                    if order.expiry < now && order.status == OrderStatus::Open {
-                        // Update order status
-                        order.status = OrderStatus::Expired;
-                        expired_orders.push(order_id.clone());
-                        
+
+                // Get all orders
+                let mut orders_lock = orders.write().await;
+                let mut buy_orders_lock = buy_orders.write().await;
+                let mut sell_orders_lock = sell_orders.write().await;
+
+                // Find expired orders
+                let mut expired_order_ids = Vec::new();
+                for (order_id, order) in orders_lock.iter_mut() {
+                    if order.expires_at <= now && order.status == OrderStatus::Open {
+                        // Expire the order
+                        if let Err(e) = order.expire() {
+                            eprintln!("Failed to expire order {}: {}", order_id, e);
+                            continue;
+                        }
+
+                        // Add to expired order IDs
+                        expired_order_ids.push(order_id.clone());
+
                         // Send event
-                        let _ = event_sender
-                            .send(Event::OrderExpired(order_id.clone()))
-                            .await;
+                        if let Err(e) = event_sender.send(Event::OrderExpired(order_id.clone())).await {
+                            eprintln!("Failed to send order expired event: {}", e);
+                        }
                     }
                 }
-                
-                // Remove expired orders from price maps
-                for order_id in &expired_orders {
-                    if let Some(order) = orders_write.get(order_id) {
+
+                // Remove expired orders from buy/sell orders
+                for order_id in &expired_order_ids {
+                    if let Some(order) = orders_lock.get(order_id) {
+                        let key = (order.base_asset.clone(), order.quote_asset.clone(), order.price);
                         match order.side {
                             OrderSide::Buy => {
-                                if let Some(orders_at_price) = buy_orders_write.get_mut(&order.price) {
-                                    orders_at_price.retain(|id| id != order_id);
-                                    if orders_at_price.is_empty() {
-                                        buy_orders_write.remove(&order.price);
+                                if let Some(order_ids) = buy_orders_lock.get_mut(&key) {
+                                    order_ids.retain(|id| id != order_id);
+                                    if order_ids.is_empty() {
+                                        buy_orders_lock.remove(&key);
                                     }
                                 }
                             }
                             OrderSide::Sell => {
-                                if let Some(orders_at_price) = sell_orders_write.get_mut(&order.price) {
-                                    orders_at_price.retain(|id| id != order_id);
-                                    if orders_at_price.is_empty() {
-                                        sell_orders_write.remove(&order.price);
+                                if let Some(order_ids) = sell_orders_lock.get_mut(&key) {
+                                    order_ids.retain(|id| id != order_id);
+                                    if order_ids.is_empty() {
+                                        sell_orders_lock.remove(&key);
                                     }
                                 }
                             }
@@ -283,11 +328,11 @@ impl Orderbook {
                 }
             }
         });
-        
+
         Ok(())
     }
 
-    /// Create a new order
+    /// Create an order
     pub async fn create_order(
         &self,
         base_asset: Asset,
@@ -295,383 +340,337 @@ impl Orderbook {
         side: OrderSide,
         amount: Decimal,
         price: Decimal,
-        expiry: Option<u64>,
+        maker: String,
+        expiry: Duration,
     ) -> Result<Order> {
-        // Check if amount and price are valid
-        if amount <= Decimal::ZERO {
-            return Err(OrderbookError::InvalidOrder("Amount must be positive".to_string()).into());
-        }
-        
-        if price <= Decimal::ZERO {
-            return Err(OrderbookError::InvalidOrder("Price must be positive".to_string()).into());
-        }
-        
-        // Get local peer ID
-        let network = self.network.read().await;
-        let local_peer_id = network.local_peer_id().to_string();
-        
-        // Create order
+        // Create the order
         let order = Order::new(
-            local_peer_id,
             base_asset,
             quote_asset,
             side,
             amount,
             price,
+            maker,
             expiry,
         );
-        
-        // Store order
+
+        // Add the order to the orderbook
         let mut orders = self.orders.write().await;
         orders.insert(order.id.clone(), order.clone());
-        
-        // Add to price map
+
+        // Add the order to the appropriate price level
+        let key = (base_asset, quote_asset, price);
         match side {
             OrderSide::Buy => {
                 let mut buy_orders = self.buy_orders.write().await;
                 buy_orders
-                    .entry(price)
+                    .entry(key)
                     .or_insert_with(Vec::new)
                     .push(order.id.clone());
             }
             OrderSide::Sell => {
                 let mut sell_orders = self.sell_orders.write().await;
                 sell_orders
-                    .entry(price)
+                    .entry(key)
                     .or_insert_with(Vec::new)
                     .push(order.id.clone());
             }
         }
-        
+
         // Send event
-        let _ = self.event_sender
-            .send(Event::OrderCreated(order.clone()))
-            .await;
-        
-        // Broadcast order
-        self.broadcast_order(&order).await?;
-        
+        self.event_sender.send(Event::OrderCreated(order.clone())).await
+            .map_err(|e| Error::OrderBookError(format!("Failed to send order created event: {}", e)))?;
+
         Ok(order)
     }
 
     /// Cancel an order
-    pub async fn cancel_order(&self, order_id: &OrderId) -> Result<()> {
-        // Get order
+    pub async fn cancel_order(&self, order_id: &OrderId) -> Result<Order> {
+        // Get the order
         let mut orders = self.orders.write().await;
         let order = orders.get_mut(order_id)
-            .ok_or_else(|| OrderbookError::NotFound(order_id.clone()))?;
-        
-        // Check if order can be canceled
-        if order.status != OrderStatus::Open {
-            return Err(OrderbookError::InvalidOrder(format!("Order is not open: {:?}", order.status)).into());
-        }
-        
-        // Get local peer ID
-        let network = self.network.read().await;
-        let local_peer_id = network.local_peer_id().to_string();
-        
-        // Check if user is the maker
-        if order.maker != local_peer_id {
-            return Err(OrderbookError::InvalidOrder("Only the maker can cancel an order".to_string()).into());
-        }
-        
-        // Update order status
-        order.status = OrderStatus::Canceled;
-        
-        // Remove from price map
+            .ok_or_else(|| Error::OrderBookError(format!("Order not found: {}", order_id)))?;
+
+        // Cancel the order
+        order.cancel()?;
+
+        // Remove the order from the appropriate price level
+        let key = (order.base_asset.clone(), order.quote_asset.clone(), order.price);
         match order.side {
             OrderSide::Buy => {
                 let mut buy_orders = self.buy_orders.write().await;
-                if let Some(orders_at_price) = buy_orders.get_mut(&order.price) {
-                    orders_at_price.retain(|id| id != order_id);
-                    if orders_at_price.is_empty() {
-                        buy_orders.remove(&order.price);
+                if let Some(order_ids) = buy_orders.get_mut(&key) {
+                    order_ids.retain(|id| id != order_id);
+                    if order_ids.is_empty() {
+                        buy_orders.remove(&key);
                     }
                 }
             }
             OrderSide::Sell => {
                 let mut sell_orders = self.sell_orders.write().await;
-                if let Some(orders_at_price) = sell_orders.get_mut(&order.price) {
-                    orders_at_price.retain(|id| id != order_id);
-                    if orders_at_price.is_empty() {
-                        sell_orders.remove(&order.price);
+                if let Some(order_ids) = sell_orders.get_mut(&key) {
+                    order_ids.retain(|id| id != order_id);
+                    if order_ids.is_empty() {
+                        sell_orders.remove(&key);
                     }
                 }
             }
         }
-        
+
         // Send event
-        let _ = self.event_sender
-            .send(Event::OrderCancelled(order_id.clone()))
-            .await;
-        
-        // Broadcast cancel message
-        self.broadcast_cancel_order(order_id, &local_peer_id).await?;
-        
-        Ok(())
+        self.event_sender.send(Event::OrderCancelled(order_id.clone())).await
+            .map_err(|e| Error::OrderBookError(format!("Failed to send order cancelled event: {}", e)))?;
+
+        Ok(order.clone())
     }
 
-    /// Get an order by ID
+    /// Get an order
     pub async fn get_order(&self, order_id: &OrderId) -> Result<Order> {
+        // Get the order
         let orders = self.orders.read().await;
-        orders.get(order_id)
-            .cloned()
-            .ok_or_else(|| OrderbookError::NotFound(order_id.clone()).into())
+        let order = orders.get(order_id)
+            .ok_or_else(|| Error::OrderBookError(format!("Order not found: {}", order_id)))?;
+
+        Ok(order.clone())
     }
 
-    /// Get orders for a pair
-    pub async fn get_orders(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Vec<Order>> {
+    /// Get orders
+    pub async fn get_orders(
+        &self,
+        base_asset: Option<Asset>,
+        quote_asset: Option<Asset>,
+        side: Option<OrderSide>,
+        status: Option<OrderStatus>,
+    ) -> Result<Vec<Order>> {
+        // Get all orders
         let orders = self.orders.read().await;
-        
+
+        // Filter orders
         let filtered_orders = orders.values()
             .filter(|order| {
-                order.base_asset == *base_asset && 
-                order.quote_asset == *quote_asset &&
-                order.status == OrderStatus::Open
+                if let Some(base) = &base_asset {
+                    if &order.base_asset != base {
+                        return false;
+                    }
+                }
+                if let Some(quote) = &quote_asset {
+                    if &order.quote_asset != quote {
+                        return false;
+                    }
+                }
+                if let Some(s) = side {
+                    if order.side != s {
+                        return false;
+                    }
+                }
+                if let Some(s) = status {
+                    if order.status != s {
+                        return false;
+                    }
+                }
+                true
             })
             .cloned()
             .collect();
-        
+
         Ok(filtered_orders)
     }
 
-    /// Get all orders
-    pub async fn get_all_orders(&self) -> Result<Vec<Order>> {
-        let orders = self.orders.read().await;
-        
-        let filtered_orders = orders.values()
-            .filter(|order| order.status == OrderStatus::Open)
-            .cloned()
-            .collect();
-        
-        Ok(filtered_orders)
-    }
-
-    /// Get best bid and ask for a pair
-    pub async fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
-        let orders = self.orders.read().await;
+    /// Get the best bid price
+    pub async fn get_best_bid_price(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Option<Decimal>> {
+        // Get all buy orders
         let buy_orders = self.buy_orders.read().await;
+
+        // Find the highest bid price
+        let mut best_price = None;
+        for ((base, quote, price), _) in buy_orders.iter().rev() {
+            if base == base_asset && quote == quote_asset {
+                best_price = Some(*price);
+                break;
+            }
+        }
+
+        Ok(best_price)
+    }
+
+    /// Get the best ask price
+    pub async fn get_best_ask_price(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<Option<Decimal>> {
+        // Get all sell orders
         let sell_orders = self.sell_orders.read().await;
-        
-        // Find best bid (highest buy price)
-        let mut best_bid = None;
-        for (price, order_ids) in buy_orders.iter().rev() {
-            for order_id in order_ids {
-                if let Some(order) = orders.get(order_id) {
-                    if order.base_asset == *base_asset && 
-                       order.quote_asset == *quote_asset &&
-                       order.status == OrderStatus::Open {
-                        best_bid = Some(*price);
-                        break;
-                    }
-                }
-            }
-            if best_bid.is_some() {
+
+        // Find the lowest ask price
+        let mut best_price = None;
+        for ((base, quote, price), _) in sell_orders.iter() {
+            if base == base_asset && quote == quote_asset {
+                best_price = Some(*price);
                 break;
             }
         }
-        
-        // Find best ask (lowest sell price)
-        let mut best_ask = None;
-        for (price, order_ids) in sell_orders.iter() {
-            for order_id in order_ids {
-                if let Some(order) = orders.get(order_id) {
-                    if order.base_asset == *base_asset && 
-                       order.quote_asset == *quote_asset &&
-                       order.status == OrderStatus::Open {
-                        best_ask = Some(*price);
-                        break;
-                    }
-                }
-            }
-            if best_ask.is_some() {
-                break;
-            }
-        }
-        
-        Ok((best_bid, best_ask))
+
+        Ok(best_price)
     }
 
-    /// Handle order message
-    pub async fn handle_order_message(
+    /// Get the order book
+    pub async fn get_order_book(
         &self,
-        message: OrderMessage,
-        peer_id: &str,
-    ) -> Result<()> {
-        match message {
-            OrderMessage::NewOrder(order) => {
-                // Check if order is valid
-                if order.maker != peer_id {
-                    return Err(OrderbookError::InvalidOrder("Order maker does not match peer ID".to_string()).into());
-                }
-                
-                if order.amount <= Decimal::ZERO {
-                    return Err(OrderbookError::InvalidOrder("Amount must be positive".to_string()).into());
-                }
-                
-                if order.price <= Decimal::ZERO {
-                    return Err(OrderbookError::InvalidOrder("Price must be positive".to_string()).into());
-                }
-                
-                // Check if order is expired
-                if order.is_expired() {
-                    return Ok(());
-                }
-                
-                // Store order
-                let mut orders = self.orders.write().await;
-                
-                // Check if order already exists
-                if orders.contains_key(&order.id) {
-                    return Ok(());
-                }
-                
-                orders.insert(order.id.clone(), order.clone());
-                
-                // Add to price map
-                match order.side {
-                    OrderSide::Buy => {
-                        let mut buy_orders = self.buy_orders.write().await;
-                        buy_orders
-                            .entry(order.price)
-                            .or_insert_with(Vec::new)
-                            .push(order.id.clone());
-                    }
-                    OrderSide::Sell => {
-                        let mut sell_orders = self.sell_orders.write().await;
-                        sell_orders
-                            .entry(order.price)
-                            .or_insert_with(Vec::new)
-                            .push(order.id.clone());
-                    }
-                }
-                
-                // Send event
-                let _ = self.event_sender
-                    .send(Event::OrderCreated(order))
-                    .await;
-            }
-            OrderMessage::CancelOrder { order_id, maker } => {
-                // Check if maker matches peer ID
-                if maker != peer_id {
-                    return Err(OrderbookError::InvalidOrder("Order maker does not match peer ID".to_string()).into());
-                }
-                
-                // Get order
-                let mut orders = self.orders.write().await;
-                let order = match orders.get_mut(&order_id) {
-                    Some(order) => order,
-                    None => return Ok(()),
-                };
-                
-                // Check if maker matches
-                if order.maker != maker {
-                    return Err(OrderbookError::InvalidOrder("Order maker does not match".to_string()).into());
-                }
-                
-                // Update order status
-                order.status = OrderStatus::Canceled;
-                
-                // Remove from price map
-                match order.side {
-                    OrderSide::Buy => {
-                        let mut buy_orders = self.buy_orders.write().await;
-                        if let Some(orders_at_price) = buy_orders.get_mut(&order.price) {
-                            orders_at_price.retain(|id| id != &order_id);
-                            if orders_at_price.is_empty() {
-                                buy_orders.remove(&order.price);
-                            }
-                        }
-                    }
-                    OrderSide::Sell => {
-                        let mut sell_orders = self.sell_orders.write().await;
-                        if let Some(orders_at_price) = sell_orders.get_mut(&order.price) {
-                            orders_at_price.retain(|id| id != &order_id);
-                            if orders_at_price.is_empty() {
-                                sell_orders.remove(&order.price);
-                            }
+        base_asset: &Asset,
+        quote_asset: &Asset,
+        depth: usize,
+    ) -> Result<(Vec<(Decimal, Decimal)>, Vec<(Decimal, Decimal)>)> {
+        // Get all buy orders
+        let buy_orders = self.buy_orders.read().await;
+        let orders = self.orders.read().await;
+
+        // Get the bids
+        let mut bids = Vec::new();
+        for ((base, quote, price), order_ids) in buy_orders.iter().rev() {
+            if base == base_asset && quote == quote_asset {
+                // Calculate the total amount at this price level
+                let mut total_amount = Decimal::ZERO;
+                for order_id in order_ids {
+                    if let Some(order) = orders.get(order_id) {
+                        if order.status == OrderStatus::Open || order.status == OrderStatus::PartiallyFilled {
+                            total_amount += order.remaining_amount();
                         }
                     }
                 }
-                
-                // Send event
-                let _ = self.event_sender
-                    .send(Event::OrderCancelled(order_id))
-                    .await;
-            }
-            OrderMessage::UpdateOrder { order_id, maker, amount } => {
-                // Check if maker matches peer ID
-                if maker != peer_id {
-                    return Err(OrderbookError::InvalidOrder("Order maker does not match peer ID".to_string()).into());
+
+                // Add to bids
+                bids.push((*price, total_amount));
+
+                // Check if we have enough bids
+                if bids.len() >= depth {
+                    break;
                 }
-                
-                // Check if amount is valid
-                if amount <= Decimal::ZERO {
-                    return Err(OrderbookError::InvalidOrder("Amount must be positive".to_string()).into());
-                }
-                
-                // Get order
-                let mut orders = self.orders.write().await;
-                let order = match orders.get_mut(&order_id) {
-                    Some(order) => order,
-                    None => return Ok(()),
-                };
-                
-                // Check if maker matches
-                if order.maker != maker {
-                    return Err(OrderbookError::InvalidOrder("Order maker does not match".to_string()).into());
-                }
-                
-                // Check if order is open
-                if order.status != OrderStatus::Open {
-                    return Err(OrderbookError::InvalidOrder(format!("Order is not open: {:?}", order.status)).into());
-                }
-                
-                // Update amount
-                order.amount = amount;
-                
-                // Send event
-                let _ = self.event_sender
-                    .send(Event::OrderUpdated(order.clone()))
-                    .await;
             }
         }
-        
-        Ok(())
+
+        // Get all sell orders
+        let sell_orders = self.sell_orders.read().await;
+
+        // Get the asks
+        let mut asks = Vec::new();
+        for ((base, quote, price), order_ids) in sell_orders.iter() {
+            if base == base_asset && quote == quote_asset {
+                // Calculate the total amount at this price level
+                let mut total_amount = Decimal::ZERO;
+                for order_id in order_ids {
+                    if let Some(order) = orders.get(order_id) {
+                        if order.status == OrderStatus::Open || order.status == OrderStatus::PartiallyFilled {
+                            total_amount += order.remaining_amount();
+                        }
+                    }
+                }
+
+                // Add to asks
+                asks.push((*price, total_amount));
+
+                // Check if we have enough asks
+                if asks.len() >= depth {
+                    break;
+                }
+            }
+        }
+
+        Ok((bids, asks))
     }
 
-    /// Broadcast an order
-    async fn broadcast_order(&self, order: &Order) -> Result<()> {
-        // Create order message
-        let message = OrderMessage::NewOrder(order.clone());
-        
-        // Serialize message
-        let message_data = serde_json::to_vec(&message)
-            .context("Failed to serialize order message")?;
-        
-        // Publish message to order topic
-        let mut network = self.network.write().await;
-        network.publish(&self.order_topic, message_data).await?;
-        
-        Ok(())
-    }
+    /// Match orders
+    pub async fn match_orders(&self, order: &Order) -> Result<Vec<Order>> {
+        // Get all orders
+        let mut orders = self.orders.write().await;
+        let mut matched_orders = Vec::new();
 
-    /// Broadcast cancel order
-    async fn broadcast_cancel_order(&self, order_id: &OrderId, maker: &str) -> Result<()> {
-        // Create cancel message
-        let message = OrderMessage::CancelOrder {
-            order_id: order_id.clone(),
-            maker: maker.to_string(),
-        };
-        
-        // Serialize message
-        let message_data = serde_json::to_vec(&message)
-            .context("Failed to serialize cancel order message")?;
-        
-        // Publish message to order topic
-        let mut network = self.network.write().await;
-        network.publish(&self.order_topic, message_data).await?;
-        
-        Ok(())
+        // Match the order
+        match order.side {
+            OrderSide::Buy => {
+                // Get all sell orders
+                let mut sell_orders = self.sell_orders.write().await;
+
+                // Find matching sell orders
+                let mut remaining_amount = order.amount;
+                for ((base, quote, price), order_ids) in sell_orders.iter_mut() {
+                    if base == &order.base_asset && quote == &order.quote_asset && *price <= order.price {
+                        // Match orders at this price level
+                        for order_id in order_ids.iter() {
+                            if let Some(sell_order) = orders.get_mut(order_id) {
+                                if sell_order.status == OrderStatus::Open || sell_order.status == OrderStatus::PartiallyFilled {
+                                    // Calculate the match amount
+                                    let match_amount = remaining_amount.min(sell_order.remaining_amount());
+
+                                    // Fill the sell order
+                                    sell_order.fill(match_amount)?;
+
+                                    // Add to matched orders
+                                    matched_orders.push(sell_order.clone());
+
+                                    // Update remaining amount
+                                    remaining_amount -= match_amount;
+
+                                    // Send event
+                                    self.event_sender.send(Event::OrderUpdated(sell_order.clone())).await
+                                        .map_err(|e| Error::OrderBookError(format!("Failed to send order updated event: {}", e)))?;
+
+                                    // Check if we've matched the entire order
+                                    if remaining_amount.is_zero() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check if we've matched the entire order
+                        if remaining_amount.is_zero() {
+                            break;
+                        }
+                    }
+                }
+            }
+            OrderSide::Sell => {
+                // Get all buy orders
+                let mut buy_orders = self.buy_orders.write().await;
+
+                // Find matching buy orders
+                let mut remaining_amount = order.amount;
+                for ((base, quote, price), order_ids) in buy_orders.iter_mut().rev() {
+                    if base == &order.base_asset && quote == &order.quote_asset && *price >= order.price {
+                        // Match orders at this price level
+                        for order_id in order_ids.iter() {
+                            if let Some(buy_order) = orders.get_mut(order_id) {
+                                if buy_order.status == OrderStatus::Open || buy_order.status == OrderStatus::PartiallyFilled {
+                                    // Calculate the match amount
+                                    let match_amount = remaining_amount.min(buy_order.remaining_amount());
+
+                                    // Fill the buy order
+                                    buy_order.fill(match_amount)?;
+
+                                    // Add to matched orders
+                                    matched_orders.push(buy_order.clone());
+
+                                    // Update remaining amount
+                                    remaining_amount -= match_amount;
+
+                                    // Send event
+                                    self.event_sender.send(Event::OrderUpdated(buy_order.clone())).await
+                                        .map_err(|e| Error::OrderBookError(format!("Failed to send order updated event: {}", e)))?;
+
+                                    // Check if we've matched the entire order
+                                    if remaining_amount.is_zero() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check if we've matched the entire order
+                        if remaining_amount.is_zero() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(matched_orders)
     }
 }

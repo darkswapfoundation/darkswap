@@ -1,130 +1,101 @@
-/**
- * PeerStatus - Component for displaying P2P network status
- * 
- * This component shows the current status of the P2P network connection,
- * including the number of connected peers and connection quality.
- */
-
 import React, { useState, useEffect } from 'react';
-import { Badge } from './MemoizedComponents';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import '../styles/PeerStatus.css';
 
-export interface PeerStatusProps {
-  /** CSS class name */
-  className?: string;
+interface PeerStatusProps {
+  showCount?: boolean;
 }
 
-export interface PeerStats {
-  /** Number of connected peers */
-  connectedPeers: number;
-  /** Maximum number of peers seen */
-  maxPeers: number;
-  /** Connection quality (0-1) */
-  connectionQuality: number;
-  /** Whether the node is a relay */
-  isRelay: boolean;
-  /** Number of active circuits (if relay) */
-  activeCircuits?: number;
-  /** Last message received timestamp */
-  lastMessageTime: number;
+interface Peer {
+  id: string;
+  address: string;
+  connected: boolean;
+  lastSeen: number;
 }
 
-/**
- * PeerStatus component
- */
-export const PeerStatus: React.FC<PeerStatusProps> = ({ className = '' }) => {
-  const [stats, setStats] = useState<PeerStats>({
-    connectedPeers: 0,
-    maxPeers: 0,
-    connectionQuality: 0,
-    isRelay: false,
-    lastMessageTime: 0,
-  });
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Simulate fetching peer stats
+const PeerStatus: React.FC<PeerStatusProps> = ({ showCount = true }) => {
+  const { connected, on } = useWebSocket();
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  
+  // Subscribe to peer updates
   useEffect(() => {
-    // In a real implementation, this would fetch data from the P2P network
-    const fetchStats = () => {
-      // Simulate network activity
-      setStats({
-        connectedPeers: Math.floor(Math.random() * 10) + 1,
-        maxPeers: 20,
-        connectionQuality: Math.random(),
-        isRelay: Math.random() > 0.7,
-        activeCircuits: Math.floor(Math.random() * 5),
-        lastMessageTime: Date.now(),
+    if (connected) {
+      const unsubscribe = on('peerUpdate', (data: { peers: Peer[] }) => {
+        setPeers(data.peers);
       });
-    };
-
-    // Initial fetch
-    fetchStats();
-
-    // Set up interval for periodic updates
-    const interval = setInterval(fetchStats, 10000);
-
-    // Clean up
-    return () => clearInterval(interval);
-  }, []);
-
-  // Determine status variant based on connection quality
-  const getStatusVariant = () => {
-    if (stats.connectedPeers === 0) return 'danger';
-    if (stats.connectionQuality < 0.3) return 'warning';
-    if (stats.connectionQuality < 0.7) return 'info';
-    return 'success';
-  };
-
-  // Format connection quality as percentage
-  const formatQuality = () => {
-    return `${Math.round(stats.connectionQuality * 100)}%`;
-  };
-
-  // Toggle expanded view
+      
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [connected, on]);
+  
+  // Toggle expanded state
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
   };
-
+  
+  // Count connected peers
+  const connectedPeers = peers.filter(peer => peer.connected).length;
+  
   return (
-    <div className={`peer-status ${className}`} onClick={toggleExpanded}>
-      <Badge
-        label={`${stats.connectedPeers} peers`}
-        variant={getStatusVariant()}
-        size="small"
-      />
+    <div className="peer-status">
+      <div className="peer-status-header" onClick={toggleExpanded}>
+        <div className="peer-status-summary">
+          <div className={`peer-indicator ${connectedPeers > 0 ? 'connected' : 'disconnected'}`}></div>
+          {showCount && (
+            <span className="peer-count">{connectedPeers} peers</span>
+          )}
+        </div>
+        <button className={`peer-expand-button ${isExpanded ? 'expanded' : ''}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+      </div>
       
       {isExpanded && (
-        <div className="peer-status-details">
-          <h4>P2P Network Status</h4>
-          <ul>
-            <li>
-              <span>Connected Peers:</span>
-              <span>{stats.connectedPeers} / {stats.maxPeers}</span>
-            </li>
-            <li>
-              <span>Connection Quality:</span>
-              <span>{formatQuality()}</span>
-            </li>
-            {stats.isRelay && (
-              <li>
-                <span>Active Circuits:</span>
-                <span>{stats.activeCircuits}</span>
-              </li>
-            )}
-            <li>
-              <span>Node Type:</span>
-              <span>{stats.isRelay ? 'Relay' : 'Standard'}</span>
-            </li>
-            <li>
-              <span>Last Message:</span>
-              <span>
-                {Math.round((Date.now() - stats.lastMessageTime) / 1000)}s ago
-              </span>
-            </li>
-          </ul>
+        <div className="peer-list">
+          {peers.length === 0 ? (
+            <div className="peer-empty">No peers found</div>
+          ) : (
+            peers.map(peer => (
+              <div key={peer.id} className={`peer-item ${peer.connected ? 'connected' : 'disconnected'}`}>
+                <div className="peer-item-status"></div>
+                <div className="peer-item-details">
+                  <div className="peer-item-id">{peer.id.substring(0, 8)}...</div>
+                  <div className="peer-item-address">{peer.address}</div>
+                </div>
+                <div className="peer-item-time">
+                  {peer.connected ? 'Connected' : `Last seen ${formatLastSeen(peer.lastSeen)}`}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
   );
+};
+
+// Format last seen time
+const formatLastSeen = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  if (diff < 60000) {
+    return 'just now';
+  } else if (diff < 3600000) {
+    const minutes = Math.floor(diff / 60000);
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  } else if (diff < 86400000) {
+    const hours = Math.floor(diff / 3600000);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  } else {
+    const days = Math.floor(diff / 86400000);
+    return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  }
 };
 
 export default PeerStatus;

@@ -1,0 +1,237 @@
+/* OrderBook.css - Styles for the OrderBook component */
+
+.order-book {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-book-light {
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.order-book-dark {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.order-book-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid;
+}
+
+.order-book-light .order-book-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.order-book-dark .order-book-header {
+  border-bottom-color: #2d2d3d;
+}
+
+.order-book-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.order-book-spread {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.order-book-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.order-book-table-header {
+  display: flex;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid;
+}
+
+.order-book-light .order-book-table-header {
+  border-bottom-color: #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.order-book-dark .order-book-table-header {
+  border-bottom-color: #2d2d3d;
+  background-color: #252535;
+}
+
+.order-book-price {
+  flex: 1;
+  text-align: left;
+}
+
+.order-book-amount {
+  flex: 1;
+  text-align: right;
+}
+
+.order-book-total {
+  flex: 1;
+  text-align: right;
+}
+
+.order-book-sells {
+  display: flex;
+  flex-direction: column-reverse;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.order-book-buys {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.order-book-level {
+  display: flex;
+  padding: 4px 16px;
+  font-size: 12px;
+  position: relative;
+}
+
+.order-book-level:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.order-book-dark .order-book-level:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sell-level .sell-price {
+  color: #ff3232;
+}
+
+.buy-level .buy-price {
+  color: #00c864;
+}
+
+.order-book-depth-visualization {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+.sell-depth {
+  background-color: #ff3232;
+}
+
+.buy-depth {
+  background-color: #00c864;
+}
+
+.order-book-last-price {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+}
+
+.order-book-light .order-book-last-price {
+  border-color: #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.order-book-dark .order-book-last-price {
+  border-color: #2d2d3d;
+  background-color: #252535;
+}
+
+.order-book-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  font-size: 12px;
+  opacity: 0.7;
+  border-top: 1px solid;
+}
+
+.order-book-light .order-book-footer {
+  border-top-color: #e0e0e0;
+}
+
+.order-book-dark .order-book-footer {
+  border-top-color: #2d2d3d;
+}
+
+.order-book-loading,
+.order-book-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.order-book-loading .spinner {
+  margin-bottom: 16px;
+}
+
+.order-book-error {
+  color: #ff3232;
+}
+
+.order-book-error button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3861fb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.order-book-error button:hover {
+  background-color: #2a4cd8;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .order-book-header {
+    padding: 8px 12px;
+  }
+  
+  .order-book-header h3 {
+    font-size: 14px;
+  }
+  
+  .order-book-table-header,
+  .order-book-level {
+    padding: 4px 12px;
+    font-size: 11px;
+  }
+  
+  .order-book-sells,
+  .order-book-buys {
+    max-height: 150px;
+  }
+}

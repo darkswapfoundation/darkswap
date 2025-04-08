@@ -1,158 +1,124 @@
-/**
- * Trade - Trading page component
- * 
- * This page allows users to view the order book, trade history,
- * and place orders for trading assets.
- */
-
-import React, { useState } from 'react';
-import { useDarkSwapContext } from '../contexts/DarkSwapContext';
-import { AssetType, Order } from '../wasm/DarkSwapWasm';
-import OrderBook from '../components/OrderBook';
+import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import PriceChart from '../components/PriceChart';
 import TradeHistory from '../components/TradeHistory';
-import WalletIntegration from '../components/WalletIntegration';
-import P2PStatus from '../components/P2PStatus';
-import { Card } from '../components/MemoizedComponents';
+import TradeForm from '../components/TradeForm';
+import WebSocketStatus from '../components/WebSocketStatus';
+import '../styles/Trade.css';
 
-/**
- * Trade component
- */
+// Import OrderBook with correct casing
+const OrderBook = React.lazy(() => import('../components/OrderBook'));
+
+type TradeRouteParams = {
+  baseAsset?: string;
+  quoteAsset?: string;
+};
+
 const Trade: React.FC = () => {
-  const { isInitialized } = useDarkSwapContext();
+  const { theme } = useTheme();
+  const { connected } = useWebSocket();
+  const params = useParams();
+  const [searchParams] = useSearchParams();
   
-  // Trading pair state
-  const [baseAssetType] = useState<AssetType>(AssetType.Bitcoin);
-  const [baseAssetId] = useState<string>('BTC');
-  const [quoteAssetType] = useState<AssetType>(AssetType.Bitcoin);
-  const [quoteAssetId] = useState<string>('USD');
+  // Extract baseAsset and quoteAsset from params
+  const baseAsset = params.baseAsset;
+  const quoteAsset = params.quoteAsset;
   
-  // Selected order state
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedBaseAsset, setSelectedBaseAsset] = useState<string>(baseAsset || 'BTC');
+  const [selectedQuoteAsset, setSelectedQuoteAsset] = useState<string>(quoteAsset || 'USDT');
+  const [timeframe, setTimeframe] = useState<string>(searchParams.get('timeframe') || '1h');
+  const [lastPrice, setLastPrice] = useState<string>('');
+  const [priceChangePercent, setPriceChangePercent] = useState<string>('0.00');
+  const [priceChangeDirection, setPriceChangeDirection] = useState<'up' | 'down' | 'neutral'>('neutral');
   
-  // Handle order selection
-  const handleOrderSelected = (order: Order) => {
-    setSelectedOrder(order);
+  // Update document title
+  useEffect(() => {
+    document.title = `${selectedBaseAsset}/${selectedQuoteAsset} - DarkSwap`;
+  }, [selectedBaseAsset, selectedQuoteAsset]);
+  
+  // Handle timeframe change
+  const handleTimeframeChange = (newTimeframe: string) => {
+    setTimeframe(newTimeframe);
+  };
+  
+  // Handle last price update
+  const handleLastPriceUpdate = (price: string, changePercent: string, direction: 'up' | 'down' | 'neutral') => {
+    setLastPrice(price);
+    setPriceChangePercent(changePercent);
+    setPriceChangeDirection(direction);
   };
   
   return (
-    <div className="trade-page">
-      <h1>Trade {baseAssetId}/{quoteAssetId}</h1>
+    <div className={`trade-page trade-page-${theme}`}>
+      <div className="trade-page-header">
+        <div className="trade-page-market-info">
+          <h2>{selectedBaseAsset}/{selectedQuoteAsset}</h2>
+          <div className={`trade-page-price ${priceChangeDirection}`}>
+            <span className="trade-page-last-price">{lastPrice || 'N/A'}</span>
+            <span className="trade-page-price-change">
+              {priceChangeDirection === 'up' ? '▲' : priceChangeDirection === 'down' ? '▼' : ''}
+              {priceChangePercent}%
+            </span>
+          </div>
+        </div>
+        
+        <div className="trade-page-connection-status">
+          <WebSocketStatus showLabel={true} size="medium" />
+        </div>
+      </div>
       
       <div className="trade-page-content">
         <div className="trade-page-left">
-          <OrderBook
-            baseAssetType={baseAssetType}
-            baseAssetId={baseAssetId}
-            quoteAssetType={quoteAssetType}
-            quoteAssetId={quoteAssetId}
-            onOrderSelected={handleOrderSelected}
-          />
+          <div className="trade-page-chart">
+            <PriceChart
+              baseAsset={selectedBaseAsset}
+              quoteAsset={selectedQuoteAsset}
+              timeframe={timeframe}
+              onTimeframeChange={handleTimeframeChange}
+            />
+          </div>
           
-          <TradeHistory
-            baseAssetType={baseAssetType}
-            baseAssetId={baseAssetId}
-            quoteAssetType={quoteAssetType}
-            quoteAssetId={quoteAssetId}
-          />
+          <div className="trade-page-orderbook-history">
+            <div className="trade-page-orderbook">
+              <React.Suspense fallback={<div>Loading OrderBook...</div>}>
+                <OrderBook
+                  baseAsset={selectedBaseAsset}
+                  quoteAsset={selectedQuoteAsset}
+                  depth={10}
+                />
+              </React.Suspense>
+            </div>
+            
+            <div className="trade-page-history">
+              <TradeHistory
+                baseAsset={selectedBaseAsset}
+                quoteAsset={selectedQuoteAsset}
+                limit={20}
+              />
+            </div>
+          </div>
         </div>
         
         <div className="trade-page-right">
-          <WalletIntegration />
-          
-          <Card className="trade-form">
-            <h2>Place Order</h2>
-            
-            {!isInitialized ? (
-              <div className="not-initialized">
-                <p>DarkSwap is not initialized.</p>
-                <p>Please go to the Settings page to initialize DarkSwap.</p>
-              </div>
-            ) : selectedOrder ? (
-              <div className="take-order-form">
-                <h3>Take Order</h3>
-                
-                <div className="order-details">
-                  <div className="order-detail">
-                    <span className="label">Type:</span>
-                    <span className="value">{selectedOrder.side === 0 ? 'Buy' : 'Sell'}</span>
-                  </div>
-                  
-                  <div className="order-detail">
-                    <span className="label">Price:</span>
-                    <span className="value">{selectedOrder.price} {quoteAssetId}</span>
-                  </div>
-                  
-                  <div className="order-detail">
-                    <span className="label">Amount:</span>
-                    <span className="value">{selectedOrder.amount} {baseAssetId}</span>
-                  </div>
-                  
-                  <div className="order-detail">
-                    <span className="label">Total:</span>
-                    <span className="value">
-                      {(parseFloat(selectedOrder.price) * parseFloat(selectedOrder.amount)).toFixed(2)} {quoteAssetId}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="form-actions">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      // This is a placeholder for actual order taking
-                      alert(`Taking order ${selectedOrder.id}`);
-                    }}
-                  >
-                    Take Order
-                  </button>
-                  
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setSelectedOrder(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="create-order-form">
-                <h3>Create Order</h3>
-                
-                <div className="form-group">
-                  <label htmlFor="orderType">Order Type</label>
-                  <select id="orderType">
-                    <option value="buy">Buy</option>
-                    <option value="sell">Sell</option>
-                  </select>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="price">Price ({quoteAssetId})</label>
-                  <input type="number" id="price" placeholder="0.00" />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="amount">Amount ({baseAssetId})</label>
-                  <input type="number" id="amount" placeholder="0.00000000" />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="total">Total ({quoteAssetId})</label>
-                  <input type="number" id="total" placeholder="0.00" readOnly />
-                </div>
-                
-                <div className="form-actions">
-                  <button className="btn btn-primary">
-                    Place Order
-                  </button>
-                </div>
-              </div>
-            )}
-          </Card>
-          
-          <P2PStatus />
+          <TradeForm
+            baseAsset={selectedBaseAsset}
+            quoteAsset={selectedQuoteAsset}
+            lastPrice={lastPrice}
+          />
         </div>
       </div>
+      
+      {!connected && (
+        <div className="trade-page-offline-warning">
+          <div className="trade-page-offline-icon">⚠️</div>
+          <div className="trade-page-offline-message">
+            <strong>You are currently offline.</strong>
+            <span>Real-time updates are disabled. Data may be stale.</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

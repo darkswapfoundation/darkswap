@@ -1,295 +1,347 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  ChartOptions,
-} from 'chart.js';
-
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
-
-interface PriceData {
-  timestamp: number;
-  price: number;
-  volume?: number;
-}
+import { useApi } from '../contexts/ApiContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import { Candlestick } from '../types';
+import Chart from 'chart.js/auto';
+import '../styles/PriceChart.css';
 
 interface PriceChartProps {
   baseAsset: string;
   quoteAsset: string;
-  data?: PriceData[];
-  timeframe?: '1h' | '24h' | '7d' | '30d' | '1y';
   height?: number;
-  width?: string;
-  loading?: boolean;
-  error?: string | null;
-  onTimeframeChange?: (timeframe: '1h' | '24h' | '7d' | '30d' | '1y') => void;
+  width?: string | number;
+  timeframe?: string;
+  onTimeframeChange?: (timeframe: string) => void;
 }
 
 const PriceChart: React.FC<PriceChartProps> = ({
   baseAsset,
   quoteAsset,
-  data = [],
-  timeframe = '24h',
-  height = 300,
+  height = 400,
   width = '100%',
-  loading = false,
-  error = null,
+  timeframe = '1h',
   onTimeframeChange,
 }) => {
-  const { theme, isDark } = useTheme();
-  const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-
-  // Set current price from the last data point
-  useEffect(() => {
-    if (data && data.length > 0) {
-      setCurrentPrice(data[data.length - 1].price);
+  const { theme } = useTheme();
+  const { api } = useApi();
+  const { connected, on, send } = useWebSocket();
+  
+  const chartRef = useRef<HTMLCanvasElement>(null);
+  const chartInstance = useRef<Chart | null>(null);
+  
+  const [candlesticks, setCandlesticks] = useState<Candlestick[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>(timeframe);
+  
+  // Format price with appropriate decimal places
+  const formatPrice = useCallback((price: number): string => {
+    if (price < 0.01) {
+      return price.toFixed(8);
+    } else if (price < 1) {
+      return price.toFixed(6);
+    } else if (price < 1000) {
+      return price.toFixed(4);
+    } else {
+      return price.toFixed(2);
     }
-  }, [data]);
-
-  // Format timestamps based on timeframe
-  const formatTimestamp = (timestamp: number): string => {
-    const date = new Date(timestamp);
+  }, []);
+  
+  // Calculate moving average
+  const calculateMovingAverage = useCallback((prices: number[], period: number): (number | null)[] => {
+    const result: (number | null)[] = [];
     
-    switch (timeframe) {
-      case '1h':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      case '24h':
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      case '7d':
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-      case '30d':
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-      case '1y':
-        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
-      default:
-        return date.toLocaleDateString();
+    for (let i = 0; i < prices.length; i++) {
+      if (i < period - 1) {
+        result.push(null);
+      } else {
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+          sum += prices[i - j];
+        }
+        result.push(sum / period);
+      }
     }
-  };
-
-  // Calculate price change percentage
-  const calculatePriceChange = (): { change: number; percentage: number } => {
-    if (data.length < 2) return { change: 0, percentage: 0 };
     
-    const firstPrice = data[0].price;
-    const lastPrice = data[data.length - 1].price;
-    const change = lastPrice - firstPrice;
-    const percentage = (change / firstPrice) * 100;
+    return result;
+  }, []);
+  
+  // Fetch candlesticks
+  const fetchCandlesticks = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const data = await api.getCandlesticks(baseAsset, quoteAsset, selectedTimeframe);
+      setCandlesticks(data);
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch candlesticks:', error);
+      setError('Failed to fetch candlesticks. Please try again later.');
+      setIsLoading(false);
+    }
+  }, [api, baseAsset, quoteAsset, selectedTimeframe]);
+  
+  // Handle candlestick update
+  const handleCandlestickUpdate = useCallback((data: any) => {
+    if (data.baseAsset === baseAsset && data.quoteAsset === quoteAsset && data.timeframe === selectedTimeframe) {
+      setCandlesticks(prevCandlesticks => {
+        // Find the candlestick with the same openTime
+        const index = prevCandlesticks.findIndex(c => c.openTime === data.candlestick.openTime);
+        
+        if (index !== -1) {
+          // Update existing candlestick
+          const newCandlesticks = [...prevCandlesticks];
+          newCandlesticks[index] = data.candlestick;
+          return newCandlesticks;
+        } else {
+          // Add new candlestick
+          return [...prevCandlesticks, data.candlestick];
+        }
+      });
+    }
+  }, [baseAsset, quoteAsset, selectedTimeframe]);
+  
+  // Initialize chart
+  const initializeChart = useCallback(() => {
+    if (!chartRef.current || candlesticks.length === 0) return;
     
-    return { change, percentage };
-  };
-
-  const priceChange = calculatePriceChange();
-  const isPriceUp = priceChange.change >= 0;
-
-  // Chart data
-  const chartData = {
-    labels: data.map(item => formatTimestamp(item.timestamp)),
-    datasets: [
-      {
-        label: `${baseAsset}/${quoteAsset}`,
-        data: data.map(item => item.price),
-        borderColor: isPriceUp ? theme.success : theme.error,
-        backgroundColor: (context: any) => {
-          const ctx = context.chart.ctx;
-          const gradient = ctx.createLinearGradient(0, 0, 0, height);
-          gradient.addColorStop(0, `${isPriceUp ? theme.success : theme.error}20`);
-          gradient.addColorStop(1, `${isPriceUp ? theme.success : theme.error}01`);
-          return gradient;
-        },
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: isPriceUp ? theme.success : theme.error,
-        pointHoverBorderColor: theme.background,
+    // Destroy existing chart
+    if (chartInstance.current) {
+      chartInstance.current.destroy();
+    }
+    
+    // Prepare data
+    const labels = candlesticks.map(c => new Date(c.openTime));
+    const prices = candlesticks.map(c => parseFloat(c.close));
+    
+    // Calculate moving averages
+    const ma7 = calculateMovingAverage(prices, 7);
+    const ma25 = calculateMovingAverage(prices, 25);
+    
+    // Create chart
+    const ctx = chartRef.current.getContext('2d');
+    if (!ctx) return;
+    
+    chartInstance.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: `${baseAsset}/${quoteAsset}`,
+            data: prices,
+            borderColor: '#3861fb',
+            backgroundColor: 'rgba(56, 97, 251, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.1,
+          },
+          {
+            label: '7-period MA',
+            data: ma7,
+            borderColor: '#f7931a',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+          },
+          {
+            label: '25-period MA',
+            data: ma25,
+            borderColor: '#16c784',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+          },
+        ],
       },
-    ],
-  };
-
-  // Chart options
-  const chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        enabled: true,
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: (context) => {
-            const price = context.parsed.y;
-            setHoveredPrice(price);
-            return `Price: ${price.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} ${quoteAsset}`;
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: selectedTimeframe.endsWith('m') ? 'minute' : 
+                    selectedTimeframe.endsWith('h') ? 'hour' : 
+                    selectedTimeframe.endsWith('d') ? 'day' : 'week',
+            },
+            grid: {
+              color: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            },
+            ticks: {
+              color: theme === 'dark' ? '#ccc' : '#666',
+            },
+          },
+          y: {
+            position: 'right',
+            grid: {
+              color: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            },
+            ticks: {
+              color: theme === 'dark' ? '#ccc' : '#666',
+              callback: function(value) {
+                return formatPrice(value as number);
+              }
+            },
           },
         },
-        backgroundColor: isDark ? '#2A2D3E' : '#FFFFFF',
-        titleColor: isDark ? '#FFFFFF' : '#000000',
-        bodyColor: isDark ? '#FFFFFF' : '#000000',
-        borderColor: theme.border,
-        borderWidth: 1,
-      },
-    },
-    scales: {
-      x: {
-        grid: {
-          display: false,
-        },
-        ticks: {
-          color: theme.text,
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: 8,
-        },
-      },
-      y: {
-        grid: {
-          color: `${theme.border}40`,
-        },
-        ticks: {
-          color: theme.text,
-          callback: (value) => {
-            return `${value.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`;
+        plugins: {
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: (context) => {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.y !== null) {
+                  label += formatPrice(context.parsed.y);
+                }
+                return label;
+              },
+            },
+          },
+          legend: {
+            labels: {
+              color: theme === 'dark' ? '#ccc' : '#666',
+            },
           },
         },
-        position: 'right',
       },
-    },
-    hover: {
-      mode: 'index',
-      intersect: false,
-    },
-  };
-
-  // Handle timeframe button click
-  const handleTimeframeClick = (newTimeframe: '1h' | '24h' | '7d' | '30d' | '1y') => {
+    });
+  }, [candlesticks, theme, baseAsset, quoteAsset, selectedTimeframe, calculateMovingAverage, formatPrice]);
+  
+  // Handle timeframe change
+  const handleTimeframeChange = useCallback((newTimeframe: string) => {
+    setSelectedTimeframe(newTimeframe);
     if (onTimeframeChange) {
       onTimeframeChange(newTimeframe);
     }
-  };
-
+  }, [onTimeframeChange]);
+  
+  // Subscribe to candlestick updates
+  useEffect(() => {
+    // Fetch initial data
+    fetchCandlesticks();
+    
+    // Subscribe to candlestick updates if socket is connected
+    if (connected) {
+      const candlestickUnsubscribe = on('candlestickUpdate', handleCandlestickUpdate);
+      
+      // Subscribe to candlestick updates
+      send('subscribeCandlesticks', {
+        baseAsset,
+        quoteAsset,
+        timeframe: selectedTimeframe,
+      });
+      
+      // Clean up
+      return () => {
+        candlestickUnsubscribe();
+        
+        send('unsubscribeCandlesticks', {
+          baseAsset,
+          quoteAsset,
+          timeframe: selectedTimeframe,
+        });
+      };
+    }
+    
+    // Set up polling for updates if socket is not connected
+    const intervalId = !connected ? setInterval(fetchCandlesticks, 60000) : null;
+    
+    // Clean up
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [fetchCandlesticks, connected, on, send, baseAsset, quoteAsset, selectedTimeframe, handleCandlestickUpdate]);
+  
+  // Initialize chart when candlesticks change
+  useEffect(() => {
+    if (!isLoading && !error && candlesticks.length > 0) {
+      initializeChart();
+    }
+  }, [candlesticks, isLoading, error, initializeChart]);
+  
+  // Update chart when theme changes
+  useEffect(() => {
+    if (!isLoading && !error && candlesticks.length > 0) {
+      initializeChart();
+    }
+  }, [theme, initializeChart, isLoading, error, candlesticks]);
+  
   return (
-    <div
-      className="rounded-lg overflow-hidden"
-      style={{
-        backgroundColor: theme.card,
-        width,
-        height: 'auto',
-      }}
+    <div 
+      className={`price-chart price-chart-${theme}`}
+      style={{ height: height ? `${height}px` : 'auto', width }}
     >
-      <div className="p-4 border-b" style={{ borderColor: theme.border }}>
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold" style={{ color: theme.text }}>
-            {baseAsset}/{quoteAsset}
-          </h2>
-          <div className="flex items-center">
-            <span
-              className="text-lg font-bold mr-2"
-              style={{ color: theme.text }}
-            >
-              {currentPrice?.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span
-              className="text-sm"
-              style={{
-                color: isPriceUp ? theme.success : theme.error,
-              }}
-            >
-              {isPriceUp ? '+' : ''}
-              {priceChange.change.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}{' '}
-              ({isPriceUp ? '+' : ''}
-              {priceChange.percentage.toFixed(2)}%)
-            </span>
-          </div>
+      <div className="price-chart-header">
+        <h3>{baseAsset}/{quoteAsset}</h3>
+        <div className="price-chart-timeframes">
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '5m' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('5m')}
+          >
+            5m
+          </button>
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '15m' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('15m')}
+          >
+            15m
+          </button>
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '1h' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('1h')}
+          >
+            1h
+          </button>
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '4h' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('4h')}
+          >
+            4h
+          </button>
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '1d' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('1d')}
+          >
+            1d
+          </button>
+          <button
+            className={`price-chart-timeframe-button ${selectedTimeframe === '1w' ? 'active' : ''}`}
+            onClick={() => handleTimeframeChange('1w')}
+          >
+            1w
+          </button>
         </div>
       </div>
-
-      <div className="p-4">
-        {/* Timeframe selector */}
-        <div className="flex mb-4 space-x-2">
-          {(['1h', '24h', '7d', '30d', '1y'] as const).map((tf) => (
-            <button
-              key={tf}
-              className="px-3 py-1 text-xs rounded"
-              style={{
-                backgroundColor:
-                  timeframe === tf ? theme.primary : theme.background,
-                color: timeframe === tf ? '#FFFFFF' : theme.text,
-              }}
-              onClick={() => handleTimeframeClick(tf)}
-            >
-              {tf}
-            </button>
-          ))}
+      
+      {isLoading ? (
+        <div className="price-chart-loading">
+          <div className="spinner"></div>
+          <p>Loading chart...</p>
         </div>
-
-        {/* Chart */}
-        <div style={{ height: `${height}px`, position: 'relative' }}>
-          {loading ? (
-            <div
-              className="flex items-center justify-center"
-              style={{ height: `${height}px` }}
-            >
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: theme.primary }}></div>
-            </div>
-          ) : error ? (
-            <div
-              className="flex items-center justify-center"
-              style={{ height: `${height}px` }}
-            >
-              <p style={{ color: theme.error }}>{error}</p>
-            </div>
-          ) : data.length === 0 ? (
-            <div
-              className="flex items-center justify-center"
-              style={{ height: `${height}px` }}
-            >
-              <p style={{ color: theme.text }}>No data available</p>
-            </div>
-          ) : (
-            <Line data={chartData} options={chartOptions} />
-          )}
+      ) : error ? (
+        <div className="price-chart-error">
+          <p>{error}</p>
+          <button onClick={fetchCandlesticks}>Retry</button>
         </div>
-      </div>
+      ) : (
+        <div className="price-chart-canvas-container">
+          <canvas ref={chartRef}></canvas>
+        </div>
+      )}
     </div>
   );
 };

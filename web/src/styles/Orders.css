@@ -1,0 +1,307 @@
+/* Orders.css - Styles for the Orders page */
+
+.orders {
+  width: 100%;
+}
+
+.orders-header {
+  margin-bottom: 24px;
+}
+
+.orders-header h1 {
+  margin-bottom: 16px;
+}
+
+.orders-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.orders-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orders-filter label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.orders-filter select,
+.orders-filter input {
+  padding: 8px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 160px;
+}
+
+.orders-light .orders-filter select,
+.orders-light .orders-filter input {
+  border-color: #e0e0e0;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.orders-dark .orders-filter select,
+.orders-dark .orders-filter input {
+  border-color: #2d2d3d;
+  background-color: #252535;
+  color: #e0e0e0;
+}
+
+.orders-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.orders-light .orders-table-container {
+  background-color: #ffffff;
+}
+
+.orders-dark .orders-table-container {
+  background-color: #1e1e2e;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.orders-table th {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.orders-light .orders-table th {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.orders-dark .orders-table th {
+  border-bottom: 1px solid #2d2d3d;
+}
+
+.orders-table td {
+  font-size: 14px;
+}
+
+.orders-light .orders-table tr:not(:last-child) td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.orders-dark .orders-table tr:not(:last-child) td {
+  border-bottom: 1px solid #252535;
+}
+
+.orders-light .orders-table tr:hover td {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.orders-dark .orders-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.buy-side {
+  color: #00c864;
+}
+
+.sell-side {
+  color: #ff3232;
+}
+
+.order-status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.order-status-open {
+  background-color: rgba(56, 97, 251, 0.1);
+  color: #3861fb;
+}
+
+.order-status-filled {
+  background-color: rgba(0, 200, 100, 0.1);
+  color: #00c864;
+}
+
+.order-status-partially_filled {
+  background-color: rgba(247, 147, 26, 0.1);
+  color: #f7931a;
+}
+
+.order-status-canceled {
+  background-color: rgba(255, 50, 50, 0.1);
+  color: #ff3232;
+}
+
+.order-status-expired {
+  background-color: rgba(150, 150, 150, 0.1);
+  color: #969696;
+}
+
+.cancel-button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background-color: #ff3232;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-button:hover {
+  background-color: #e62e2e;
+}
+
+.orders-loading,
+.orders-error,
+.orders-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  text-align: center;
+}
+
+.orders-loading .spinner {
+  margin-bottom: 16px;
+}
+
+.orders-error {
+  color: #ff3232;
+}
+
+.orders-error button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3861fb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.orders-error button:hover {
+  background-color: #2a4cd8;
+}
+
+.confirmation-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.confirmation-dialog-content {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.orders-light .confirmation-dialog-content {
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.orders-dark .confirmation-dialog-content {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+}
+
+.confirmation-dialog-content h3 {
+  margin-bottom: 16px;
+}
+
+.confirmation-dialog-content p {
+  margin-bottom: 24px;
+}
+
+.confirmation-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirmation-dialog-actions button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirmation-dialog-actions .cancel-button {
+  background-color: transparent;
+}
+
+.orders-light .confirmation-dialog-actions .cancel-button {
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.orders-dark .confirmation-dialog-actions .cancel-button {
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.confirmation-dialog-actions .confirm-button {
+  background-color: #ff3232;
+  color: white;
+}
+
+.confirmation-dialog-actions .confirm-button:hover {
+  background-color: #e62e2e;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .orders-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .orders-filter {
+    width: 100%;
+  }
+  
+  .orders-filter select,
+  .orders-filter input {
+    width: 100%;
+  }
+  
+  .orders-table th,
+  .orders-table td {
+    padding: 8px 12px;
+  }
+}

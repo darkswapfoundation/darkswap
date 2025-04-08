@@ -8,12 +8,110 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context as AnyhowContext, Result};
-use libp2p::core::multiaddr::Multiaddr;
-use libp2p::core::PeerId;
+use libp2p::multiaddr::Multiaddr;
+use libp2p::PeerId;
 use log::{debug, error, info, warn};
 use tokio::sync::Mutex;
 
-use crate::p2p::webrtc_transport::DarkSwapWebRtcTransport;
+/// Relay configuration
+pub struct RelayConfig {
+    /// Listen address
+    pub listen_address: String,
+    /// Bootstrap peers
+    pub bootstrap_peers: Vec<String>,
+    /// Enable mDNS
+    pub enable_mdns: bool,
+    /// Enable Kademlia
+    pub enable_kad: bool,
+}
+
+/// Circuit relay
+pub struct CircuitRelay {
+    /// Local peer ID
+    local_peer_id: PeerId,
+    /// Connected peers
+    connected_peers: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
+    /// Event sender
+    event_sender: tokio::sync::mpsc::Sender<crate::types::Event>,
+}
+
+impl CircuitRelay {
+    /// Create a new circuit relay
+    pub async fn new(relay_config: RelayConfig, event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
+        // Generate a new keypair
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(keypair.public());
+
+        Ok(Self {
+            local_peer_id,
+            connected_peers: Arc::new(Mutex::new(HashMap::new())),
+            event_sender,
+        })
+    }
+
+    /// Get the local peer ID
+    pub fn local_peer_id(&self) -> PeerId {
+        self.local_peer_id.clone()
+    }
+
+    /// Get the listen addresses
+    pub fn listen_addresses(&self) -> Vec<Multiaddr> {
+        vec![]
+    }
+
+    /// Get the bootstrap peers
+    pub fn bootstrap_peers(&self) -> Vec<String> {
+        vec![]
+    }
+
+    /// Add a bootstrap peer
+    pub async fn add_bootstrap_peer(&mut self, peer_id: PeerId) -> Result<()> {
+        Ok(())
+    }
+
+    /// Connect to a peer
+    pub async fn connect_to_peer(&mut self, peer_id: &PeerId, addr: &Multiaddr) -> Result<()> {
+        // Check if we're already connected
+        let mut connected_peers = self.connected_peers.lock().await;
+        if connected_peers.contains_key(peer_id) {
+            return Ok(());
+        }
+
+        // Add to connected peers
+        connected_peers.insert(peer_id.clone(), addr.clone());
+
+        Ok(())
+    }
+
+    /// Disconnect from a peer
+    pub async fn disconnect_from_peer(&mut self, peer_id: &PeerId) -> Result<()> {
+        // Remove from connected peers
+        let mut connected_peers = self.connected_peers.lock().await;
+        connected_peers.remove(peer_id);
+
+        Ok(())
+    }
+
+    /// Get the connected peers
+    pub fn connected_peers(&self) -> Vec<String> {
+        vec![]
+    }
+
+    /// Connect to a relay
+    pub async fn connect_to_relay(&self, relay_peer_id: &PeerId, relay_addr: &Multiaddr) -> Result<()> {
+        Ok(())
+    }
+
+    /// Disconnect from a relay
+    pub async fn disconnect_from_relay(&self, relay_peer_id: &PeerId) -> Result<()> {
+        Ok(())
+    }
+
+    /// Send data to a peer
+    pub async fn send_data(&self, peer_id: &PeerId, data: &[u8]) -> Result<()> {
+        Ok(())
+    }
+}
 
 /// Circuit relay manager
 pub struct CircuitRelayManager {
@@ -28,7 +126,6 @@ pub struct CircuitRelayManager {
 impl CircuitRelayManager {
     /// Create a new circuit relay manager
     pub async fn new(
-        _transport: Arc<DarkSwapWebRtcTransport>,
         _local_peer_id: PeerId,
         relay_addresses: Vec<Multiaddr>,
     ) -> Result<Self> {

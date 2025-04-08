@@ -1,115 +1,107 @@
-/**
- * Home - Home page component
- * 
- * This is the main landing page for the DarkSwap application.
- */
-
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Card } from '../components/MemoizedComponents';
-import LazyImage from '../components/LazyImage';
+import { useTheme } from '../contexts/ThemeContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import WebSocketStatus from '../components/WebSocketStatus';
+import '../styles/Home.css';
 
-/**
- * Home component
- */
 const Home: React.FC = () => {
+  const { theme } = useTheme();
+  const { connected } = useWebSocket();
+  
   return (
-    <div className="home-page">
-      <section className="hero-section">
-        <div className="hero-content">
-          <h1>DarkSwap</h1>
-          <p className="hero-subtitle">
-            Decentralized trading for Bitcoin, runes, and alkanes
+    <div className={`home home-${theme}`}>
+      <section className="home-hero">
+        <div className="home-hero-content">
+          <h1>Trade Bitcoin, Runes, and Alkanes Securely and Privately</h1>
+          <p className="home-hero-subtitle">
+            DarkSwap is a decentralized peer-to-peer trading platform built for security, privacy, and ease of use.
           </p>
-          <div className="hero-buttons">
-            <Link to="/trade">
-              <Button variant="primary" size="large">
-                Start Trading
-              </Button>
+          <div className="home-hero-actions">
+            <Link to="/trade" className="home-hero-button primary">
+              Start Trading
             </Link>
-            <Link to="/about">
-              <Button variant="outline" size="large">
-                Learn More
-              </Button>
+            <Link to="/about" className="home-hero-button secondary">
+              Learn More
             </Link>
           </div>
+          <div className="home-connection-status">
+            <WebSocketStatus showLabel={true} />
+            <span className="home-connection-message">
+              {connected ? 'Connected to the network' : 'Not connected to the network'}
+            </span>
+          </div>
         </div>
-        <div className="hero-image">
-          <LazyImage
-            src="/images/hero-image.png"
-            alt="DarkSwap Trading Interface"
-            placeholder="/images/hero-image-placeholder.png"
-            width="100%"
-            height="auto"
-          />
+        <div className="home-hero-image">
+          <img src="/images/hero-illustration.svg" alt="DarkSwap Trading Platform" />
         </div>
       </section>
-
-      <section className="features-section">
+      
+      <section className="home-features">
         <h2>Key Features</h2>
-        <div className="features-grid">
-          <Card
-            title="Decentralized"
-            className="feature-card"
-          >
+        <div className="home-features-grid">
+          <div className="home-feature">
+            <div className="home-feature-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <h3>Secure Trading</h3>
             <p>
-              Trade directly with peers without intermediaries. Your keys, your coins.
+              Trade with confidence using our secure platform built with PSBTs (Partially Signed Bitcoin Transactions).
             </p>
-          </Card>
-          <Card
-            title="Private"
-            className="feature-card"
-          >
+          </div>
+          
+          <div className="home-feature">
+            <div className="home-feature-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+            </div>
+            <h3>Bitcoin Integration</h3>
             <p>
-              Enhanced privacy features protect your trading activity and personal information.
+              Seamlessly trade Bitcoin and Bitcoin-based assets like Runes and Alkanes.
             </p>
-          </Card>
-          <Card
-            title="Secure"
-            className="feature-card"
-          >
+          </div>
+          
+          <div className="home-feature">
+            <div className="home-feature-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <h3>Peer-to-Peer</h3>
             <p>
-              Built on proven cryptographic protocols with comprehensive security measures.
+              Trade directly with other users without intermediaries using our P2P network.
             </p>
-          </Card>
-          <Card
-            title="Fast"
-            className="feature-card"
-          >
+          </div>
+          
+          <div className="home-feature">
+            <div className="home-feature-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </div>
+            <h3>Privacy-Focused</h3>
             <p>
-              Optimized performance with WebRTC for direct peer connections and minimal latency.
+              Your data stays with you. No account creation or personal information required.
             </p>
-          </Card>
+          </div>
         </div>
       </section>
-
-      <section className="assets-section">
-        <h2>Supported Assets</h2>
-        <div className="assets-grid">
-          <div className="asset-item">
-            <h3>Bitcoin</h3>
-            <p>The original cryptocurrency</p>
-          </div>
-          <div className="asset-item">
-            <h3>Runes</h3>
-            <p>Bitcoin-native tokens</p>
-          </div>
-          <div className="asset-item">
-            <h3>Alkanes</h3>
-            <p>Advanced digital assets</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="cta-section">
+      
+      <section className="home-cta">
         <h2>Ready to start trading?</h2>
         <p>
-          Join the decentralized trading revolution with DarkSwap.
+          Join the DarkSwap community and experience secure, private trading today.
         </p>
-        <Link to="/trade">
-          <Button variant="primary" size="large">
-            Launch App
-          </Button>
+        <Link to="/trade" className="home-cta-button">
+          Launch Trading Platform
         </Link>
       </section>
     </div>

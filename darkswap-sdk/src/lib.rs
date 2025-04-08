@@ -5,9 +5,11 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
 
+pub mod config;
 pub mod error;
 pub mod network;
 pub mod orderbook;
+pub mod p2p;
 pub mod trade;
 pub mod types;
 pub mod wallet;
@@ -15,23 +17,27 @@ pub mod wasm;
 pub mod bridge_integration;
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use log::{debug, error, info, warn};
+use async_trait::async_trait;
+use log::warn;
 
 use crate::error::{Error, Result};
-use crate::network::Network;
-use crate::orderbook::OrderBook;
+use crate::network::NetworkInterface;
+use crate::orderbook::{Orderbook, OrderId};
 use crate::trade::TradeManager;
-use crate::wallet::Wallet;
+use crate::types::{Asset, TradeId};
+use crate::wallet::{Wallet, WalletInterface, Utxo};
+use tokio::sync::mpsc;
 
 /// DarkSwap SDK
 pub struct DarkSwap {
     /// Wallet
-    wallet: Arc<dyn Wallet>,
+    wallet: Arc<dyn Wallet + Send + Sync>,
     /// Network
-    network: Arc<dyn Network>,
+    network: Arc<dyn NetworkInterface + Send + Sync>,
     /// Order book
-    orderbook: Arc<OrderBook>,
+    orderbook: Arc<Orderbook>,
     /// Trade manager
     trade_manager: Arc<TradeManager>,
 }
@@ -39,9 +45,9 @@ pub struct DarkSwap {
 impl DarkSwap {
     /// Create a new DarkSwap instance
     pub fn new(
-        wallet: Arc<dyn Wallet>,
-        network: Arc<dyn Network>,
-        orderbook: Arc<OrderBook>,
+        wallet: Arc<dyn Wallet + Send + Sync>,
+        network: Arc<dyn NetworkInterface + Send + Sync>,
+        orderbook: Arc<Orderbook>,
         trade_manager: Arc<TradeManager>,
     ) -> Self {
         Self {
@@ -50,6 +56,35 @@ impl DarkSwap {
             orderbook,
             trade_manager,
         }
+    }
+
+    /// Create a new DarkSwap instance with default components
+    pub fn with_defaults(wallet: Arc<dyn Wallet + Send + Sync>) -> Result<Self> {
+        // Create the event channel
+        let (event_sender, _event_receiver) = mpsc::channel(100);
+        
+        // Create the network
+        let network = Arc::new(DummyNetwork::new());
+        
+        // Create a wallet interface adapter
+        let wallet_interface = Arc::new(WalletInterfaceAdapter::new(wallet.clone()));
+        
+        // Create the orderbook
+        let orderbook = Arc::new(Orderbook::new(
+            wallet_interface,
+            event_sender,
+            Duration::from_secs(3600),
+        ));
+        
+        // Create the trade manager
+        let trade_manager = Arc::new(TradeManager::new(wallet.clone()));
+        
+        Ok(Self {
+            wallet,
+            network,
+            orderbook,
+            trade_manager,
+        })
     }
 
     /// Create a new DarkSwap instance with a bridge integration
@@ -64,11 +99,25 @@ impl DarkSwap {
                 bridge.start().await
             })?;
         
+        // Create the event channel
+        let (event_sender, _event_receiver) = mpsc::channel(100);
+        
         // Create components
         let wallet = Arc::new(BridgeWallet::new(bridge.clone()));
-        let network = Arc::new(BridgeNetwork::new(bridge.clone()));
-        let orderbook = Arc::new(OrderBook::new(network.clone()));
-        let trade_manager = Arc::new(TradeManager::new(wallet.clone(), network.clone(), orderbook.clone()));
+        let network = Arc::new(BridgeNetwork::new(bridge));
+        
+        // Create a wallet interface adapter
+        let wallet_interface = Arc::new(WalletInterfaceAdapter::new(wallet.clone()));
+        
+        // Create the orderbook
+        let orderbook = Arc::new(Orderbook::new(
+            wallet_interface,
+            event_sender,
+            Duration::from_secs(3600),
+        ));
+        
+        // Create the trade manager
+        let trade_manager = Arc::new(TradeManager::new(wallet.clone()));
         
         Ok(Self {
             wallet,
@@ -79,23 +128,148 @@ impl DarkSwap {
     }
 
     /// Get the wallet
-    pub fn wallet(&self) -> Arc<dyn Wallet> {
+    pub fn wallet(&self) -> Arc<dyn Wallet + Send + Sync> {
         self.wallet.clone()
     }
 
     /// Get the network
-    pub fn network(&self) -> Arc<dyn Network> {
+    pub fn network(&self) -> Arc<dyn NetworkInterface + Send + Sync> {
         self.network.clone()
     }
 
     /// Get the order book
-    pub fn orderbook(&self) -> Arc<OrderBook> {
+    pub fn orderbook(&self) -> Arc<Orderbook> {
         self.orderbook.clone()
     }
 
     /// Get the trade manager
     pub fn trade_manager(&self) -> Arc<TradeManager> {
         self.trade_manager.clone()
+    }
+}
+
+/// Adapter to convert Wallet to WalletInterface
+struct WalletInterfaceAdapter {
+    /// Inner wallet
+    wallet: Arc<dyn Wallet + Send + Sync>,
+}
+
+impl WalletInterfaceAdapter {
+    /// Create a new wallet interface adapter
+    fn new(wallet: Arc<dyn Wallet + Send + Sync>) -> Self {
+        Self { wallet }
+    }
+}
+
+#[async_trait]
+impl WalletInterface for WalletInterfaceAdapter {
+    /// Get wallet address
+    async fn get_address(&self) -> Result<String> {
+        self.wallet.get_address().map_err(|e| Error::WalletError(e.to_string()))
+    }
+
+    /// Get wallet balance
+    async fn get_balance(&self) -> Result<u64> {
+        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()))
+    }
+
+    /// Get asset balance
+    async fn get_asset_balance(&self, _asset: &Asset) -> Result<u64> {
+        // In a real implementation, we would get the asset balance
+        // For now, just return the wallet balance
+        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()))
+    }
+
+    /// Create and sign a PSBT for an order
+    async fn create_order_psbt(
+        &self,
+        _order_id: &OrderId,
+        _base_asset: &Asset,
+        _quote_asset: &Asset,
+        _amount: u64,
+        _price: u64,
+    ) -> Result<String> {
+        // In a real implementation, we would create a PSBT for an order
+        // For now, just return a dummy PSBT
+        Ok("dummy_psbt".to_string())
+    }
+
+    /// Create and sign a PSBT for a trade
+    async fn create_trade_psbt(
+        &self,
+        _trade_id: &TradeId,
+        _order_id: &OrderId,
+        _base_asset: &Asset,
+        _quote_asset: &Asset,
+        _amount: u64,
+        _price: u64,
+    ) -> Result<String> {
+        // In a real implementation, we would create a PSBT for a trade
+        // For now, just return a dummy PSBT
+        Ok("dummy_psbt".to_string())
+    }
+
+    /// Sign a PSBT
+    async fn sign_psbt(&self, psbt_base64: &str) -> Result<String> {
+        // In a real implementation, we would sign the PSBT
+        // For now, just return the same PSBT
+        Ok(psbt_base64.to_string())
+    }
+
+    /// Finalize and broadcast a PSBT
+    async fn finalize_and_broadcast_psbt(&self, _psbt_base64: &str) -> Result<String> {
+        // In a real implementation, we would finalize and broadcast the PSBT
+        // For now, just return a dummy txid
+        Ok("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string())
+    }
+
+    /// Verify a PSBT
+    async fn verify_psbt(&self, _psbt_base64: &str) -> Result<bool> {
+        // In a real implementation, we would verify the PSBT
+        // For now, just return true
+        Ok(true)
+    }
+}
+
+/// Dummy network implementation for testing
+struct DummyNetwork {}
+
+impl DummyNetwork {
+    /// Create a new dummy network
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl NetworkInterface for DummyNetwork {
+    fn connect(&self) -> Result<()> {
+        warn!("DummyNetwork::connect not implemented");
+        Ok(())
+    }
+
+    fn disconnect(&self) -> Result<()> {
+        warn!("DummyNetwork::disconnect not implemented");
+        Ok(())
+    }
+
+    fn is_connected(&self) -> bool {
+        warn!("DummyNetwork::is_connected not implemented");
+        false
+    }
+
+    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> Result<()> {
+        warn!("DummyNetwork::broadcast_message not implemented");
+        Ok(())
+    }
+
+    fn subscribe(&self, _topic: &str) -> Result<()> {
+        warn!("DummyNetwork::subscribe not implemented");
+        Ok(())
+    }
+
+    fn unsubscribe(&self, _topic: &str) -> Result<()> {
+        warn!("DummyNetwork::unsubscribe not implemented");
+        Ok(())
     }
 }
 
@@ -113,8 +287,23 @@ impl BridgeWallet {
 }
 
 impl Wallet for BridgeWallet {
-    // Implement wallet methods using bridge integration
-    // ...
+    fn get_address(&self) -> anyhow::Result<String> {
+        // Implement wallet methods using bridge integration
+        warn!("BridgeWallet::get_address not implemented");
+        Ok("not_implemented".to_string())
+    }
+
+    fn get_balance(&self) -> anyhow::Result<u64> {
+        // Implement wallet methods using bridge integration
+        warn!("BridgeWallet::get_balance not implemented");
+        Ok(0)
+    }
+
+    fn get_utxos(&self) -> anyhow::Result<Vec<Utxo>> {
+        // Implement wallet methods using bridge integration
+        warn!("BridgeWallet::get_utxos not implemented");
+        Ok(vec![])
+    }
 }
 
 /// Bridge network implementation
@@ -130,7 +319,35 @@ impl BridgeNetwork {
     }
 }
 
-impl Network for BridgeNetwork {
+impl NetworkInterface for BridgeNetwork {
     // Implement network methods using bridge integration
-    // ...
+    fn connect(&self) -> Result<()> {
+        warn!("BridgeNetwork::connect not implemented");
+        Ok(())
+    }
+
+    fn disconnect(&self) -> Result<()> {
+        warn!("BridgeNetwork::disconnect not implemented");
+        Ok(())
+    }
+
+    fn is_connected(&self) -> bool {
+        warn!("BridgeNetwork::is_connected not implemented");
+        false
+    }
+
+    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> Result<()> {
+        warn!("BridgeNetwork::broadcast_message not implemented");
+        Ok(())
+    }
+
+    fn subscribe(&self, _topic: &str) -> Result<()> {
+        warn!("BridgeNetwork::subscribe not implemented");
+        Ok(())
+    }
+
+    fn unsubscribe(&self, _topic: &str) -> Result<()> {
+        warn!("BridgeNetwork::unsubscribe not implemented");
+        Ok(())
+    }
 }

@@ -1,172 +1,300 @@
 /**
- * ErrorBoundary - Component for catching errors in React components
+ * ErrorBoundary.tsx - Error boundary component
  * 
- * This component catches errors in React components and displays an error message.
- * It also reports errors to the error reporting system.
+ * This file provides an error boundary component for catching and handling errors
+ * in React components.
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { DarkSwapError, ErrorCode, createError } from '../utils/ErrorHandling';
+import React from 'react';
 import { reportError } from '../utils/ErrorReporting';
-import ErrorDisplay from './ErrorDisplay';
 
-// Error boundary props
+/**
+ * Error boundary props
+ */
 export interface ErrorBoundaryProps {
-  /** Children components */
-  children: ReactNode;
+  /**
+   * Children
+   */
+  children: React.ReactNode;
   
-  /** Component name */
+  /**
+   * Fallback component to render when an error occurs
+   * @param error - Error that occurred
+   * @param resetError - Function to reset the error
+   * @returns React node
+   */
+  fallback?: (error: Error, resetError: () => void) => React.ReactNode;
+  
+  /**
+   * Error handler
+   * @param error - Error that occurred
+   * @param errorInfo - Error info
+   */
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  
+  /**
+   * Whether to reset the error when the children change
+   */
+  resetOnChange?: boolean;
+  
+  /**
+   * Component name for error reporting
+   */
   componentName?: string;
-  
-  /** Fallback component */
-  fallback?: ReactNode | ((error: Error, resetError: () => void) => ReactNode);
-  
-  /** Whether to report errors */
-  reportErrors?: boolean;
-  
-  /** Whether to show error details */
-  showErrorDetails?: boolean;
-  
-  /** Whether to show retry button */
-  showRetry?: boolean;
-  
-  /** Callback when error occurs */
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-}
-
-// Error boundary state
-interface ErrorBoundaryState {
-  /** Error */
-  error: Error | null;
-  
-  /** Error info */
-  errorInfo: ErrorInfo | null;
 }
 
 /**
- * ErrorBoundary component
+ * Error boundary state
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export interface ErrorBoundaryState {
+  /**
+   * Whether an error has occurred
+   */
+  hasError: boolean;
+  
+  /**
+   * Error that occurred
+   */
+  error: Error | null;
+}
+
+/**
+ * Error boundary component
+ * 
+ * This component catches errors in its children and displays a fallback UI.
+ */
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  /**
+   * Constructor
+   * @param props - Props
+   */
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      error: null,
-      errorInfo: null,
-    };
+    this.state = { hasError: false, error: null };
   }
   
   /**
-   * Catch errors in children components
-   * @param error Error
-   * @param errorInfo Error info
+   * Get derived state from error
+   * @param error - Error
+   * @returns New state
    */
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Update state
-    this.setState({
-      error,
-      errorInfo,
-    });
-    
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, error };
+  }
+  
+  /**
+   * Component did catch
+   * @param error - Error
+   * @param errorInfo - Error info
+   */
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     // Report error
-    if (this.props.reportErrors !== false) {
-      this.reportError(error, errorInfo);
-    }
+    const componentName = this.props.componentName || 'ErrorBoundary';
+    reportError(error, `${componentName}.componentDidCatch`);
     
-    // Call onError callback
+    // Log error info
+    console.error('Error caught by error boundary:', error, errorInfo);
+    
+    // Call onError prop
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
   }
   
   /**
-   * Report error
-   * @param error Error
-   * @param errorInfo Error info
+   * Component did update
+   * @param prevProps - Previous props
    */
-  private reportError(error: Error, errorInfo: ErrorInfo) {
-    try {
-      // Create error with component stack
-      const errorDetails = {
-        componentStack: errorInfo.componentStack,
-      };
-      
-      const darkswapError = createError(
-        error,
-        `Error in ${this.props.componentName || 'component'}`,
-        ErrorCode.Unknown
-      );
-      
-      // Report error with component stack
-      reportError(darkswapError, `ErrorBoundary.${this.props.componentName || 'unknown'}`);
-    } catch (err) {
-      console.error('Failed to report error:', err);
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    // Reset error when children change
+    if (
+      this.state.hasError &&
+      this.props.resetOnChange &&
+      prevProps.children !== this.props.children
+    ) {
+      this.resetError();
     }
   }
   
   /**
    * Reset error
    */
-  resetError = () => {
-    this.setState({
-      error: null,
-      errorInfo: null,
-    });
+  resetError = (): void => {
+    this.setState({ hasError: false, error: null });
   };
   
-  render() {
-    // If there's an error, render fallback or error display
-    if (this.state.error) {
-      // If fallback is provided, render it
+  /**
+   * Render
+   * @returns React node
+   */
+  render(): React.ReactNode {
+    // Check if an error has occurred
+    if (this.state.hasError) {
+      // Render fallback UI
       if (this.props.fallback) {
-        if (typeof this.props.fallback === 'function') {
-          return this.props.fallback(this.state.error, this.resetError);
-        }
-        
-        return this.props.fallback;
+        return this.props.fallback(this.state.error!, this.resetError);
       }
       
-      // Otherwise, render error display
+      // Render default fallback UI
       return (
         <div className="error-boundary">
-          <ErrorDisplay
-            error={this.state.error}
-            showDetails={this.props.showErrorDetails}
-            showRetry={this.props.showRetry !== false}
-            onRetry={this.resetError}
-          />
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={this.resetError}>Try again</button>
         </div>
       );
     }
     
-    // Otherwise, render children
+    // Render children
     return this.props.children;
   }
 }
 
 /**
- * withErrorBoundary HOC
- * @param Component Component to wrap
- * @param options Error boundary options
+ * Default error boundary fallback props
+ */
+export interface DefaultErrorBoundaryFallbackProps {
+  /**
+   * Error
+   */
+  error: Error;
+  
+  /**
+   * Reset error function
+   */
+  resetError: () => void;
+  
+  /**
+   * Title
+   */
+  title?: string;
+  
+  /**
+   * Button text
+   */
+  buttonText?: string;
+  
+  /**
+   * Show error details
+   */
+  showDetails?: boolean;
+}
+
+/**
+ * Default error boundary fallback
+ * @param props - Props
+ * @returns React node
+ */
+export const DefaultErrorBoundaryFallback: React.FC<DefaultErrorBoundaryFallbackProps> = ({
+  error,
+  resetError,
+  title = 'Something went wrong',
+  buttonText = 'Try again',
+  showDetails = false,
+}) => {
+  // State
+  const [showDetailsState, setShowDetailsState] = React.useState(showDetails);
+  
+  return (
+    <div className="error-boundary">
+      <h2>{title}</h2>
+      <p>{error.message}</p>
+      
+      {/* Error details */}
+      {error.stack && (
+        <>
+          <button
+            className="error-details-toggle"
+            onClick={() => setShowDetailsState(!showDetailsState)}
+          >
+            {showDetailsState ? 'Hide details' : 'Show details'}
+          </button>
+          
+          {showDetailsState && (
+            <pre className="error-details">
+              {error.stack}
+            </pre>
+          )}
+        </>
+      )}
+      
+      {/* Reset button */}
+      <button className="error-reset" onClick={resetError}>
+        {buttonText}
+      </button>
+    </div>
+  );
+};
+
+/**
+ * With error boundary props
+ */
+export interface WithErrorBoundaryProps {
+  /**
+   * Fallback component to render when an error occurs
+   * @param error - Error that occurred
+   * @param resetError - Function to reset the error
+   * @returns React node
+   */
+  fallback?: (error: Error, resetError: () => void) => React.ReactNode;
+  
+  /**
+   * Error handler
+   * @param error - Error that occurred
+   * @param errorInfo - Error info
+   */
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  
+  /**
+   * Whether to reset the error when the children change
+   */
+  resetOnChange?: boolean;
+  
+  /**
+   * Component name for error reporting
+   */
+  componentName?: string;
+}
+
+/**
+ * With error boundary
+ * @param Component - Component to wrap
  * @returns Wrapped component
  */
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
-  options: Omit<ErrorBoundaryProps, 'children'> = {},
+  {
+    fallback,
+    onError,
+    resetOnChange,
+    componentName,
+  }: WithErrorBoundaryProps = {},
 ): React.FC<P> {
+  // Get component name
   const displayName = Component.displayName || Component.name || 'Component';
   
-  const WrappedComponent: React.FC<P> = (props) => (
-    <ErrorBoundary
-      componentName={displayName}
-      {...options}
-    >
-      <Component {...props} />
-    </ErrorBoundary>
-  );
+  // Create wrapped component
+  const WrappedComponent: React.FC<P> = (props) => {
+    return (
+      <ErrorBoundary
+        fallback={fallback}
+        onError={onError}
+        resetOnChange={resetOnChange}
+        componentName={componentName || displayName}
+      >
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
   
-  WrappedComponent.displayName = `withErrorBoundary(${displayName})`;
+  // Set display name
+  WrappedComponent.displayName = `WithErrorBoundary(${displayName})`;
   
   return WrappedComponent;
 }
 
+/**
+ * Default export
+ */
 export default ErrorBoundary;

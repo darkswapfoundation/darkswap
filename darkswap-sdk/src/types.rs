@@ -1,24 +1,91 @@
 //! Common types for DarkSwap
 //!
-//! This module provides common types used throughout the DarkSwap SDK.
+//! This module provides common types used throughout DarkSwap.
 
 use std::fmt;
 use std::str::FromStr;
 
-use libp2p::core::PeerId;
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
-use serde::de::{self, Visitor};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-/// Asset ID for runes
-pub type RuneId = u128;
+/// Event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Event {
+    /// Order created
+    OrderCreated {
+        /// Order ID
+        order_id: OrderId,
+    },
+    /// Order matched
+    OrderMatched {
+        /// Order ID
+        order_id: OrderId,
+        /// Trade ID
+        trade_id: TradeId,
+    },
+    /// Order cancelled
+    OrderCancelled {
+        /// Order ID
+        order_id: OrderId,
+    },
+    /// Order expired
+    OrderExpired {
+        /// Order ID
+        order_id: OrderId,
+    },
+    /// Trade created
+    TradeCreated {
+        /// Trade ID
+        trade_id: TradeId,
+    },
+    /// Trade completed
+    TradeCompleted {
+        /// Trade ID
+        trade_id: TradeId,
+    },
+    /// Trade cancelled
+    TradeCancelled {
+        /// Trade ID
+        trade_id: TradeId,
+    },
+    /// Trade failed
+    TradeFailed {
+        /// Trade ID
+        trade_id: TradeId,
+        /// Error
+        error: String,
+    },
+    /// Peer connected
+    PeerConnected {
+        /// Peer ID
+        peer_id: String,
+    },
+    /// Peer disconnected
+    PeerDisconnected {
+        /// Peer ID
+        peer_id: String,
+    },
+    /// Error
+    Error {
+        /// Error
+        error: String,
+    },
+}
 
-/// Asset ID for alkanes
+/// Order ID
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct AlkaneId(pub String);
+pub struct OrderId(pub String);
 
-impl fmt::Display for AlkaneId {
+impl fmt::Display for OrderId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl OrderId {
+    /// Create a new order ID
+    pub fn new() -> Self {
+        Self(Uuid::new_v4().to_string())
     }
 }
 
@@ -32,13 +99,20 @@ impl fmt::Display for TradeId {
     }
 }
 
+impl TradeId {
+    /// Create a new trade ID
+    pub fn new() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
 /// Asset
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Asset {
     /// Bitcoin
     Bitcoin,
     /// Rune
-    Rune(RuneId),
+    Rune(u64),
     /// Alkane
     Alkane(AlkaneId),
 }
@@ -53,110 +127,180 @@ impl fmt::Display for Asset {
     }
 }
 
-/// Serializable wrapper for PeerId
-#[derive(Debug, Clone)]
-pub struct SerializablePeerId(pub PeerId);
+impl FromStr for Asset {
+    type Err = String;
 
-impl Serialize for SerializablePeerId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.0.to_string())
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "BTC" {
+            return Ok(Asset::Bitcoin);
+        }
+
+        if let Some(rune_id) = s.strip_prefix("RUNE:") {
+            let id = u64::from_str_radix(rune_id, 16)
+                .map_err(|_| format!("Invalid rune ID: {}", rune_id))?;
+            return Ok(Asset::Rune(id));
+        }
+
+        if let Some(alkane_id) = s.strip_prefix("ALKANE:") {
+            let id = AlkaneId::from_str(alkane_id)
+                .map_err(|_| format!("Invalid alkane ID: {}", alkane_id))?;
+            return Ok(Asset::Alkane(id));
+        }
+
+        Err(format!("Invalid asset: {}", s))
     }
 }
 
-struct SerializablePeerIdVisitor;
-
-impl<'de> Visitor<'de> for SerializablePeerIdVisitor {
-    type Value = SerializablePeerId;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representing a PeerId")
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        PeerId::from_str(value)
-            .map(SerializablePeerId)
-            .map_err(|_| de::Error::custom("invalid PeerId"))
+// Implement Ord for Asset
+impl Ord for Asset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Asset::Bitcoin, Asset::Bitcoin) => std::cmp::Ordering::Equal,
+            (Asset::Bitcoin, _) => std::cmp::Ordering::Less,
+            (_, Asset::Bitcoin) => std::cmp::Ordering::Greater,
+            (Asset::Rune(a), Asset::Rune(b)) => a.cmp(b),
+            (Asset::Rune(_), Asset::Alkane(_)) => std::cmp::Ordering::Less,
+            (Asset::Alkane(_), Asset::Rune(_)) => std::cmp::Ordering::Greater,
+            (Asset::Alkane(a), Asset::Alkane(b)) => a.0.cmp(&b.0),
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for SerializablePeerId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(SerializablePeerIdVisitor)
+// Implement PartialOrd for Asset
+impl PartialOrd for Asset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
-/// Event
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Event {
-    /// Peer connected
-    PeerConnected(SerializablePeerId),
-    /// Peer disconnected
-    PeerDisconnected(SerializablePeerId),
-    /// Order created
-    OrderCreated(crate::orderbook::Order),
-    /// Order updated
-    OrderUpdated(crate::orderbook::Order),
-    /// Order cancelled
-    OrderCancelled(crate::orderbook::OrderId),
-    /// Order expired
-    OrderExpired(crate::orderbook::OrderId),
-    /// Order filled
-    OrderFilled(crate::orderbook::OrderId),
-    /// Trade created
-    TradeCreated(TradeId),
-    /// Trade started
-    TradeStarted(TradeId),
-    /// Trade updated
-    TradeUpdated(TradeId),
-    /// Trade cancelled
-    TradeCancelled(TradeId),
-    /// Trade completed
-    TradeCompleted(TradeId),
-    /// Trade expired
-    TradeExpired(TradeId),
-    /// Trade failed
-    TradeFailed(TradeId),
+/// Alkane ID
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AlkaneId(pub String);
+
+impl fmt::Display for AlkaneId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
-/// Rune
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Rune {
-    /// Rune ID
-    pub id: RuneId,
-    /// Rune symbol
-    pub symbol: String,
-    /// Rune name
-    pub name: String,
-    /// Rune decimals
-    pub decimals: u8,
-    /// Rune supply
-    pub supply: u64,
-    /// Rune limit
-    pub limit: u64,
+impl FromStr for AlkaneId {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
 }
 
-/// Alkane
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Alkane {
-    /// Alkane ID
-    pub id: AlkaneId,
-    /// Alkane symbol
-    pub symbol: String,
-    /// Alkane name
-    pub name: String,
-    /// Alkane decimals
-    pub decimals: u8,
-    /// Alkane supply
-    pub supply: u64,
-    /// Alkane limit
-    pub limit: u64,
+/// Order type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OrderType {
+    /// Buy
+    Buy,
+    /// Sell
+    Sell,
+}
+
+impl fmt::Display for OrderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrderType::Buy => write!(f, "buy"),
+            OrderType::Sell => write!(f, "sell"),
+        }
+    }
+}
+
+impl FromStr for OrderType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "buy" => Ok(OrderType::Buy),
+            "sell" => Ok(OrderType::Sell),
+            _ => Err(format!("Invalid order type: {}", s)),
+        }
+    }
+}
+
+/// Order status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OrderStatus {
+    /// Open
+    Open,
+    /// Matched
+    Matched,
+    /// Completed
+    Completed,
+    /// Cancelled
+    Cancelled,
+    /// Expired
+    Expired,
+}
+
+impl fmt::Display for OrderStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OrderStatus::Open => write!(f, "open"),
+            OrderStatus::Matched => write!(f, "matched"),
+            OrderStatus::Completed => write!(f, "completed"),
+            OrderStatus::Cancelled => write!(f, "cancelled"),
+            OrderStatus::Expired => write!(f, "expired"),
+        }
+    }
+}
+
+impl FromStr for OrderStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "open" => Ok(OrderStatus::Open),
+            "matched" => Ok(OrderStatus::Matched),
+            "completed" => Ok(OrderStatus::Completed),
+            "cancelled" => Ok(OrderStatus::Cancelled),
+            "expired" => Ok(OrderStatus::Expired),
+            _ => Err(format!("Invalid order status: {}", s)),
+        }
+    }
+}
+
+/// Trade status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TradeStatus {
+    /// Created
+    Created,
+    /// Accepted
+    Accepted,
+    /// Completed
+    Completed,
+    /// Cancelled
+    Cancelled,
+    /// Failed
+    Failed,
+}
+
+impl fmt::Display for TradeStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TradeStatus::Created => write!(f, "created"),
+            TradeStatus::Accepted => write!(f, "accepted"),
+            TradeStatus::Completed => write!(f, "completed"),
+            TradeStatus::Cancelled => write!(f, "cancelled"),
+            TradeStatus::Failed => write!(f, "failed"),
+        }
+    }
+}
+
+impl FromStr for TradeStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "created" => Ok(TradeStatus::Created),
+            "accepted" => Ok(TradeStatus::Accepted),
+            "completed" => Ok(TradeStatus::Completed),
+            "cancelled" => Ok(TradeStatus::Cancelled),
+            "failed" => Ok(TradeStatus::Failed),
+            _ => Err(format!("Invalid trade status: {}", s)),
+        }
+    }
 }

@@ -1,103 +1,54 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import ApiClient from '../utils/ApiClient';
 
 interface ApiContextType {
-  get: <T>(url: string) => Promise<T>;
-  post: <T>(url: string, data: any) => Promise<T>;
-  loading: boolean;
-  error: string | null;
-  clearError: () => void;
+  api: ApiClient;
+  setBaseUrl: (url: string) => void;
+  setUseWebSocket: (use: boolean) => void;
 }
 
-const ApiContext = createContext<ApiContextType | undefined>(undefined);
+const ApiContext = createContext<ApiContextType>({
+  api: new ApiClient(),
+  setBaseUrl: () => {},
+  setUseWebSocket: () => {},
+});
 
 interface ApiProviderProps {
-  children: ReactNode;
   baseUrl?: string;
+  useWebSocket?: boolean;
+  children: ReactNode;
 }
 
-export const ApiProvider: React.FC<ApiProviderProps> = ({ 
-  children, 
-  baseUrl = 'https://api.darkswap.io' 
+export const ApiProvider: React.FC<ApiProviderProps> = ({
+  baseUrl = '/api',
+  useWebSocket = false,
+  children,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const clearError = () => setError(null);
-
-  const get = async <T,>(url: string): Promise<T> => {
-    setLoading(true);
-    clearError();
-    
-    try {
-      const response = await fetch(`${baseUrl}${url}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'An error occurred');
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+  const [api] = useState<ApiClient>(() => {
+    const client = new ApiClient(baseUrl);
+    client.setUseWebSocket(useWebSocket);
+    return client;
+  });
+  
+  const setBaseUrl = (url: string) => {
+    // Create a new ApiClient with the new base URL
+    const newClient = new ApiClient(url);
+    newClient.setUseWebSocket(useWebSocket);
+    // Replace the api instance
+    Object.assign(api, newClient);
   };
-
-  const post = async <T,>(url: string, data: any): Promise<T> => {
-    setLoading(true);
-    clearError();
-    
-    try {
-      const response = await fetch(`${baseUrl}${url}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'An error occurred');
-      }
-      
-      const responseData = await response.json();
-      return responseData;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+  
+  const setUseWebSocket = (use: boolean) => {
+    api.setUseWebSocket(use);
   };
-
-  const value = {
-    get,
-    post,
-    loading,
-    error,
-    clearError,
-  };
-
-  return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
+  
+  return (
+    <ApiContext.Provider value={{ api, setBaseUrl, setUseWebSocket }}>
+      {children}
+    </ApiContext.Provider>
+  );
 };
 
-export const useApi = (): ApiContextType => {
-  const context = useContext(ApiContext);
-  if (context === undefined) {
-    throw new Error('useApi must be used within an ApiProvider');
-  }
-  return context;
-};
+export const useApi = () => useContext(ApiContext);
+
+export default ApiContext;

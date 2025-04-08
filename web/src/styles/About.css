@@ -1,0 +1,153 @@
+/* About.css - Styles for the About page */
+
+.about {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.about-subtitle {
+  font-size: 1.25rem;
+  opacity: 0.8;
+  margin-top: 8px;
+}
+
+.about-section {
+  margin-bottom: 40px;
+}
+
+.about-section h2 {
+  margin-bottom: 16px;
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.about-section h2::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(45deg, #3861fb, #f7931a);
+  border-radius: 3px;
+}
+
+.about-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.about-feature {
+  padding: 24px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.about-light .about-feature {
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.about-dark .about-feature {
+  background-color: #1e1e2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.about-feature-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 16px;
+}
+
+.about-light .about-feature-icon {
+  background-color: rgba(56, 97, 251, 0.1);
+  color: #3861fb;
+}
+
+.about-dark .about-feature-icon {
+  background-color: rgba(56, 97, 251, 0.2);
+  color: #3861fb;
+}
+
+.about-feature-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.about-feature h3 {
+  margin-bottom: 12px;
+  font-size: 1.25rem;
+}
+
+.about-feature p {
+  opacity: 0.8;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.about-tech-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.about-tech-list li {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 12px;
+}
+
+.about-tech-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #3861fb;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.about a {
+  color: #3861fb;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.about a:hover {
+  border-bottom-color: #3861fb;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .about {
+    padding: 16px;
+  }
+  
+  .about-header {
+    margin-bottom: 32px;
+  }
+  
+  .about-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .about-section {
+    margin-bottom: 32px;
+  }
+  
+  .about-features {
+    grid-template-columns: 1fr;
+  }
+}

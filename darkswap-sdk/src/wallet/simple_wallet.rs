@@ -7,17 +7,15 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use bitcoin::consensus::{Encodable, Decodable};
 use bitcoin::psbt::PartiallySignedTransaction as Psbt;
-use bitcoin::{Address, Network, PrivateKey, PublicKey, Script, Transaction, TxOut, PackedLockTime};
-use log::{debug, info, warn};
-use rand::rngs::OsRng;
+use bitcoin::{Address, Network, PrivateKey, PublicKey, Script, Transaction, TxOut};
+use rand::{rngs::OsRng, RngCore};
 use tokio::sync::Mutex;
 
 use crate::config::BitcoinNetwork;
 use crate::orderbook::OrderId;
 use crate::types::{Asset, TradeId};
-use crate::wallet::{WalletError, WalletInterface};
+use crate::wallet::{Utxo, Wallet, WalletError, WalletInterface};
 
 /// Simple wallet implementation
 pub struct SimpleWallet {
@@ -47,7 +45,12 @@ impl SimpleWallet {
             PrivateKey::from_wif(wif).context("Invalid private key WIF format")?
         } else {
             let secp = bitcoin::secp256k1::Secp256k1::new();
-            let (secret_key, _) = secp.generate_keypair(&mut OsRng);
+            let mut rng = OsRng;
+            // Generate a random secret key
+            let mut random_bytes = [0u8; 32];
+            rng.fill_bytes(&mut random_bytes);
+            let secret_key = bitcoin::secp256k1::SecretKey::from_slice(&random_bytes)
+                .context("Failed to generate secret key")?;
             PrivateKey::new(secret_key, bitcoin_network)
         };
 
@@ -83,25 +86,58 @@ impl SimpleWallet {
         // Create a dummy transaction
         let tx = Transaction {
             version: 2,
-            lock_time: PackedLockTime::ZERO,
+            lock_time: bitcoin::locktime::absolute::LockTime::ZERO,
             input: vec![],
             output: vec![
                 TxOut {
                     value: 50_000_000, // 0.5 BTC
-                    script_pubkey: Script::new(),
+                    script_pubkey: Address::p2wpkh(&self.public_key, self.network)
+                        .context("Failed to create P2WPKH address")?
+                        .script_pubkey(),
                 },
             ],
         };
 
         // Create a PSBT from the transaction
-        let mut psbt = Psbt::from_unsigned_tx(tx).context("Failed to create PSBT from transaction")?;
+        let psbt = Psbt::from_unsigned_tx(tx).context("Failed to create PSBT from transaction")?;
 
         // Serialize the PSBT to base64
-        let mut psbt_bytes = Vec::new();
-        psbt.consensus_encode(&mut psbt_bytes).context("Failed to serialize PSBT")?;
+        let psbt_bytes = psbt.serialize();
         let psbt_base64 = base64::encode(&psbt_bytes);
 
         Ok(psbt_base64)
+    }
+}
+
+impl Wallet for SimpleWallet {
+    /// Get wallet address
+    fn get_address(&self) -> Result<String> {
+        // Create a P2WPKH address from the public key
+        let address = Address::p2wpkh(&self.public_key, self.network)
+            .context("Failed to create P2WPKH address")?;
+        
+        Ok(address.to_string())
+    }
+
+    /// Get wallet balance
+    fn get_balance(&self) -> Result<u64> {
+        // In a real implementation, we would query the blockchain
+        // For now, just return a dummy balance
+        Ok(100_000_000) // 1 BTC
+    }
+
+    /// Get wallet UTXOs
+    fn get_utxos(&self) -> Result<Vec<Utxo>> {
+        // In a real implementation, we would query the blockchain
+        // For now, just return a dummy UTXO
+        let utxo = Utxo {
+            txid: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+            vout: 0,
+            amount: 100_000_000, // 1 BTC
+            script_pubkey: "00140000000000000000000000000000000000000000".to_string(),
+        };
+        
+        Ok(vec![utxo])
     }
 }
 
@@ -132,11 +168,11 @@ impl WalletInterface for SimpleWallet {
     /// Create and sign a PSBT for an order
     async fn create_order_psbt(
         &self,
-        order_id: &OrderId,
+        _order_id: &OrderId,
         base_asset: &Asset,
-        quote_asset: &Asset,
+        _quote_asset: &Asset,
         amount: u64,
-        price: u64,
+        _price: u64,
     ) -> Result<String> {
         // Check if we have enough balance
         let balances = self.balances.lock().await;
@@ -154,9 +190,9 @@ impl WalletInterface for SimpleWallet {
     /// Create and sign a PSBT for a trade
     async fn create_trade_psbt(
         &self,
-        trade_id: &TradeId,
-        order_id: &OrderId,
-        base_asset: &Asset,
+        _trade_id: &TradeId,
+        _order_id: &OrderId,
+        _base_asset: &Asset,
         quote_asset: &Asset,
         amount: u64,
         price: u64,

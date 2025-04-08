@@ -1,41 +1,42 @@
 /**
- * DarkSwapWasm - TypeScript wrapper for the DarkSwap WebAssembly module
+ * DarkSwapWasm.ts - DarkSwap WebAssembly interface
  * 
- * This file provides a TypeScript wrapper for the DarkSwap WebAssembly module,
- * making it easier to use from TypeScript code.
+ * This file provides a high-level interface to the DarkSwap WebAssembly module.
  */
 
-import * as wasm from '../wasm-bindings/darkswap_wasm';
-import { Event as EventType, EventType as EventTypeEnum, GenericEventListener } from './EventTypes';
-import { 
-  DarkSwapError, 
-  ErrorCode, 
-  WasmError, 
-  OrderError, 
-  NetworkError, 
-  createError, 
-  logError, 
-  tryAsync 
-} from '../utils/ErrorHandling';
+import DarkSwapWasmModule from './DarkSwapWasmModule';
+import { WasmError, OrderError, NetworkError, WalletError, TradeError, ErrorCode } from '../utils/ErrorHandling';
+import { EventEmitter } from 'events';
 
-// Re-export types from the WebAssembly module
-export type JsConfig = wasm.JsConfig;
-export type JsDarkSwap = wasm.JsDarkSwap;
+/**
+ * Bitcoin network
+ */
+export enum BitcoinNetwork {
+  Mainnet = 0,
+  Testnet = 1,
+  Regtest = 2,
+}
 
-// Asset type enum
+/**
+ * Asset type
+ */
 export enum AssetType {
   Bitcoin = 0,
   Rune = 1,
   Alkane = 2,
 }
 
-// Order side enum
+/**
+ * Order side
+ */
 export enum OrderSide {
   Buy = 0,
   Sell = 1,
 }
 
-// Order status enum
+/**
+ * Order status
+ */
 export enum OrderStatus {
   Open = 0,
   Filled = 1,
@@ -43,306 +44,281 @@ export enum OrderStatus {
   Expired = 3,
 }
 
-// Bitcoin network enum
-export enum BitcoinNetwork {
-  Mainnet = 0,
-  Testnet = 1,
-  Regtest = 2,
-  Signet = 3,
-}
-
-// Order interface
-export interface Order {
-  id: string;
-  side: OrderSide;
-  baseAsset: string;
-  quoteAsset: string;
-  amount: string;
-  price: string;
-  timestamp: number;
-  status: OrderStatus;
-  maker: string;
-}
-
-// Trade interface
-export interface Trade {
-  id: string;
-  orderId: string;
-  side: OrderSide;
-  baseAsset: string;
-  quoteAsset: string;
-  amount: string;
-  price: string;
-  timestamp: number;
-  maker: string;
-  taker: string;
-}
-
-// Configuration interface
-export interface Config {
-  bitcoinNetwork: BitcoinNetwork;
-  relayUrl: string;
-  listenAddresses: string[];
-  bootstrapPeers: string[];
-  walletPath?: string;
-  walletPassword?: string;
-  debug: boolean;
+/**
+ * Trade status
+ */
+export enum TradeStatus {
+  Pending = 0,
+  Completed = 1,
+  Failed = 2,
 }
 
 /**
- * DarkSwap WebAssembly wrapper class
+ * Event type
  */
-export class DarkSwapWasm {
-  private darkswap: JsDarkSwap | null = null;
-  private eventListeners: Map<string, GenericEventListener[]> = new Map();
+export type EventType = 'order' | 'trade' | 'error' | 'connection' | 'wallet';
+
+/**
+ * Configuration for DarkSwap
+ */
+export interface Config {
+  /**
+   * Bitcoin network
+   */
+  bitcoinNetwork: BitcoinNetwork;
+  
+  /**
+   * Relay URL
+   */
+  relayUrl: string;
+  
+  /**
+   * Listen addresses
+   */
+  listenAddresses: string[];
+  
+  /**
+   * Bootstrap peers
+   */
+  bootstrapPeers: string[];
+  
+  /**
+   * Wallet path
+   */
+  walletPath?: string;
+  
+  /**
+   * Wallet password
+   */
+  walletPassword?: string;
+  
+  /**
+   * Debug mode
+   */
+  debug?: boolean;
+  
+  /**
+   * WebAssembly memory options
+   */
+  memory?: {
+    /**
+     * Initial memory size in pages (64KB per page)
+     */
+    initialPages?: number;
+    
+    /**
+     * Maximum memory size in pages (64KB per page)
+     */
+    maximumPages?: number;
+    
+    /**
+     * Whether to use shared memory
+     */
+    shared?: boolean;
+  };
+}
+
+/**
+ * Order
+ */
+export interface Order {
+  /**
+   * Order ID
+   */
+  id: string;
+  
+  /**
+   * Order side
+   */
+  side: OrderSide;
+  
+  /**
+   * Base asset
+   */
+  baseAsset: string;
+  
+  /**
+   * Quote asset
+   */
+  quoteAsset: string;
+  
+  /**
+   * Amount
+   */
+  amount: string;
+  
+  /**
+   * Price
+   */
+  price: string;
+  
+  /**
+   * Timestamp
+   */
+  timestamp: number;
+  
+  /**
+   * Status
+   */
+  status: OrderStatus;
+  
+  /**
+   * Maker
+   */
+  maker: string;
+}
+
+/**
+ * Trade
+ */
+export interface Trade {
+  /**
+   * Trade ID
+   */
+  id: string;
+  
+  /**
+   * Order ID
+   */
+  orderId: string;
+  
+  /**
+   * Amount
+   */
+  amount: string;
+  
+  /**
+   * Price
+   */
+  price: string;
+  
+  /**
+   * Timestamp
+   */
+  timestamp: number;
+  
+  /**
+   * Status
+   */
+  status: TradeStatus;
+  
+  /**
+   * Maker
+   */
+  maker: string;
+  
+  /**
+   * Taker
+   */
+  taker: string;
+}
+
+/**
+ * DarkSwap WebAssembly interface
+ */
+export class DarkSwapWasm extends EventEmitter {
+  /**
+   * WebAssembly module
+   */
+  private wasmModule: DarkSwapWasmModule;
+  
+  /**
+   * DarkSwap instance
+   */
+  private darkswap: any;
+  
+  /**
+   * Whether the module is initialized
+   */
   private _isInitialized = false;
   
   /**
-   * Create a new DarkSwapWasm instance
-   * @param config Configuration
+   * Get whether the module is initialized
    */
-  constructor(config?: Config) {
-    if (config) {
-      this.initialize(config).catch(error => {
-        logError(error, 'DarkSwapWasm.constructor');
-      });
-    }
-  }
-  
-  /**
-   * Initialize the DarkSwap WebAssembly module
-   * @param config Configuration
-   * @returns Promise that resolves when the module is initialized
-   * @throws WasmError if initialization fails
-   */
-  public async initialize(config: Config): Promise<void> {
-    return tryAsync(async () => {
-      // Check if already initialized
-      if (this._isInitialized) {
-        throw new WasmError(
-          'DarkSwap is already initialized',
-          ErrorCode.AlreadyInitialized
-        );
-      }
-      
-      // Validate configuration
-      this.validateConfig(config);
-      
-      // Create configuration
-      const jsConfig = new wasm.JsConfig();
-      
-      // Set configuration
-      jsConfig.bitcoin_network = config.bitcoinNetwork as unknown as wasm.JsBitcoinNetwork;
-      jsConfig.relay_url = config.relayUrl;
-      
-      // Set listen addresses
-      const listenAddresses = new Array<string>();
-      config.listenAddresses.forEach(address => {
-        listenAddresses.push(address);
-      });
-      jsConfig.listen_addresses = listenAddresses;
-      
-      // Set bootstrap peers
-      const bootstrapPeers = new Array<string>();
-      config.bootstrapPeers.forEach(peer => {
-        bootstrapPeers.push(peer);
-      });
-      jsConfig.bootstrap_peers = bootstrapPeers;
-      
-      // Set wallet path and password
-      if (config.walletPath) {
-        jsConfig.wallet_path = config.walletPath;
-      }
-      
-      if (config.walletPassword) {
-        jsConfig.wallet_password = config.walletPassword;
-      }
-      
-      // Set debug mode
-      jsConfig.debug = config.debug;
-      
-      try {
-        // Create DarkSwap instance
-        this.darkswap = new wasm.JsDarkSwap(jsConfig);
-      } catch (error) {
-        throw new WasmError(
-          `Failed to create DarkSwap instance: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.WasmInitFailed,
-          { originalError: error }
-        );
-      }
-      
-      try {
-        // Set event callback
-        await this.darkswap.set_event_callback((event: any) => {
-          this.handleEvent(event);
-        });
-      } catch (error) {
-        throw new WasmError(
-          `Failed to set event callback: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.WasmInitFailed,
-          { originalError: error }
-        );
-      }
-      
-      try {
-        // Start DarkSwap
-        await this.darkswap.start();
-      } catch (error) {
-        throw new WasmError(
-          `Failed to start DarkSwap: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.WasmInitFailed,
-          { originalError: error }
-        );
-      }
-      
-      // Set initialized flag
-      this._isInitialized = true;
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.initialize');
-      
-      // Rethrow error
-      throw error;
-    });
-  }
-  
-  /**
-   * Check if the DarkSwap WebAssembly module is initialized
-   * @returns True if initialized, false otherwise
-   */
-  public get isInitialized(): boolean {
+  get isInitialized(): boolean {
     return this._isInitialized;
   }
   
   /**
-   * Stop the DarkSwap WebAssembly module
-   * @returns Promise that resolves when the module is stopped
-   * @throws WasmError if stopping fails
+   * Create a new DarkSwap WebAssembly interface
    */
-  public async stop(): Promise<void> {
-    return tryAsync(async () => {
-      // Check if initialized
-      if (!this._isInitialized) {
-        throw new WasmError(
-          'DarkSwap is not initialized',
-          ErrorCode.NotInitialized
-        );
-      }
-      
-      if (!this.darkswap) {
-        throw new WasmError(
-          'DarkSwap instance is null',
-          ErrorCode.NotInitialized
-        );
-      }
-      
-      try {
-        // Stop DarkSwap
-        await this.darkswap.stop();
-      } catch (error) {
-        throw new WasmError(
-          `Failed to stop DarkSwap: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.WasmExecutionFailed,
-          { originalError: error }
-        );
-      }
-      
-      // Clear event listeners
-      this.eventListeners.clear();
-      
-      // Clear DarkSwap instance
-      this.darkswap = null;
-      
-      // Clear initialized flag
-      this._isInitialized = false;
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.stop');
-      
-      // Rethrow error
-      throw error;
-    });
+  constructor() {
+    super();
+    
+    // Create WebAssembly module
+    this.wasmModule = new DarkSwapWasmModule();
   }
   
   /**
-   * Add an event listener
-   * @param type Event type
-   * @param listener Event listener
-   * @throws DarkSwapError if adding the listener fails
+   * Initialize DarkSwap
+   * @param config - Configuration
+   * @returns Promise that resolves when DarkSwap is initialized
+   * @throws WasmError if initialization fails
    */
-  public on(type: EventTypeEnum | string, listener: GenericEventListener): void {
+  async initialize(config: Config): Promise<void> {
     try {
-      // Get listeners for this event type
-      const listeners = this.eventListeners.get(type) || [];
+      // Initialize WebAssembly module
+      await this.wasmModule.initialize({
+        initialMemory: config.memory?.initialPages,
+        maximumMemory: config.memory?.maximumPages,
+        sharedMemory: config.memory?.shared,
+      });
       
-      // Add listener
-      listeners.push(listener);
+      // Get WebAssembly module
+      const module = this.wasmModule.getModule();
       
-      // Update listeners
-      this.eventListeners.set(type, listeners);
+      // Create configuration
+      const jsConfig = new module.JsConfig();
+      jsConfig.bitcoin_network = config.bitcoinNetwork;
+      jsConfig.relay_url = config.relayUrl;
+      jsConfig.listen_addresses = config.listenAddresses;
+      jsConfig.bootstrap_peers = config.bootstrapPeers;
+      jsConfig.wallet_path = config.walletPath;
+      jsConfig.wallet_password = config.walletPassword;
+      jsConfig.debug = config.debug || false;
+      
+      // Create DarkSwap instance
+      this.darkswap = new module.JsDarkSwap(jsConfig);
+      
+      // Set event callback
+      await this.darkswap.set_event_callback((event: any) => {
+        // Emit event
+        this.emit(event.type, event);
+        
+        // Emit specific event
+        if (event.data) {
+          this.emit(event.type, event.data);
+        }
+      });
+      
+      // Start DarkSwap
+      await this.darkswap.start();
+      
+      // Set initialized flag
+      this._isInitialized = true;
     } catch (error) {
-      const darkswapError = createError(
-        error,
-        `Failed to add event listener for type ${type}`,
-        ErrorCode.Unknown
+      // Throw WasmError
+      throw new WasmError(
+        `Failed to initialize DarkSwap: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.WasmInitFailed,
+        { originalError: error }
       );
-      
-      // Log error
-      logError(darkswapError, 'DarkSwapWasm.on');
-      
-      // Rethrow error
-      throw darkswapError;
-    }
-  }
-  
-  /**
-   * Remove an event listener
-   * @param type Event type
-   * @param listener Event listener
-   * @throws DarkSwapError if removing the listener fails
-   */
-  public off(type: EventTypeEnum | string, listener: GenericEventListener): void {
-    try {
-      // Get listeners for this event type
-      const listeners = this.eventListeners.get(type) || [];
-      
-      // Remove listener
-      const index = listeners.indexOf(listener);
-      if (index !== -1) {
-        listeners.splice(index, 1);
-      }
-      
-      // Update listeners
-      this.eventListeners.set(type, listeners);
-    } catch (error) {
-      const darkswapError = createError(
-        error,
-        `Failed to remove event listener for type ${type}`,
-        ErrorCode.Unknown
-      );
-      
-      // Log error
-      logError(darkswapError, 'DarkSwapWasm.off');
-      
-      // Rethrow error
-      throw darkswapError;
     }
   }
   
   /**
    * Create an order
-   * @param side Order side
-   * @param baseAssetType Base asset type
-   * @param baseAssetId Base asset ID
-   * @param quoteAssetType Quote asset type
-   * @param quoteAssetId Quote asset ID
-   * @param amount Amount
-   * @param price Price
-   * @returns Promise that resolves with the order ID
-   * @throws OrderError if creating the order fails
+   * @param side - Order side
+   * @param baseAssetType - Base asset type
+   * @param baseAssetId - Base asset ID
+   * @param quoteAssetType - Quote asset type
+   * @param quoteAssetId - Quote asset ID
+   * @param amount - Amount
+   * @param price - Price
+   * @returns Promise that resolves to the order ID
+   * @throws OrderError if order creation fails
    */
-  public async createOrder(
+  async createOrder(
     side: OrderSide,
     baseAssetType: AssetType,
     baseAssetId: string,
@@ -351,449 +327,203 @@ export class DarkSwapWasm {
     amount: string,
     price: string,
   ): Promise<string> {
-    return tryAsync(async () => {
-      // Check if initialized
-      this.checkInitialized();
-      
-      // Validate parameters
-      this.validateOrderParameters(side, baseAssetType, baseAssetId, quoteAssetType, quoteAssetId, amount, price);
-      
-      try {
-        // Create order
-        return await this.darkswap!.create_order(
-          side as unknown as wasm.JsOrderSide,
-          baseAssetType as unknown as wasm.JsAssetType,
-          baseAssetId,
-          quoteAssetType as unknown as wasm.JsAssetType,
-          quoteAssetId,
-          amount,
-          price,
-        );
-      } catch (error) {
-        throw new OrderError(
-          `Failed to create order: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.OrderCreationFailed,
-          {
-            side,
-            baseAssetType,
-            baseAssetId,
-            quoteAssetType,
-            quoteAssetId,
-            amount,
-            price,
-            originalError: error,
-          }
-        );
-      }
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.createOrder');
-      
-      // Rethrow error
-      throw error;
-    });
+    // Check if initialized
+    if (!this._isInitialized || !this.darkswap) {
+      throw new OrderError('DarkSwap not initialized', ErrorCode.NotInitialized);
+    }
+    
+    // Validate parameters
+    if (!baseAssetId) {
+      throw new OrderError('Base asset ID is required', ErrorCode.InvalidOrderParameters);
+    }
+    
+    if (!quoteAssetId) {
+      throw new OrderError('Quote asset ID is required', ErrorCode.InvalidOrderParameters);
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      throw new OrderError('Amount must be greater than 0', ErrorCode.InvalidOrderParameters);
+    }
+    
+    if (!price || parseFloat(price) <= 0) {
+      throw new OrderError('Price must be greater than 0', ErrorCode.InvalidOrderParameters);
+    }
+    
+    try {
+      // Create order
+      return await this.darkswap.create_order(
+        side,
+        baseAssetType,
+        baseAssetId,
+        quoteAssetType,
+        quoteAssetId,
+        amount,
+        price,
+      );
+    } catch (error) {
+      // Throw OrderError
+      throw new OrderError(
+        `Failed to create order: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.OrderCreationFailed,
+        { originalError: error }
+      );
+    }
   }
   
   /**
    * Cancel an order
-   * @param orderId Order ID
+   * @param orderId - Order ID
    * @returns Promise that resolves when the order is cancelled
-   * @throws OrderError if cancelling the order fails
+   * @throws OrderError if order cancellation fails
    */
-  public async cancelOrder(orderId: string): Promise<void> {
-    return tryAsync(async () => {
-      // Check if initialized
-      this.checkInitialized();
-      
-      // Validate parameters
-      if (!orderId) {
-        throw new OrderError(
-          'Order ID is required',
-          ErrorCode.InvalidArgument
-        );
-      }
-      
-      try {
-        // Cancel order
-        await this.darkswap!.cancel_order(orderId);
-      } catch (error) {
-        throw new OrderError(
-          `Failed to cancel order: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.OrderCancellationFailed,
-          {
-            orderId,
-            originalError: error,
-          }
-        );
-      }
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.cancelOrder');
-      
-      // Rethrow error
-      throw error;
-    });
+  async cancelOrder(orderId: string): Promise<void> {
+    // Check if initialized
+    if (!this._isInitialized || !this.darkswap) {
+      throw new OrderError('DarkSwap not initialized', ErrorCode.NotInitialized);
+    }
+    
+    // Validate parameters
+    if (!orderId) {
+      throw new OrderError('Order ID is required', ErrorCode.InvalidOrderParameters);
+    }
+    
+    try {
+      // Cancel order
+      await this.darkswap.cancel_order(orderId);
+    } catch (error) {
+      // Throw OrderError
+      throw new OrderError(
+        `Failed to cancel order: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.OrderCancellationFailed,
+        { originalError: error }
+      );
+    }
   }
   
   /**
-   * Get an order by ID
-   * @param orderId Order ID
-   * @returns Promise that resolves with the order
-   * @throws OrderError if getting the order fails
+   * Get an order
+   * @param orderId - Order ID
+   * @returns Promise that resolves to the order
+   * @throws OrderError if order retrieval fails
    */
-  public async getOrder(orderId: string): Promise<Order> {
-    return tryAsync(async () => {
-      // Check if initialized
-      this.checkInitialized();
-      
-      // Validate parameters
-      if (!orderId) {
-        throw new OrderError(
-          'Order ID is required',
-          ErrorCode.InvalidArgument
-        );
-      }
-      
-      try {
-        // Get order
-        const order = await this.darkswap!.get_order(orderId);
-        
-        // Convert to Order interface
-        return {
-          id: order.id,
-          side: order.side as unknown as OrderSide,
-          baseAsset: order.baseAsset,
-          quoteAsset: order.quoteAsset,
-          amount: order.amount,
-          price: order.price,
-          timestamp: order.timestamp,
-          status: order.status as unknown as OrderStatus,
-          maker: order.maker,
-        };
-      } catch (error) {
-        throw new OrderError(
-          `Failed to get order: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.OrderNotFound,
-          {
-            orderId,
-            originalError: error,
-          }
-        );
-      }
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.getOrder');
-      
-      // Rethrow error
-      throw error;
-    });
+  async getOrder(orderId: string): Promise<Order> {
+    // Check if initialized
+    if (!this._isInitialized || !this.darkswap) {
+      throw new OrderError('DarkSwap not initialized', ErrorCode.NotInitialized);
+    }
+    
+    // Validate parameters
+    if (!orderId) {
+      throw new OrderError('Order ID is required', ErrorCode.InvalidOrderParameters);
+    }
+    
+    try {
+      // Get order
+      return await this.darkswap.get_order(orderId);
+    } catch (error) {
+      // Throw OrderError
+      throw new OrderError(
+        `Failed to get order: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.OrderNotFound,
+        { originalError: error }
+      );
+    }
   }
   
   /**
    * Get orders
-   * @param side Order side
-   * @param baseAssetType Base asset type
-   * @param baseAssetId Base asset ID
-   * @param quoteAssetType Quote asset type
-   * @param quoteAssetId Quote asset ID
-   * @returns Promise that resolves with the orders
-   * @throws OrderError if getting the orders fails
+   * @param side - Order side
+   * @param baseAssetType - Base asset type
+   * @param baseAssetId - Base asset ID
+   * @param quoteAssetType - Quote asset type
+   * @param quoteAssetId - Quote asset ID
+   * @returns Promise that resolves to the orders
+   * @throws OrderError if order retrieval fails
    */
-  public async getOrders(
+  async getOrders(
     side?: OrderSide,
     baseAssetType?: AssetType,
     baseAssetId?: string,
     quoteAssetType?: AssetType,
     quoteAssetId?: string,
   ): Promise<Order[]> {
-    return tryAsync(async () => {
-      // Check if initialized
-      this.checkInitialized();
-      
-      try {
-        // Get orders
-        const orders = await this.darkswap!.get_orders(
-          side as unknown as wasm.JsOrderSide | null,
-          baseAssetType as unknown as wasm.JsAssetType | null,
-          baseAssetId || null,
-          quoteAssetType as unknown as wasm.JsAssetType | null,
-          quoteAssetId || null,
-        );
-        
-        // Convert to Order interface
-        return orders.map(order => ({
-          id: order.id,
-          side: order.side as unknown as OrderSide,
-          baseAsset: order.baseAsset,
-          quoteAsset: order.quoteAsset,
-          amount: order.amount,
-          price: order.price,
-          timestamp: order.timestamp,
-          status: order.status as unknown as OrderStatus,
-          maker: order.maker,
-        }));
-      } catch (error) {
-        throw new OrderError(
-          `Failed to get orders: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.Unknown,
-          {
-            side,
-            baseAssetType,
-            baseAssetId,
-            quoteAssetType,
-            quoteAssetId,
-            originalError: error,
-          }
-        );
-      }
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.getOrders');
-      
-      // Rethrow error
-      throw error;
-    });
+    // Check if initialized
+    if (!this._isInitialized || !this.darkswap) {
+      throw new OrderError('DarkSwap not initialized', ErrorCode.NotInitialized);
+    }
+    
+    try {
+      // Get orders
+      return await this.darkswap.get_orders(
+        side,
+        baseAssetType,
+        baseAssetId || null,
+        quoteAssetType,
+        quoteAssetId || null,
+      );
+    } catch (error) {
+      // Throw OrderError
+      throw new OrderError(
+        `Failed to get orders: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.OrderNotFound,
+        { originalError: error }
+      );
+    }
   }
   
   /**
    * Take an order
-   * @param orderId Order ID
-   * @param amount Amount to take
-   * @returns Promise that resolves with the trade ID
-   * @throws OrderError if taking the order fails
+   * @param orderId - Order ID
+   * @param amount - Amount
+   * @returns Promise that resolves to the trade ID
+   * @throws OrderError if order execution fails
    */
-  public async takeOrder(orderId: string, amount: string): Promise<string> {
-    return tryAsync(async () => {
-      // Check if initialized
-      this.checkInitialized();
-      
-      // Validate parameters
-      if (!orderId) {
-        throw new OrderError(
-          'Order ID is required',
-          ErrorCode.InvalidArgument
-        );
-      }
-      
-      if (!amount || parseFloat(amount) <= 0) {
-        throw new OrderError(
-          'Amount must be greater than 0',
-          ErrorCode.InvalidArgument,
-          { amount }
-        );
-      }
-      
-      try {
-        // Take order
-        return await this.darkswap!.take_order(orderId, amount);
-      } catch (error) {
-        throw new OrderError(
-          `Failed to take order: ${error instanceof Error ? error.message : String(error)}`,
-          ErrorCode.OrderExecutionFailed,
-          {
-            orderId,
-            amount,
-            originalError: error,
-          }
-        );
-      }
-    }, error => {
-      // Log error
-      logError(error, 'DarkSwapWasm.takeOrder');
-      
-      // Rethrow error
-      throw error;
-    });
-  }
-  
-  /**
-   * Handle an event from the WebAssembly module
-   * @param event Event
-   */
-  private handleEvent(event: any): void {
+  async takeOrder(orderId: string, amount: string): Promise<string> {
+    // Check if initialized
+    if (!this._isInitialized || !this.darkswap) {
+      throw new OrderError('DarkSwap not initialized', ErrorCode.NotInitialized);
+    }
+    
+    // Validate parameters
+    if (!orderId) {
+      throw new OrderError('Order ID is required', ErrorCode.InvalidOrderParameters);
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      throw new OrderError('Amount must be greater than 0', ErrorCode.InvalidOrderParameters);
+    }
+    
     try {
-      // Parse event
-      const parsedEvent: EventType = {
-        type: event.type,
-        data: event.data,
-      } as EventType;
-      
-      // Get listeners for this event type
-      const listeners = this.eventListeners.get(parsedEvent.type) || [];
-      
-      // Call listeners
-      listeners.forEach(listener => {
-        try {
-          listener(parsedEvent);
-        } catch (error) {
-          logError(error, `DarkSwapWasm.handleEvent.listener(${parsedEvent.type})`);
-        }
-      });
+      // Take order
+      return await this.darkswap.take_order(orderId, amount);
     } catch (error) {
-      logError(error, 'DarkSwapWasm.handleEvent');
-    }
-  }
-  
-  /**
-   * Check if the DarkSwap WebAssembly module is initialized
-   * @throws WasmError if not initialized
-   */
-  private checkInitialized(): void {
-    if (!this._isInitialized) {
-      throw new WasmError(
-        'DarkSwap is not initialized',
-        ErrorCode.NotInitialized
-      );
-    }
-    
-    if (!this.darkswap) {
-      throw new WasmError(
-        'DarkSwap instance is null',
-        ErrorCode.NotInitialized
+      // Throw OrderError
+      throw new OrderError(
+        `Failed to take order: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCode.OrderExecutionFailed,
+        { originalError: error }
       );
     }
   }
   
   /**
-   * Validate configuration
-   * @param config Configuration
-   * @throws DarkSwapError if configuration is invalid
+   * Register an event handler
+   * @param event - Event type
+   * @param handler - Event handler
+   * @returns Function to remove the event handler
    */
-  private validateConfig(config: Config): void {
-    if (!config) {
-      throw new DarkSwapError(
-        'Configuration is required',
-        ErrorCode.InvalidArgument
-      );
-    }
+  on(event: EventType, handler: (event: any) => void): () => void {
+    // Add event listener
+    super.on(event, handler);
     
-    if (config.bitcoinNetwork === undefined) {
-      throw new DarkSwapError(
-        'Bitcoin network is required',
-        ErrorCode.InvalidArgument,
-        { config }
-      );
-    }
-    
-    if (!config.relayUrl) {
-      throw new DarkSwapError(
-        'Relay URL is required',
-        ErrorCode.InvalidArgument,
-        { config }
-      );
-    }
-    
-    if (!config.listenAddresses) {
-      throw new DarkSwapError(
-        'Listen addresses are required',
-        ErrorCode.InvalidArgument,
-        { config }
-      );
-    }
-    
-    if (!config.bootstrapPeers) {
-      throw new DarkSwapError(
-        'Bootstrap peers are required',
-        ErrorCode.InvalidArgument,
-        { config }
-      );
-    }
-  }
-  
-  /**
-   * Validate order parameters
-   * @param side Order side
-   * @param baseAssetType Base asset type
-   * @param baseAssetId Base asset ID
-   * @param quoteAssetType Quote asset type
-   * @param quoteAssetId Quote asset ID
-   * @param amount Amount
-   * @param price Price
-   * @throws OrderError if parameters are invalid
-   */
-  private validateOrderParameters(
-    side: OrderSide,
-    baseAssetType: AssetType,
-    baseAssetId: string,
-    quoteAssetType: AssetType,
-    quoteAssetId: string,
-    amount: string,
-    price: string,
-  ): void {
-    if (side === undefined) {
-      throw new OrderError(
-        'Order side is required',
-        ErrorCode.InvalidOrderParameters,
-        { side }
-      );
-    }
-    
-    if (baseAssetType === undefined) {
-      throw new OrderError(
-        'Base asset type is required',
-        ErrorCode.InvalidOrderParameters,
-        { baseAssetType }
-      );
-    }
-    
-    if (!baseAssetId) {
-      throw new OrderError(
-        'Base asset ID is required',
-        ErrorCode.InvalidOrderParameters,
-        { baseAssetId }
-      );
-    }
-    
-    if (quoteAssetType === undefined) {
-      throw new OrderError(
-        'Quote asset type is required',
-        ErrorCode.InvalidOrderParameters,
-        { quoteAssetType }
-      );
-    }
-    
-    if (!quoteAssetId) {
-      throw new OrderError(
-        'Quote asset ID is required',
-        ErrorCode.InvalidOrderParameters,
-        { quoteAssetId }
-      );
-    }
-    
-    if (!amount) {
-      throw new OrderError(
-        'Amount is required',
-        ErrorCode.InvalidOrderParameters,
-        { amount }
-      );
-    }
-    
-    const amountValue = parseFloat(amount);
-    if (isNaN(amountValue) || amountValue <= 0) {
-      throw new OrderError(
-        'Amount must be a positive number',
-        ErrorCode.InvalidOrderParameters,
-        { amount }
-      );
-    }
-    
-    if (!price) {
-      throw new OrderError(
-        'Price is required',
-        ErrorCode.InvalidOrderParameters,
-        { price }
-      );
-    }
-    
-    const priceValue = parseFloat(price);
-    if (isNaN(priceValue) || priceValue <= 0) {
-      throw new OrderError(
-        'Price must be a positive number',
-        ErrorCode.InvalidOrderParameters,
-        { price }
-      );
-    }
+    // Return function to remove event listener
+    return () => {
+      this.off(event, handler);
+    };
   }
 }
 
+/**
+ * Default export
+ */
 export default DarkSwapWasm;

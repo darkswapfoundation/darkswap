@@ -1,36 +1,39 @@
 /**
- * ErrorHandling - Error handling utilities
+ * ErrorHandling.ts - Error handling utilities
  * 
  * This file provides error handling utilities for the DarkSwap application.
  */
 
-// Error codes
+/**
+ * Error codes
+ */
 export enum ErrorCode {
   // General errors
   Unknown = 0,
   NotInitialized = 1,
   AlreadyInitialized = 2,
-  InvalidArgument = 3,
-  Timeout = 4,
+  AlreadyInitializing = 3,
+  InvalidArgument = 4,
+  Timeout = 5,
+  CircuitBreakerOpen = 6,
   
   // WebAssembly errors
   WasmLoadFailed = 100,
   WasmInitFailed = 101,
   WasmExecutionFailed = 102,
+  WasmShutdownFailed = 103,
   
   // Network errors
   NetworkError = 200,
   ConnectionFailed = 201,
   ConnectionClosed = 202,
-  PeerNotFound = 203,
-  RelayNotFound = 204,
+  ConnectionTimeout = 203,
   
   // Wallet errors
   WalletNotConnected = 300,
   WalletConnectionFailed = 301,
   WalletSigningFailed = 302,
-  InsufficientFunds = 303,
-  InvalidAddress = 304,
+  WalletInsufficientFunds = 303,
   
   // Order errors
   OrderNotFound = 400,
@@ -41,15 +44,31 @@ export enum ErrorCode {
   
   // Trade errors
   TradeNotFound = 500,
-  TradeExecutionFailed = 501,
-  TradeValidationFailed = 502,
+  TradeCreationFailed = 501,
+  TradeExecutionFailed = 502,
+  TradeSettlementFailed = 503,
 }
 
-// Base error class
+/**
+ * Base error class for DarkSwap
+ */
 export class DarkSwapError extends Error {
+  /**
+   * Error code
+   */
   public readonly code: ErrorCode;
+  
+  /**
+   * Error details
+   */
   public readonly details?: Record<string, any>;
   
+  /**
+   * Create a new DarkSwapError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
   constructor(message: string, code: ErrorCode = ErrorCode.Unknown, details?: Record<string, any>) {
     super(message);
     this.name = 'DarkSwapError';
@@ -61,31 +80,42 @@ export class DarkSwapError extends Error {
   }
   
   /**
-   * Get error details as a string
-   * @returns Error details as a string
+   * Get details as a string
+   * @returns Details as a string
    */
-  public getDetailsString(): string {
-    if (!this.details) return '';
-    
-    try {
-      return JSON.stringify(this.details, null, 2);
-    } catch (err) {
-      return `Error serializing details: ${err instanceof Error ? err.message : String(err)}`;
+  getDetailsString(): string {
+    if (!this.details) {
+      return '';
     }
+    
+    return JSON.stringify(this.details, null, 2);
   }
   
   /**
    * Get full error message including details
    * @returns Full error message
    */
-  public getFullMessage(): string {
+  getFullMessage(): string {
     const detailsString = this.getDetailsString();
-    return detailsString ? `${this.message}\nDetails: ${detailsString}` : this.message;
+    
+    if (!detailsString) {
+      return this.message;
+    }
+    
+    return `${this.message}\nDetails: ${detailsString}`;
   }
 }
 
-// WebAssembly error class
+/**
+ * WebAssembly error
+ */
 export class WasmError extends DarkSwapError {
+  /**
+   * Create a new WasmError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
   constructor(message: string, code: ErrorCode = ErrorCode.WasmExecutionFailed, details?: Record<string, any>) {
     super(message, code, details);
     this.name = 'WasmError';
@@ -95,8 +125,16 @@ export class WasmError extends DarkSwapError {
   }
 }
 
-// Network error class
+/**
+ * Network error
+ */
 export class NetworkError extends DarkSwapError {
+  /**
+   * Create a new NetworkError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
   constructor(message: string, code: ErrorCode = ErrorCode.NetworkError, details?: Record<string, any>) {
     super(message, code, details);
     this.name = 'NetworkError';
@@ -106,19 +144,16 @@ export class NetworkError extends DarkSwapError {
   }
 }
 
-// Wallet error class
-export class WalletError extends DarkSwapError {
-  constructor(message: string, code: ErrorCode = ErrorCode.WalletNotConnected, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'WalletError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, WalletError.prototype);
-  }
-}
-
-// Order error class
+/**
+ * Order error
+ */
 export class OrderError extends DarkSwapError {
+  /**
+   * Create a new OrderError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
   constructor(message: string, code: ErrorCode = ErrorCode.OrderNotFound, details?: Record<string, any>) {
     super(message, code, details);
     this.name = 'OrderError';
@@ -128,8 +163,35 @@ export class OrderError extends DarkSwapError {
   }
 }
 
-// Trade error class
+/**
+ * Wallet error
+ */
+export class WalletError extends DarkSwapError {
+  /**
+   * Create a new WalletError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
+  constructor(message: string, code: ErrorCode = ErrorCode.WalletNotConnected, details?: Record<string, any>) {
+    super(message, code, details);
+    this.name = 'WalletError';
+    
+    // Ensure the prototype chain is properly set up
+    Object.setPrototypeOf(this, WalletError.prototype);
+  }
+}
+
+/**
+ * Trade error
+ */
 export class TradeError extends DarkSwapError {
+  /**
+   * Create a new TradeError
+   * @param message - Error message
+   * @param code - Error code
+   * @param details - Error details
+   */
   constructor(message: string, code: ErrorCode = ErrorCode.TradeNotFound, details?: Record<string, any>) {
     super(message, code, details);
     this.name = 'TradeError';
@@ -140,21 +202,23 @@ export class TradeError extends DarkSwapError {
 }
 
 /**
- * Create an error from an unknown error
- * @param error Unknown error
- * @param defaultMessage Default message
- * @param defaultCode Default error code
+ * Create a DarkSwapError from any error
+ * @param error - Error to convert
+ * @param defaultMessage - Default message if error is not an Error
+ * @param defaultCode - Default error code
  * @returns DarkSwapError
  */
 export function createError(
   error: unknown,
-  defaultMessage = 'An unknown error occurred',
-  defaultCode = ErrorCode.Unknown,
+  defaultMessage: string = 'An unknown error occurred',
+  defaultCode: ErrorCode = ErrorCode.Unknown,
 ): DarkSwapError {
+  // If error is already a DarkSwapError, return it
   if (error instanceof DarkSwapError) {
     return error;
   }
   
+  // If error is an Error, create a DarkSwapError from it
   if (error instanceof Error) {
     return new DarkSwapError(error.message, defaultCode, {
       originalError: {
@@ -164,63 +228,72 @@ export function createError(
     });
   }
   
-  return new DarkSwapError(
-    typeof error === 'string' ? error : defaultMessage,
-    defaultCode,
-    typeof error === 'object' && error !== null ? { originalError: error } : undefined,
-  );
+  // If error is a string, create a DarkSwapError from it
+  if (typeof error === 'string') {
+    return new DarkSwapError(error, defaultCode);
+  }
+  
+  // Otherwise, create a DarkSwapError with the default message
+  return new DarkSwapError(defaultMessage, defaultCode, { originalError: error });
 }
 
 /**
  * Log an error
- * @param error Error to log
- * @param context Context information
+ * @param error - Error to log
+ * @param context - Error context
  */
 export function logError(error: unknown, context?: string): void {
+  // Convert error to DarkSwapError
   const darkswapError = createError(error);
   
+  // Log error
   if (context) {
     console.error(`[${context}] ${darkswapError.name}: ${darkswapError.message}`);
   } else {
     console.error(`${darkswapError.name}: ${darkswapError.message}`);
   }
   
+  // Log details if available
   if (darkswapError.details) {
     console.error('Error details:', darkswapError.details);
   }
   
+  // Log stack trace if available
   if (darkswapError.stack) {
     console.error('Stack trace:', darkswapError.stack);
   }
 }
 
 /**
- * Try to execute a function and handle errors
- * @param fn Function to execute
- * @param errorHandler Error handler
+ * Try to execute an async function and handle errors
+ * @param fn - Function to execute
+ * @param errorHandler - Error handler
  * @returns Result of the function
  */
 export async function tryAsync<T>(
   fn: () => Promise<T>,
-  errorHandler?: (error: DarkSwapError) => Promise<T> | T,
+  errorHandler?: (error: DarkSwapError) => Promise<T>,
 ): Promise<T> {
   try {
     return await fn();
   } catch (error) {
+    // Convert error to DarkSwapError
     const darkswapError = createError(error);
     
+    // Handle error if handler is provided
     if (errorHandler) {
-      return errorHandler(darkswapError);
+      return await errorHandler(darkswapError);
     }
     
+    // Otherwise, rethrow error
     throw darkswapError;
   }
 }
 
 /**
- * Try to execute a function and handle errors
- * @param fn Function to execute
- * @param errorHandler Error handler
+ * Try to execute a sync function and handle errors
+ * @param fn - Function to execute
+ * @param errorHandler - Error handler
  * @returns Result of the function
  */
 export function trySync<T>(
@@ -230,12 +303,15 @@ export function trySync<T>(
   try {
     return fn();
   } catch (error) {
+    // Convert error to DarkSwapError
     const darkswapError = createError(error);
     
+    // Handle error if handler is provided
     if (errorHandler) {
       return errorHandler(darkswapError);
     }
     
+    // Otherwise, rethrow error
     throw darkswapError;
   }
 }

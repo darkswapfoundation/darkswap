@@ -1,0 +1,218 @@
+/* TradeForm.css - Styles for the TradeForm component */
+
+.trade-form {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trade-form-light {
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.trade-form-dark {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.trade-form-header {
+  padding: 16px;
+  border-bottom: 1px solid;
+}
+
+.trade-form-light .trade-form-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.trade-form-dark .trade-form-header {
+  border-bottom-color: #2d2d3d;
+}
+
+.trade-form-header h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.trade-form-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.trade-form-tabs button {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-form-tabs button.buy {
+  background-color: rgba(0, 200, 100, 0.1);
+  color: #00c864;
+}
+
+.trade-form-tabs button.sell {
+  background-color: rgba(255, 50, 50, 0.1);
+  color: #ff3232;
+}
+
+.trade-form-tabs button.active.buy {
+  background-color: #00c864;
+  color: white;
+}
+
+.trade-form-tabs button.active.sell {
+  background-color: #ff3232;
+  color: white;
+}
+
+.trade-form form {
+  padding: 16px;
+}
+
+.trade-form-group {
+  margin-bottom: 16px;
+}
+
+.trade-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.trade-form-input-group {
+  display: flex;
+  position: relative;
+}
+
+.trade-form-input-group input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.trade-form-light .trade-form-input-group input {
+  border-color: #e0e0e0;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.trade-form-dark .trade-form-input-group input {
+  border-color: #2d2d3d;
+  background-color: #252535;
+  color: #e0e0e0;
+}
+
+.trade-form-input-group input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.trade-form-max-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background-color: rgba(56, 97, 251, 0.1);
+  color: #3861fb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-form-max-button:hover {
+  background-color: rgba(56, 97, 251, 0.2);
+}
+
+.trade-form-balance {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  text-align: right;
+}
+
+.trade-form-error {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: rgba(255, 50, 50, 0.1);
+  color: #ff3232;
+  font-size: 14px;
+}
+
+.trade-form-submit-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-form-submit-button.buy {
+  background-color: #00c864;
+  color: white;
+}
+
+.trade-form-submit-button.sell {
+  background-color: #ff3232;
+  color: white;
+}
+
+.trade-form-submit-button.buy:hover {
+  background-color: #00b058;
+}
+
+.trade-form-submit-button.sell:hover {
+  background-color: #e62e2e;
+}
+
+.trade-form-submit-button:disabled {
+  background-color: #a0a0a0;
+  cursor: not-allowed;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .trade-form-header h3 {
+    font-size: 16px;
+  }
+  
+  .trade-form-tabs button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .trade-form-input-group input {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  
+  .trade-form-max-button {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+  
+  .trade-form-submit-button {
+    padding: 10px;
+    font-size: 14px;
+  }
+}

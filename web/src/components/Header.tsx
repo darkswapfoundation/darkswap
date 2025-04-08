@@ -1,74 +1,71 @@
-/**
- * Header - Component for the application header
- * 
- * This component displays the header of the application.
- */
-
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { withErrorBoundary } from './ErrorBoundary';
-import { useErrorToast } from './ErrorToast';
-import { DarkSwapError, ErrorCode } from '../utils/ErrorHandling';
+import React, { useState } from 'react';
+import { Link, NavLink } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
+import ThemeToggle from './ThemeToggle';
+import WebSocketStatus from './WebSocketStatus';
 import '../styles/Header.css';
 
-// Header props
-export interface HeaderProps {
-  /** CSS class name */
-  className?: string;
-}
-
-/**
- * Header component
- */
-const Header: React.FC<HeaderProps> = ({
-  className = '',
-}) => {
-  // Error toast
-  const { addToast } = useErrorToast();
+const Header: React.FC = () => {
+  const { theme } = useTheme();
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   
-  // Handle error
-  const handleError = () => {
-    // Create error
-    const error = new DarkSwapError(
-      'This is a test error',
-      ErrorCode.Unknown
-    );
-    
-    // Add toast
-    addToast({
-      error,
-      showDetails: true,
-      autoDismiss: true,
-    });
+  // Toggle mobile menu
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+  
+  // Close mobile menu
+  const closeMenu = () => {
+    setIsMenuOpen(false);
   };
   
   return (
-    <header className={`header ${className}`}>
-      <div className="container">
-        <div className="header-content">
-          <div className="header-logo">
-            <Link to="/" className="logo-link">
-              DarkSwap
-            </Link>
-          </div>
-          
-          <div className="header-actions">
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleError}
-              title="Test Error"
-            >
-              Test Error
-            </button>
-          </div>
+    <header className={`header header-${theme}`}>
+      <div className="header-container">
+        <div className="header-logo">
+          <Link to="/" onClick={closeMenu}>
+            <img src="/logo.svg" alt="DarkSwap" />
+            <span>DarkSwap</span>
+          </Link>
+        </div>
+        
+        <button
+          className={`header-menu-toggle ${isMenuOpen ? 'open' : ''}`}
+          onClick={toggleMenu}
+          aria-label="Toggle menu"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        
+        <nav className={`header-nav ${isMenuOpen ? 'open' : ''}`}>
+          <ul className="header-nav-list">
+            <li className="header-nav-item">
+              <NavLink to="/trade" onClick={closeMenu}>Trade</NavLink>
+            </li>
+            <li className="header-nav-item">
+              <NavLink to="/orders" onClick={closeMenu}>Orders</NavLink>
+            </li>
+            <li className="header-nav-item">
+              <NavLink to="/vault" onClick={closeMenu}>Vault</NavLink>
+            </li>
+            <li className="header-nav-item">
+              <NavLink to="/settings" onClick={closeMenu}>Settings</NavLink>
+            </li>
+            <li className="header-nav-item">
+              <NavLink to="/about" onClick={closeMenu}>About</NavLink>
+            </li>
+          </ul>
+        </nav>
+        
+        <div className="header-actions">
+          <WebSocketStatus size="small" />
+          <ThemeToggle size="small" />
         </div>
       </div>
     </header>
   );
 };
 
-// Export with error boundary
-export default withErrorBoundary(Header, {
-  componentName: 'Header',
-  showErrorDetails: false,
-});
+export default Header;

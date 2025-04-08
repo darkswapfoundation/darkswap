@@ -1,151 +1,225 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useNotification } from './NotificationContext';
 
 interface WebSocketContextType {
+  socket: WebSocket | null;
+  connected: boolean;
+  connecting: boolean;
+  error: Error | null;
   connect: () => void;
   disconnect: () => void;
-  send: (message: any) => void;
-  subscribe: (channel: string, callback: (data: any) => void) => void;
-  unsubscribe: (channel: string) => void;
-  connected: boolean;
-  message: any;
+  send: (type: string, data: any) => void;
+  on: (type: string, callback: (data: any) => void) => () => void;
 }
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
+const WebSocketContext = createContext<WebSocketContextType>({
+  socket: null,
+  connected: false,
+  connecting: false,
+  error: null,
+  connect: () => {},
+  disconnect: () => {},
+  send: () => {},
+  on: () => () => {},
+});
 
 interface WebSocketProviderProps {
-  children: ReactNode;
-  url: string;
+  url?: string;
+  autoConnect?: boolean;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  children: ReactNode;
 }
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
-  children,
-  url,
+  url = 'ws://localhost:8080/ws',
+  autoConnect = true,
   reconnectInterval = 5000,
-  maxReconnectAttempts = 5,
+  maxReconnectAttempts = 10,
+  children,
 }) => {
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [message, setMessage] = useState<any>(null);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [subscriptions, setSubscriptions] = useState<Record<string, (data: any) => void>>({});
-
+  const { addNotification } = useNotification();
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [connected, setConnected] = useState<boolean>(false);
+  const [connecting, setConnecting] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState<number>(0);
+  const [reconnectTimer, setReconnectTimer] = useState<NodeJS.Timeout | null>(null);
+  const [eventListeners] = useState<Map<string, Set<(data: any) => void>>>(new Map());
+  
+  // Connect to WebSocket
   const connect = useCallback(() => {
-    if (ws) {
-      ws.close();
+    // Clear any existing reconnect timer
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      setReconnectTimer(null);
     }
-
-    const socket = new WebSocket(url);
-
-    socket.onopen = () => {
-      console.log('WebSocket connected');
+    
+    // Don't connect if already connected or connecting
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    
+    // Set connecting state
+    setConnecting(true);
+    setError(null);
+    
+    // Create new WebSocket
+    const newSocket = new WebSocket(url);
+    
+    // Set up event handlers
+    newSocket.onopen = () => {
       setConnected(true);
+      setConnecting(false);
       setReconnectAttempts(0);
-      
-      // Resubscribe to channels
-      Object.keys(subscriptions).forEach(channel => {
-        socket.send(JSON.stringify({ type: 'subscribe', channel }));
+      addNotification({
+        type: 'success',
+        title: 'WebSocket Connected',
+        message: 'Connected to WebSocket server',
       });
     };
-
-    socket.onclose = () => {
-      console.log('WebSocket disconnected');
+    
+    newSocket.onclose = (event) => {
       setConnected(false);
+      setConnecting(false);
       
-      // Attempt to reconnect
+      // Don't attempt to reconnect if the close was clean
+      if (event.wasClean) {
+        return;
+      }
+      
+      // Attempt to reconnect if not at max attempts
       if (reconnectAttempts < maxReconnectAttempts) {
-        setTimeout(() => {
-          setReconnectAttempts(prev => prev + 1);
+        const timer = setTimeout(() => {
+          setReconnectAttempts(prevAttempts => prevAttempts + 1);
           connect();
         }, reconnectInterval);
+        
+        setReconnectTimer(timer);
+        
+        addNotification({
+          type: 'warning',
+          title: 'WebSocket Disconnected',
+          message: `Connection lost. Reconnecting... (${reconnectAttempts + 1}/${maxReconnectAttempts})`,
+        });
+      } else {
+        setError(new Error('Max reconnect attempts reached'));
+        addNotification({
+          type: 'error',
+          title: 'WebSocket Error',
+          message: 'Failed to connect to WebSocket server after multiple attempts',
+        });
       }
     };
-
-    socket.onmessage = (event) => {
+    
+    newSocket.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      setError(new Error('WebSocket error'));
+    };
+    
+    newSocket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        setMessage(data);
+        const message = JSON.parse(event.data);
+        const { type, data } = message;
         
-        // Handle subscriptions
-        if (data.channel && subscriptions[data.channel]) {
-          subscriptions[data.channel](data);
+        // Dispatch message to listeners
+        const listeners = eventListeners.get(type);
+        if (listeners) {
+          listeners.forEach(listener => {
+            try {
+              listener(data);
+            } catch (error) {
+              console.error(`Error in WebSocket listener for ${type}:`, error);
+            }
+          });
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }
     };
-
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    setWs(socket);
-  }, [url, reconnectAttempts, maxReconnectAttempts, reconnectInterval, subscriptions]);
-
+    
+    // Set socket
+    setSocket(newSocket);
+  }, [url, socket, reconnectTimer, reconnectAttempts, maxReconnectAttempts, reconnectInterval, eventListeners, addNotification]);
+  
+  // Disconnect from WebSocket
   const disconnect = useCallback(() => {
-    if (ws) {
-      ws.close();
-      setWs(null);
-      setConnected(false);
+    // Clear any existing reconnect timer
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      setReconnectTimer(null);
     }
-  }, [ws]);
-
-  const send = useCallback((message: any) => {
-    if (ws && connected) {
-      ws.send(typeof message === 'string' ? message : JSON.stringify(message));
+    
+    // Close socket if it exists
+    if (socket) {
+      socket.close();
+      setSocket(null);
+      setConnected(false);
+      setConnecting(false);
+    }
+  }, [socket, reconnectTimer]);
+  
+  // Send message to WebSocket
+  const send = useCallback((type: string, data: any) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type, data }));
     } else {
       console.error('WebSocket not connected');
     }
-  }, [ws, connected]);
-
-  const subscribe = useCallback((channel: string, callback: (data: any) => void) => {
-    setSubscriptions(prev => ({ ...prev, [channel]: callback }));
-    
-    if (ws && connected) {
-      send({ type: 'subscribe', channel });
+  }, [socket]);
+  
+  // Add event listener
+  const on = useCallback((type: string, callback: (data: any) => void) => {
+    // Get or create listeners set
+    let listeners = eventListeners.get(type);
+    if (!listeners) {
+      listeners = new Set();
+      eventListeners.set(type, listeners);
     }
-  }, [ws, connected, send]);
-
-  const unsubscribe = useCallback((channel: string) => {
-    setSubscriptions(prev => {
-      const newSubscriptions = { ...prev };
-      delete newSubscriptions[channel];
-      return newSubscriptions;
-    });
     
-    if (ws && connected) {
-      send({ type: 'unsubscribe', channel });
-    }
-  }, [ws, connected, send]);
-
-  useEffect(() => {
-    connect();
+    // Add listener
+    listeners.add(callback);
     
+    // Return unsubscribe function
     return () => {
-      if (ws) {
-        ws.close();
+      const listeners = eventListeners.get(type);
+      if (listeners) {
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          eventListeners.delete(type);
+        }
       }
     };
-  }, [connect]);
-
-  const value = {
-    connect,
-    disconnect,
-    send,
-    subscribe,
-    unsubscribe,
-    connected,
-    message,
-  };
-
-  return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
+  }, [eventListeners]);
+  
+  // Connect on mount if autoConnect is true
+  useEffect(() => {
+    if (autoConnect) {
+      connect();
+    }
+    
+    // Disconnect on unmount
+    return () => {
+      disconnect();
+    };
+  }, [autoConnect, connect, disconnect]);
+  
+  return (
+    <WebSocketContext.Provider value={{
+      socket,
+      connected,
+      connecting,
+      error,
+      connect,
+      disconnect,
+      send,
+      on,
+    }}>
+      {children}
+    </WebSocketContext.Provider>
+  );
 };
 
-export const useWebSocket = (): WebSocketContextType => {
-  const context = useContext(WebSocketContext);
-  if (context === undefined) {
-    throw new Error('useWebSocket must be used within a WebSocketProvider');
-  }
-  return context;
-};
+export const useWebSocket = () => useContext(WebSocketContext);
+
+export default WebSocketContext;

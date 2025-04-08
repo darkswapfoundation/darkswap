@@ -1,0 +1,112 @@
+/* WebSocketManager.css - Styles for the WebSocketManager component */
+
+.websocket-manager {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.websocket-manager-light {
+  background-color: #f5f5f5;
+  color: #333333;
+}
+
+.websocket-manager-dark {
+  background-color: #252535;
+  color: #e0e0e0;
+}
+
+.websocket-manager-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.websocket-manager-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.websocket-manager-indicator.connected {
+  background-color: #00c864;
+  box-shadow: 0 0 8px rgba(0, 200, 100, 0.5);
+}
+
+.websocket-manager-indicator.connecting {
+  background-color: #f7931a;
+  box-shadow: 0 0 8px rgba(247, 147, 26, 0.5);
+  animation: pulse 1.5s infinite;
+}
+
+.websocket-manager-indicator.disconnected {
+  background-color: #ff3232;
+  box-shadow: 0 0 8px rgba(255, 50, 50, 0.5);
+}
+
+.websocket-manager-status-text {
+  font-weight: 500;
+}
+
+.websocket-manager-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.websocket-manager-connect-button,
+.websocket-manager-disconnect-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.websocket-manager-connect-button {
+  background-color: #00c864;
+  color: white;
+}
+
+.websocket-manager-connect-button:hover:not(:disabled) {
+  background-color: #00b058;
+}
+
+.websocket-manager-disconnect-button {
+  background-color: #ff3232;
+  color: white;
+}
+
+.websocket-manager-disconnect-button:hover:not(:disabled) {
+  background-color: #e62e2e;
+}
+
+.websocket-manager-connect-button:disabled,
+.websocket-manager-disconnect-button:disabled {
+  background-color: #a0a0a0;
+  cursor: not-allowed;
+}
+
+.websocket-manager-error {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: rgba(255, 50, 50, 0.1);
+  color: #ff3232;
+  font-size: 14px;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}

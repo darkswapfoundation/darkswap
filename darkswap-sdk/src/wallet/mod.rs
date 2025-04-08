@@ -2,8 +2,6 @@
 //!
 //! This module provides wallet functionality for DarkSwap, including Bitcoin, runes, and alkanes.
 
-use std::fmt;
-
 use anyhow::Result;
 use async_trait::async_trait;
 use thiserror::Error;
@@ -13,6 +11,32 @@ use crate::types::{Asset, TradeId};
 
 pub mod bdk_wallet;
 pub mod simple_wallet;
+
+/// UTXO (Unspent Transaction Output)
+#[derive(Debug, Clone)]
+pub struct Utxo {
+    /// Transaction ID
+    pub txid: String,
+    /// Output index
+    pub vout: u32,
+    /// Amount in satoshis
+    pub amount: u64,
+    /// Script pubkey in hex
+    pub script_pubkey: String,
+}
+
+/// Wallet interface
+#[async_trait]
+pub trait Wallet: Send + Sync {
+    /// Get wallet address
+    fn get_address(&self) -> Result<String>;
+
+    /// Get wallet balance
+    fn get_balance(&self) -> Result<u64>;
+
+    /// Get wallet UTXOs
+    fn get_utxos(&self) -> Result<Vec<Utxo>>;
+}
 
 /// Wallet error
 #[derive(Debug, Error)]

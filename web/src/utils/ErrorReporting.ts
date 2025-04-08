@@ -1,83 +1,56 @@
 /**
- * ErrorReporting - Error reporting utilities
+ * ErrorReporting.ts - Error reporting utilities
  * 
  * This file provides error reporting utilities for the DarkSwap application.
- * It allows tracking and analyzing errors in production.
  */
 
-import { DarkSwapError, ErrorCode } from './ErrorHandling';
+import { DarkSwapError, createError } from './ErrorHandling';
 
-// Error reporting configuration
+/**
+ * Error reporting configuration
+ */
 interface ErrorReportingConfig {
-  /** Whether to enable error reporting */
+  /**
+   * Whether error reporting is enabled
+   */
   enabled: boolean;
   
-  /** API endpoint for error reporting */
+  /**
+   * Error reporting endpoint
+   */
   endpoint?: string;
   
-  /** Application version */
+  /**
+   * Application version
+   */
   appVersion?: string;
   
-  /** User ID */
+  /**
+   * User ID
+   */
   userId?: string;
   
-  /** Session ID */
+  /**
+   * Session ID
+   */
   sessionId?: string;
   
-  /** Additional tags */
+  /**
+   * Tags
+   */
   tags?: Record<string, string>;
 }
 
-// Error report interface
-interface ErrorReport {
-  /** Error name */
-  name: string;
-  
-  /** Error message */
-  message: string;
-  
-  /** Error code */
-  code?: number;
-  
-  /** Error details */
-  details?: Record<string, any>;
-  
-  /** Error stack trace */
-  stack?: string;
-  
-  /** Timestamp */
-  timestamp: number;
-  
-  /** Application version */
-  appVersion?: string;
-  
-  /** User ID */
-  userId?: string;
-  
-  /** Session ID */
-  sessionId?: string;
-  
-  /** URL */
-  url?: string;
-  
-  /** User agent */
-  userAgent?: string;
-  
-  /** Tags */
-  tags?: Record<string, string>;
-}
-
-// Default configuration
-const defaultConfig: ErrorReportingConfig = {
+/**
+ * Error reporting configuration
+ */
+let config: ErrorReportingConfig = {
   enabled: false,
 };
 
-// Current configuration
-let config: ErrorReportingConfig = { ...defaultConfig };
-
 /**
  * Configure error reporting
- * @param newConfig New configuration
+ * @param newConfig - New configuration
  */
 export function configureErrorReporting(newConfig: Partial<ErrorReportingConfig>): void {
   config = {
@@ -88,8 +61,8 @@ export function configureErrorReporting(newConfig: Partial<ErrorReportingConfig>
 
 /**
  * Report an error
- * @param error Error to report
- * @param context Context information
+ * @param error - Error to report
+ * @param context - Error context
  * @returns Promise that resolves when the error is reported
  */
 export async function reportError(error: unknown, context?: string): Promise<void> {
@@ -99,11 +72,46 @@ export async function reportError(error: unknown, context?: string): Promise<voi
   }
   
   try {
+    // Convert error to DarkSwapError
+    const darkswapError = createError(error);
+    
     // Create error report
-    const report = createErrorReport(error, context);
+    const report = {
+      name: darkswapError.name,
+      message: darkswapError.message,
+      code: darkswapError.code,
+      details: darkswapError.details,
+      stack: darkswapError.stack,
+      timestamp: Date.now(),
+      appVersion: config.appVersion,
+      userId: config.userId,
+      sessionId: config.sessionId,
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      tags: {
+        ...config.tags,
+        ...(context ? { context } : {}),
+      },
+    };
     
     // Send error report
-    await sendErrorReport(report);
+    if (config.endpoint) {
+      const response = await fetch(config.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(report),
+      });
+      
+      // Check response
+      if (!response.ok) {
+        throw new Error(`Failed to send error report: ${response.status} ${response.statusText}`);
+      }
+    } else {
+      // Log error report
+      console.error('Error report:', report);
+    }
   } catch (err) {
     // Log error
     console.error('Failed to report error:', err);
@@ -111,89 +119,8 @@ export async function reportError(error: unknown, context?: string): Promise<voi
 }
 
 /**
- * Create an error report
- * @param error Error to report
- * @param context Context information
- * @returns Error report
- */
-function createErrorReport(error: unknown, context?: string): ErrorReport {
-  // Create report
-  const report: ErrorReport = {
-    name: 'Unknown Error',
-    message: 'An unknown error occurred',
-    timestamp: Date.now(),
-    appVersion: config.appVersion,
-    userId: config.userId,
-    sessionId: config.sessionId,
-    url: typeof window !== 'undefined' ? window.location.href : undefined,
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-    tags: config.tags,
-  };
-  
-  // Add context as tag
-  if (context) {
-    report.tags = {
-      ...report.tags,
-      context,
-    };
-  }
-  
-  // Add error information
-  if (error instanceof DarkSwapError) {
-    report.name = error.name;
-    report.message = error.message;
-    report.code = error.code;
-    report.details = error.details;
-    report.stack = error.stack;
-  } else if (error instanceof Error) {
-    report.name = error.name;
-    report.message = error.message;
-    report.stack = error.stack;
-  } else if (typeof error === 'string') {
-    report.message = error;
-  } else if (typeof error === 'object' && error !== null) {
-    report.details = { originalError: error };
-  }
-  
-  return report;
-}
-
-/**
- * Send an error report
- * @param report Error report
- * @returns Promise that resolves when the error report is sent
- */
-async function sendErrorReport(report: ErrorReport): Promise<void> {
-  // Check if endpoint is configured
-  if (!config.endpoint) {
-    // Log error report
-    console.error('Error report:', report);
-    return;
-  }
-  
-  try {
-    // Send error report
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(report),
-    });
-    
-    // Check response
-    if (!response.ok) {
-      throw new Error(`Failed to send error report: ${response.status} ${response.statusText}`);
-    }
-  } catch (err) {
-    // Log error
-    console.error('Failed to send error report:', err);
-  }
-}
-
-/**
- * Create an error reporter function
- * @param context Context information
+ * Create an error reporter
+ * @param context - Error context
  * @returns Error reporter function
  */
 export function createErrorReporter(context: string): (error: unknown) => Promise<void> {
@@ -204,11 +131,14 @@ export function createErrorReporter(context: string): (error: unknown) => Promis
  * Error reporter class
  */
 export class ErrorReporter {
+  /**
+   * Error context
+   */
   private context: string;
   
   /**
    * Create a new error reporter
-   * @param context Context information
+   * @param context - Error context
    */
   constructor(context: string) {
     this.context = context;
@@ -216,72 +146,67 @@ export class ErrorReporter {
   
   /**
    * Report an error
-   * @param error Error to report
+   * @param error - Error to report
    * @returns Promise that resolves when the error is reported
    */
-  public async report(error: unknown): Promise<void> {
+  async report(error: unknown): Promise<void> {
     return reportError(error, this.context);
   }
   
   /**
    * Create a child error reporter
-   * @param childContext Child context information
+   * @param childContext - Child context
    * @returns Child error reporter
    */
-  public createChild(childContext: string): ErrorReporter {
+  createChild(childContext: string): ErrorReporter {
     return new ErrorReporter(`${this.context}.${childContext}`);
   }
 }
 
 /**
- * Create a global error handler
- * @param context Context information
- * @returns Cleanup function
+ * Initialize error reporting
+ * @param config - Error reporting configuration
+ * @returns Function to clean up error reporting
  */
-export function createGlobalErrorHandler(context: string): () => void {
+export function initializeErrorReporting(config: Partial<ErrorReportingConfig>): () => void {
+  // Configure error reporting
+  configureErrorReporting(config);
+  
   // Create error reporter
-  const reporter = createErrorReporter(context);
+  const reporter = new ErrorReporter('global');
   
   // Handle unhandled errors
   const handleError = (event: ErrorEvent) => {
-    reporter(event.error || new Error(event.message));
-    
-    // Prevent default error handling
-    event.preventDefault();
+    reporter.report(event.error || new Error(event.message));
   };
   
   // Handle unhandled promise rejections
-  const handleRejection = (event: PromiseRejectionEvent) => {
-    reporter(event.reason || new Error('Unhandled promise rejection'));
-    
-    // Prevent default error handling
-    event.preventDefault();
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    reporter.report(event.reason);
   };
   
-  // Register event listeners
+  // Add event listeners
   if (typeof window !== 'undefined') {
     window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
   }
   
   // Return cleanup function
   return () => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     }
   };
 }
 
 /**
- * Initialize error reporting
- * @param config Error reporting configuration
- * @returns Cleanup function
+ * Default export
  */
-export function initializeErrorReporting(config: Partial<ErrorReportingConfig> = {}): () => void {
-  // Configure error reporting
-  configureErrorReporting(config);
-  
-  // Create global error handler
-  return createGlobalErrorHandler('global');
-}
+export default {
+  configureErrorReporting,
+  reportError,
+  createErrorReporter,
+  ErrorReporter,
+  initializeErrorReporting,
+};

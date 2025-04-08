@@ -4,38 +4,58 @@
 //! enabling browser-to-browser communication.
 
 use std::collections::HashMap;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use anyhow::{Context as AnyhowContext, Result};
-use futures::{AsyncRead, AsyncWrite, Future, StreamExt};
-use libp2p::core::transport::{ListenerId, Transport, TransportEvent};
-use libp2p::core::{Multiaddr, PeerId};
+use libp2p::multiaddr::Multiaddr;
+use libp2p::PeerId;
 use log::{debug, error, info, warn};
 use tokio::sync::Mutex;
 
+/// WebRTC configuration
+pub struct WebRTCConfig {
+    /// STUN servers
+    pub stun_servers: Vec<String>,
+    /// TURN servers
+    pub turn_servers: Vec<String>,
+    /// Signaling server
+    pub signaling_server: String,
+}
+
 /// WebRTC transport wrapper
-pub struct DarkSwapWebRtcTransport {
+pub struct WebRtcTransport {
     /// ICE servers
     ice_servers: Vec<String>,
     /// Signaling server URL
     signaling_server_url: Option<String>,
     /// Connected peers
     connected_peers: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
+    /// Local peer ID
+    local_peer_id: PeerId,
 }
 
-impl DarkSwapWebRtcTransport {
+impl WebRtcTransport {
     /// Create a new WebRTC transport
-    pub async fn new(
-        ice_servers: Vec<String>,
-        signaling_server_url: Option<String>,
-    ) -> Result<Self> {
+    pub async fn new(webrtc_config: WebRTCConfig, event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
+        // Generate a new keypair
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(keypair.public());
+
+        // Combine STUN and TURN servers
+        let mut ice_servers = webrtc_config.stun_servers;
+        ice_servers.extend(webrtc_config.turn_servers);
+
         Ok(Self {
             ice_servers,
-            signaling_server_url,
+            signaling_server_url: Some(webrtc_config.signaling_server),
             connected_peers: Arc::new(Mutex::new(HashMap::new())),
+            local_peer_id,
         })
+    }
+
+    /// Get the local peer ID
+    pub fn local_peer_id(&self) -> PeerId {
+        self.local_peer_id.clone()
     }
 
     /// Get the ICE servers
@@ -54,76 +74,137 @@ impl DarkSwapWebRtcTransport {
     }
 
     /// Connect to a peer via signaling server
-    pub async fn connect_via_signaling(&self, peer_id: PeerId) -> Result<()> {
+    pub async fn connect_via_signaling(&self, peer_id: &PeerId) -> Result<()> {
         // Check if we have a signaling server URL
         let signaling_url = self.signaling_server_url.as_ref().ok_or_else(|| {
             anyhow::anyhow!("No signaling server URL configured")
         })?;
 
-        // TODO: Implement signaling server connection
+        // In a real implementation, we would connect to the peer via signaling server
         // For now, just log a message
         info!("Connecting to peer {} via signaling server {}", peer_id, signaling_url);
 
         Ok(())
     }
-}
-
-/// WebRTC signaling client
-pub struct WebRtcSignalingClient {
-    /// Signaling server URL
-    server_url: String,
-    /// WebRTC transport
-    transport: Arc<DarkSwapWebRtcTransport>,
-    /// Local peer ID
-    local_peer_id: PeerId,
-}
-
-impl WebRtcSignalingClient {
-    /// Create a new WebRTC signaling client
-    pub fn new(
-        server_url: String,
-        transport: Arc<DarkSwapWebRtcTransport>,
-        local_peer_id: PeerId,
-    ) -> Self {
-        Self {
-            server_url,
-            transport,
-            local_peer_id,
-        }
-    }
 
     /// Connect to the signaling server
-    pub async fn connect(&self) -> Result<()> {
-        // TODO: Implement WebSocket connection to signaling server
+    pub async fn connect_to_signaling_server(&self) -> Result<()> {
+        // Check if we have a signaling server URL
+        let signaling_url = self.signaling_server_url.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("No signaling server URL configured")
+        })?;
+
+        // In a real implementation, we would connect to the signaling server
         // For now, just log a message
-        info!("Connecting to signaling server: {}", self.server_url);
+        info!("Connecting to signaling server {}", signaling_url);
 
         Ok(())
     }
 
     /// Disconnect from the signaling server
-    pub async fn disconnect(&self) -> Result<()> {
-        // TODO: Implement WebSocket disconnection from signaling server
+    pub async fn disconnect_from_signaling_server(&self) -> Result<()> {
+        // Check if we have a signaling server URL
+        let signaling_url = self.signaling_server_url.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("No signaling server URL configured")
+        })?;
+
+        // In a real implementation, we would disconnect from the signaling server
         // For now, just log a message
-        info!("Disconnecting from signaling server: {}", self.server_url);
+        info!("Disconnecting from signaling server {}", signaling_url);
 
         Ok(())
     }
 
-    /// Send a signaling message
-    pub async fn send_message(&self, peer_id: &PeerId, message: &str) -> Result<()> {
-        // TODO: Implement sending signaling messages
+    /// Check if connected to the signaling server
+    pub fn is_connected_to_signaling_server(&self) -> bool {
+        // In a real implementation, we would check if we're connected to the signaling server
+        // For now, just return false
+        false
+    }
+
+    /// Connect to a peer
+    pub async fn connect_to_peer(&self, peer_id: &PeerId) -> Result<()> {
+        // In a real implementation, we would connect to the peer
         // For now, just log a message
-        info!("Sending signaling message to peer {}: {}", peer_id, message);
+        info!("Connecting to peer {}", peer_id);
 
         Ok(())
     }
 
-    /// Handle a signaling message
-    pub async fn handle_message(&self, peer_id: &PeerId, message: &str) -> Result<()> {
-        // TODO: Implement handling signaling messages
+    /// Disconnect from a peer
+    pub async fn disconnect_from_peer(&self, peer_id: &PeerId) -> Result<()> {
+        // In a real implementation, we would disconnect from the peer
         // For now, just log a message
-        info!("Received signaling message from peer {}: {}", peer_id, message);
+        info!("Disconnecting from peer {}", peer_id);
+
+        Ok(())
+    }
+
+    /// Check if connected to a peer
+    pub fn is_connected_to_peer(&self, peer_id: &PeerId) -> bool {
+        // In a real implementation, we would check if we're connected to the peer
+        // For now, just return false
+        false
+    }
+
+    /// Create a data channel
+    pub async fn create_data_channel(&self, peer_id: &PeerId, channel_name: &str) -> Result<DataChannel> {
+        // In a real implementation, we would create a data channel
+        // For now, just log a message
+        info!("Creating data channel {} with peer {}", channel_name, peer_id);
+
+        Ok(DataChannel {
+            peer_id: peer_id.clone(),
+            channel_name: channel_name.to_string(),
+        })
+    }
+
+    /// Get a data channel
+    pub async fn get_data_channel(&self, peer_id: &PeerId, channel_name: &str) -> Result<DataChannel> {
+        // In a real implementation, we would get a data channel
+        // For now, just log a message
+        info!("Getting data channel {} with peer {}", channel_name, peer_id);
+
+        Ok(DataChannel {
+            peer_id: peer_id.clone(),
+            channel_name: channel_name.to_string(),
+        })
+    }
+}
+
+/// Data channel
+pub struct DataChannel {
+    /// Peer ID
+    peer_id: PeerId,
+    /// Channel name
+    channel_name: String,
+}
+
+impl DataChannel {
+    /// Send a message
+    pub async fn send(&self, data: &[u8]) -> Result<()> {
+        // In a real implementation, we would send a message
+        // For now, just log a message
+        info!("Sending message to peer {} on channel {}", self.peer_id, self.channel_name);
+
+        Ok(())
+    }
+
+    /// Register a message handler
+    pub fn on_message<F>(&self, handler: F)
+    where
+        F: Fn(Vec<u8>) + Send + Sync + 'static,
+    {
+        // In a real implementation, we would register a message handler
+        // For now, just log a message
+        info!("Registering message handler for peer {} on channel {}", self.peer_id, self.channel_name);
+    }
+
+    /// Close the data channel
+    pub async fn close(&self) -> Result<()> {
+        // In a real implementation, we would close the data channel
+        // For now, just log a message
+        info!("Closing data channel {} with peer {}", self.channel_name, self.peer_id);
 
         Ok(())
     }

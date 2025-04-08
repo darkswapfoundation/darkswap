@@ -1,244 +1,242 @@
-/**
- * OrderBook - Component for displaying order book
- * 
- * This component displays the order book for a trading pair, showing
- * buy and sell orders with price and amount information.
- */
+import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useApi } from '../contexts/ApiContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import { PriceLevel } from '../types';
+import '../styles/OrderBook.css';
 
-import React, { useState, useEffect } from 'react';
-import { useDarkSwapContext } from '../contexts/DarkSwapContext';
-import { AssetType, Order, OrderSide } from '../wasm/DarkSwapWasm';
-import { Card } from './MemoizedComponents';
-import { EventType, OrderCreatedEvent, OrderCancelledEvent, OrderFilledEvent } from '../wasm/EventTypes';
-
-export interface OrderBookProps {
-  /** CSS class name */
-  className?: string;
-  
-  /** Base asset type */
-  baseAssetType: AssetType;
-  
-  /** Base asset ID */
-  baseAssetId: string;
-  
-  /** Quote asset type */
-  quoteAssetType: AssetType;
-  
-  /** Quote asset ID */
-  quoteAssetId: string;
-  
-  /** Order selected callback */
-  onOrderSelected?: (order: Order) => void;
+interface OrderBookProps {
+  baseAsset: string;
+  quoteAsset: string;
+  depth?: number;
 }
 
-/**
- * OrderBook component
- */
-export const OrderBook: React.FC<OrderBookProps> = ({ 
-  className = '',
-  baseAssetType,
-  baseAssetId,
-  quoteAssetType,
-  quoteAssetId,
-  onOrderSelected,
+const OrderBook: React.FC<OrderBookProps> = ({
+  baseAsset,
+  quoteAsset,
+  depth = 10,
 }) => {
-  // DarkSwap context
-  const { isInitialized, getOrders, on, off } = useDarkSwapContext();
+  const { theme } = useTheme();
+  const { api } = useApi();
+  const { connected, on, send } = useWebSocket();
   
-  // Order book state
-  const [buyOrders, setBuyOrders] = useState<Order[]>([]);
-  const [sellOrders, setSellOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [buyLevels, setBuyLevels] = useState<PriceLevel[]>([]);
+  const [sellLevels, setSellLevels] = useState<PriceLevel[]>([]);
+  const [spread, setSpread] = useState<string | null>(null);
+  const [lastPrice, setLastPrice] = useState<string | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Load order book
-  const loadOrderBook = async () => {
-    if (!isInitialized) return;
+  // Format price with appropriate decimal places
+  const formatPrice = useCallback((price: string): string => {
+    const numPrice = parseFloat(price);
+    if (numPrice < 0.01) {
+      return numPrice.toFixed(8);
+    } else if (numPrice < 1) {
+      return numPrice.toFixed(6);
+    } else if (numPrice < 1000) {
+      return numPrice.toFixed(4);
+    } else {
+      return numPrice.toFixed(2);
+    }
+  }, []);
+  
+  // Calculate spread
+  const calculateSpread = useCallback((buyLevels: PriceLevel[], sellLevels: PriceLevel[]): string | null => {
+    if (buyLevels.length === 0 || sellLevels.length === 0) {
+      return null;
+    }
     
-    setIsLoading(true);
-    setError(null);
+    const highestBid = parseFloat(buyLevels[0].price);
+    const lowestAsk = parseFloat(sellLevels[0].price);
+    const spread = lowestAsk - highestBid;
+    const spreadPercentage = (spread / lowestAsk) * 100;
     
+    return `${formatPrice(spread.toString())} (${spreadPercentage.toFixed(2)}%)`;
+  }, [formatPrice]);
+  
+  // Fetch order book
+  const fetchOrderBook = useCallback(async () => {
     try {
-      // Get buy orders
-      const buyOrders = await getOrders(
-        OrderSide.Buy,
-        baseAssetType,
-        baseAssetId,
-        quoteAssetType,
-        quoteAssetId,
-      );
+      setIsLoading(true);
+      setError(null);
       
-      // Get sell orders
-      const sellOrders = await getOrders(
-        OrderSide.Sell,
-        baseAssetType,
-        baseAssetId,
-        quoteAssetType,
-        quoteAssetId,
-      );
+      // Fetch buy levels
+      const buyResponse = await api.getOrderBook(baseAsset, quoteAsset, 'buy', depth);
+      setBuyLevels(buyResponse);
       
-      // Sort buy orders by price (descending)
-      buyOrders.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+      // Fetch sell levels
+      const sellResponse = await api.getOrderBook(baseAsset, quoteAsset, 'sell', depth);
+      setSellLevels(sellResponse);
       
-      // Sort sell orders by price (ascending)
-      sellOrders.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      // Calculate spread
+      setSpread(calculateSpread(buyResponse, sellResponse));
       
-      // Update state
-      setBuyOrders(buyOrders);
-      setSellOrders(sellOrders);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
+      // Update last update time
+      setLastUpdateTime(Date.now());
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch order book:', error);
+      setError('Failed to fetch order book. Please try again later.');
       setIsLoading(false);
     }
-  };
+  }, [api, baseAsset, quoteAsset, depth, calculateSpread]);
   
-  // Load order book on initialization
-  useEffect(() => {
-    loadOrderBook();
-  }, [isInitialized, baseAssetType, baseAssetId, quoteAssetType, quoteAssetId]);
-  
-  // Handle order book events
-  useEffect(() => {
-    if (!isInitialized) return;
-    
-    // Define event handlers
-    const handleOrderCreated = (event: OrderCreatedEvent) => {
-      const order = event.data;
+  // Handle order book update
+  const handleOrderBookUpdate = useCallback((data: any) => {
+    if (data.baseAsset === baseAsset && data.quoteAsset === quoteAsset) {
+      // Update buy levels
+      if (data.buyLevels) {
+        setBuyLevels(data.buyLevels);
+      }
       
-      // Check if order matches current trading pair
-      if (
-        order.baseAsset === baseAssetId &&
-        order.quoteAsset === quoteAssetId
-      ) {
-        // Add order to order book
-        if (order.side === OrderSide.Buy) {
-          setBuyOrders(prevOrders => {
-            const newOrders = [...prevOrders, order];
-            // Sort by price (descending)
-            newOrders.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-            return newOrders;
-          });
-        } else {
-          setSellOrders(prevOrders => {
-            const newOrders = [...prevOrders, order];
-            // Sort by price (ascending)
-            newOrders.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-            return newOrders;
-          });
-        }
+      // Update sell levels
+      if (data.sellLevels) {
+        setSellLevels(data.sellLevels);
+      }
+      
+      // Calculate spread
+      setSpread(calculateSpread(data.buyLevels || buyLevels, data.sellLevels || sellLevels));
+      
+      // Update last update time
+      setLastUpdateTime(Date.now());
+    }
+  }, [baseAsset, quoteAsset, buyLevels, sellLevels, calculateSpread]);
+  
+  // Handle trade update
+  const handleTradeUpdate = useCallback((data: any) => {
+    if (data.baseAsset === baseAsset && data.quoteAsset === quoteAsset) {
+      // Update last price
+      setLastPrice(data.price);
+    }
+  }, [baseAsset, quoteAsset]);
+  
+  // Subscribe to order book updates
+  useEffect(() => {
+    // Fetch initial data
+    fetchOrderBook();
+    
+    // Subscribe to order book updates if socket is connected
+    if (connected) {
+      const orderBookUnsubscribe = on('orderBookUpdate', handleOrderBookUpdate);
+      const tradeUnsubscribe = on('tradeUpdate', handleTradeUpdate);
+      
+      // Subscribe to order book updates
+      send('subscribeOrderBook', {
+        baseAsset,
+        quoteAsset,
+        depth,
+      });
+      
+      // Subscribe to trade updates
+      send('subscribeTrades', {
+        baseAsset,
+        quoteAsset,
+      });
+      
+      // Clean up
+      return () => {
+        orderBookUnsubscribe();
+        tradeUnsubscribe();
+        
+        send('unsubscribeOrderBook', {
+          baseAsset,
+          quoteAsset,
+        });
+        
+        send('unsubscribeTrades', {
+          baseAsset,
+          quoteAsset,
+        });
+      };
+    }
+    
+    // Set up polling for updates if socket is not connected
+    const intervalId = !connected ? setInterval(fetchOrderBook, 5000) : null;
+    
+    // Clean up
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
-    
-    const handleOrderCancelled = (event: OrderCancelledEvent) => {
-      const orderId = event.data.id;
-      
-      // Remove order from order book
-      setBuyOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-      setSellOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-    };
-    
-    const handleOrderFilled = (event: OrderFilledEvent) => {
-      const order = event.data;
-      
-      // Remove order from order book
-      setBuyOrders(prevOrders => prevOrders.filter(o => o.id !== order.id));
-      setSellOrders(prevOrders => prevOrders.filter(o => o.id !== order.id));
-    };
-    
-    // Register event handlers
-    on<OrderCreatedEvent>(EventType.OrderCreated, handleOrderCreated);
-    on<OrderCancelledEvent>(EventType.OrderCancelled, handleOrderCancelled);
-    on<OrderFilledEvent>(EventType.OrderFilled, handleOrderFilled);
-    
-    // Clean up event handlers
-    return () => {
-      off<OrderCreatedEvent>(EventType.OrderCreated, handleOrderCreated);
-      off<OrderCancelledEvent>(EventType.OrderCancelled, handleOrderCancelled);
-      off<OrderFilledEvent>(EventType.OrderFilled, handleOrderFilled);
-    };
-  }, [isInitialized, baseAssetId, quoteAssetId, on, off]);
-  
-  // Handle order click
-  const handleOrderClick = (order: Order) => {
-    if (onOrderSelected) {
-      onOrderSelected(order);
-    }
-  };
+  }, [fetchOrderBook, connected, on, send, baseAsset, quoteAsset, depth, handleOrderBookUpdate, handleTradeUpdate]);
   
   return (
-    <Card className={`order-book ${className}`}>
-      <h2>Order Book</h2>
-      
-      {isLoading && (
-        <div className="loading">Loading order book...</div>
-      )}
-      
-      {error && (
-        <div className="error-message">
-          {error.message}
-        </div>
-      )}
-      
-      <div className="order-book-content">
-        <div className="order-book-header">
-          <div className="price">Price ({quoteAssetId})</div>
-          <div className="amount">Amount ({baseAssetId})</div>
-          <div className="total">Total ({quoteAssetId})</div>
-        </div>
-        
-        <div className="sell-orders">
-          {sellOrders.map((order) => (
-            <div
-              key={order.id}
-              className="order sell-order"
-              onClick={() => handleOrderClick(order)}
-            >
-              <div className="price">{order.price}</div>
-              <div className="amount">{order.amount}</div>
-              <div className="total">
-                {(parseFloat(order.price) * parseFloat(order.amount)).toFixed(2)}
-              </div>
-            </div>
-          ))}
-          
-          {sellOrders.length === 0 && (
-            <div className="no-orders">No sell orders</div>
-          )}
-        </div>
-        
-        <div className="spread">
-          <div className="spread-label">Spread:</div>
-          <div className="spread-value">
-            {sellOrders.length > 0 && buyOrders.length > 0 ? (
-              `${(parseFloat(sellOrders[0].price) - parseFloat(buyOrders[0].price)).toFixed(2)} ${quoteAssetId}`
-            ) : (
-              'N/A'
-            )}
-          </div>
-        </div>
-        
-        <div className="buy-orders">
-          {buyOrders.map((order) => (
-            <div
-              key={order.id}
-              className="order buy-order"
-              onClick={() => handleOrderClick(order)}
-            >
-              <div className="price">{order.price}</div>
-              <div className="amount">{order.amount}</div>
-              <div className="total">
-                {(parseFloat(order.price) * parseFloat(order.amount)).toFixed(2)}
-              </div>
-            </div>
-          ))}
-          
-          {buyOrders.length === 0 && (
-            <div className="no-orders">No buy orders</div>
-          )}
+    <div className={`order-book order-book-${theme}`}>
+      <div className="order-book-header">
+        <h3>Order Book</h3>
+        <div className="order-book-spread">
+          Spread: {spread || 'N/A'}
         </div>
       </div>
-    </Card>
+      
+      {isLoading ? (
+        <div className="order-book-loading">
+          <div className="spinner"></div>
+          <p>Loading order book...</p>
+        </div>
+      ) : error ? (
+        <div className="order-book-error">
+          <p>{error}</p>
+          <button onClick={fetchOrderBook}>Retry</button>
+        </div>
+      ) : (
+        <div className="order-book-content">
+          <div className="order-book-table-header">
+            <div className="order-book-price">Price ({quoteAsset})</div>
+            <div className="order-book-amount">Amount ({baseAsset})</div>
+            <div className="order-book-total">Total ({quoteAsset})</div>
+          </div>
+          
+          <div className="order-book-sells">
+            {sellLevels.map((level, index) => (
+              <div key={`sell-${index}`} className="order-book-level sell-level">
+                <div className="order-book-price sell-price">{formatPrice(level.price)}</div>
+                <div className="order-book-amount">{formatPrice(level.amount)}</div>
+                <div className="order-book-total">{formatPrice(level.total)}</div>
+                <div
+                  className="order-book-depth-visualization sell-depth"
+                  style={{
+                    width: `${(parseFloat(level.total) / parseFloat(sellLevels[0].total)) * 100}%`,
+                  }}
+                ></div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="order-book-last-price">
+            <div className="order-book-last-price-value">
+              {lastPrice ? formatPrice(lastPrice) : 'N/A'}
+            </div>
+          </div>
+          
+          <div className="order-book-buys">
+            {buyLevels.map((level, index) => (
+              <div key={`buy-${index}`} className="order-book-level buy-level">
+                <div className="order-book-price buy-price">{formatPrice(level.price)}</div>
+                <div className="order-book-amount">{formatPrice(level.amount)}</div>
+                <div className="order-book-total">{formatPrice(level.total)}</div>
+                <div
+                  className="order-book-depth-visualization buy-depth"
+                  style={{
+                    width: `${(parseFloat(level.total) / parseFloat(buyLevels[0].total)) * 100}%`,
+                  }}
+                ></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      <div className="order-book-footer">
+        <div className="order-book-last-update">
+          Last update: {lastUpdateTime ? new Date(lastUpdateTime).toLocaleTimeString() : 'N/A'}
+        </div>
+      </div>
+    </div>
   );
 };
 

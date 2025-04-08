@@ -1,108 +1,133 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 export interface Notification {
-  id: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  id?: string;
+  type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
-  timestamp: number;
-  read: boolean;
-  autoClose?: boolean;
   duration?: number;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => string;
+  addNotification: (notification: Notification) => string;
   removeNotification: (id: string) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  clearAll: () => void;
+  clearNotifications: () => void;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const NotificationContext = createContext<NotificationContextType>({
+  notifications: [],
+  addNotification: () => '',
+  removeNotification: () => {},
+  clearNotifications: () => {},
+});
 
 interface NotificationProviderProps {
-  children: ReactNode;
   maxNotifications?: number;
+  defaultDuration?: number;
+  children: ReactNode;
 }
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({
+  maxNotifications = 5,
+  defaultDuration = 5000,
   children,
-  maxNotifications = 100,
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-
-  const addNotification = useCallback(
-    (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-      const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const newNotification: Notification = {
-        ...notification,
-        id,
-        timestamp: Date.now(),
-        read: false,
-      };
-
-      setNotifications((prev) => {
-        // Remove oldest notifications if we exceed maxNotifications
-        const updatedNotifications = [newNotification, ...prev];
-        if (updatedNotifications.length > maxNotifications) {
-          return updatedNotifications.slice(0, maxNotifications);
+  const [notificationTimers] = useState<Map<string, NodeJS.Timeout>>(new Map());
+  
+  // Generate a unique ID
+  const generateId = useCallback(() => {
+    return Math.random().toString(36).substring(2, 9);
+  }, []);
+  
+  // Add a notification
+  const addNotification = useCallback((notification: Notification): string => {
+    // Generate an ID if not provided
+    const id = notification.id || generateId();
+    
+    // Create a new notification with the ID
+    const newNotification: Notification = {
+      ...notification,
+      id,
+    };
+    
+    // Add the notification to the list
+    setNotifications(prevNotifications => {
+      // If we've reached the maximum number of notifications, remove the oldest one
+      if (prevNotifications.length >= maxNotifications) {
+        const oldestNotificationId = prevNotifications[0].id;
+        if (oldestNotificationId) {
+          // Clear the timer for the oldest notification
+          const timer = notificationTimers.get(oldestNotificationId);
+          if (timer) {
+            clearTimeout(timer);
+            notificationTimers.delete(oldestNotificationId);
+          }
         }
-        return updatedNotifications;
-      });
-
-      // Auto-close notification if specified
-      if (notification.autoClose) {
-        const duration = notification.duration || 5000;
-        setTimeout(() => {
-          removeNotification(id);
-        }, duration);
+        
+        // Return the new list without the oldest notification
+        return [...prevNotifications.slice(1), newNotification];
       }
-
-      return id;
-    },
-    [maxNotifications]
-  );
-
+      
+      // Return the new list with the new notification
+      return [...prevNotifications, newNotification];
+    });
+    
+    // Set a timer to remove the notification after the duration
+    if (notification.duration !== 0) {
+      const duration = notification.duration || defaultDuration;
+      const timer = setTimeout(() => {
+        removeNotification(id);
+      }, duration);
+      
+      // Store the timer
+      notificationTimers.set(id, timer);
+    }
+    
+    // Return the ID
+    return id;
+  }, [generateId, maxNotifications, defaultDuration, notificationTimers]);
+  
+  // Remove a notification
   const removeNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
-  }, []);
-
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
+    // Remove the notification from the list
+    setNotifications(prevNotifications => 
+      prevNotifications.filter(notification => notification.id !== id)
     );
-  }, []);
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true }))
-    );
-  }, []);
-
-  const clearAll = useCallback(() => {
+    
+    // Clear the timer
+    const timer = notificationTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      notificationTimers.delete(id);
+    }
+  }, [notificationTimers]);
+  
+  // Clear all notifications
+  const clearNotifications = useCallback(() => {
+    // Clear all timers
+    notificationTimers.forEach(timer => {
+      clearTimeout(timer);
+    });
+    notificationTimers.clear();
+    
+    // Clear all notifications
     setNotifications([]);
-  }, []);
-
-  const value = {
-    notifications,
-    addNotification,
-    removeNotification,
-    markAsRead,
-    markAllAsRead,
-    clearAll,
-  };
-
-  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
+  }, [notificationTimers]);
+  
+  return (
+    <NotificationContext.Provider value={{
+      notifications,
+      addNotification,
+      removeNotification,
+      clearNotifications,
+    }}>
+      {children}
+    </NotificationContext.Provider>
+  );
 };
 
-export const useNotification = (): NotificationContextType => {
-  const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error('useNotification must be used within a NotificationProvider');
-  }
-  return context;
-};
+export const useNotification = () => useContext(NotificationContext);
+
+export default NotificationContext;
