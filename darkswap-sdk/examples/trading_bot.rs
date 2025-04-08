@@ -89,31 +89,31 @@ impl TradingBot {
         tokio::spawn(async move {
             while let Some(event) = event_receiver.recv().await {
                 match event {
-                    Event::OrderCreated(order) => {
+                    Event::OrderCreated { order_id } => {
                         println!("Order created: {:?}", order);
                     }
-                    Event::OrderCanceled(order_id) => {
+                    Event::OrderCancelled { order_id } => {
                         println!("Order canceled: {:?}", order_id);
                         active_orders.lock().await.remove(&order_id);
                     }
-                    Event::OrderFilled(order_id) => {
+                    Event::OrderMatched { order_id, trade_id: _ } => {
                         println!("Order filled: {:?}", order_id);
                         active_orders.lock().await.remove(&order_id);
                     }
-                    Event::OrderExpired(order_id) => {
+                    Event::OrderExpired { order_id } => {
                         println!("Order expired: {:?}", order_id);
                         active_orders.lock().await.remove(&order_id);
                     }
-                    Event::TradeStarted(trade) => {
+                    Event::TradeCreated { trade_id } => {
                         println!("Trade started: {:?}", trade);
                     }
-                    Event::TradeCompleted(trade) => {
+                    Event::TradeCompleted { trade_id } => {
                         println!("Trade completed: {:?}", trade);
                         
                         // Update last update time to trigger a market check
                         *last_update.lock().await = Instant::now() - update_interval;
                     }
-                    Event::TradeFailed(trade) => {
+                    Event::TradeFailed { trade_id, error } => {
                         println!("Trade failed: {:?}", trade);
                     }
                     _ => {}

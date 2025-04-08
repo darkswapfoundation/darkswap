@@ -9,10 +9,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use libp2p::multiaddr::{Multiaddr, Protocol};
 use libp2p::PeerId;
-use log::{debug, error, info, warn};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use log::info;
+use tokio::sync::{mpsc, RwLock};
 
-use crate::config;
 use crate::types::Event;
 
 pub mod circuit_relay;

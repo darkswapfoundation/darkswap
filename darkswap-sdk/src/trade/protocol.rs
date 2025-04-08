@@ -14,8 +14,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::error::Error;
-use crate::orderbook::OrderId;
-use crate::types::{Asset, TradeId};
+use crate::types::{Asset, OrderId, TradeId};
 use crate::wallet::Wallet;
 
 /// Trade offer
@@ -246,7 +245,7 @@ impl TradeProtocol {
                 taker,
                 taker_address,
                 taker_psbt,
-                accepted_at,
+                accepted_at: _,
             } => {
                 // Check if we're the maker
                 let is_maker = offer.maker == self.local_peer_id;
@@ -338,9 +337,9 @@ impl TradeProtocol {
             TradeState::Accepted {
                 offer,
                 taker,
-                taker_address,
-                taker_psbt,
-                accepted_at,
+                taker_address: _,
+                taker_psbt: _,
+                accepted_at: _,
             } => {
                 // Check if we're the maker or taker
                 let is_maker = offer.maker == self.local_peer_id;

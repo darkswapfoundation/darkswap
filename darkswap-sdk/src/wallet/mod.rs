@@ -5,9 +5,11 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use thiserror::Error;
+use std::sync::Arc;
 
-use crate::orderbook::OrderId;
-use crate::types::{Asset, TradeId};
+use crate::types::{Asset, OrderId, TradeId};
+use crate::config;
+use crate::error::Error as DarkSwapError;
 
 pub mod bdk_wallet;
 pub mod simple_wallet;
@@ -105,4 +107,31 @@ pub trait WalletInterface: Send + Sync {
 
     /// Verify a PSBT
     async fn verify_psbt(&self, psbt_base64: &str) -> Result<bool>;
+}
+
+/// Create a wallet based on the configuration
+pub fn create_wallet(config: &config::WalletConfig) -> Result<Arc<dyn Wallet + Send + Sync>> {
+    match config.wallet_type.as_str() {
+        "simple" => {
+            let wallet = simple_wallet::SimpleWallet::new(None, config::BitcoinNetwork::Testnet)?;
+            Ok(Arc::new(wallet))
+        },
+        "bdk" => {
+            let network = match config.bitcoin_network {
+                config::BitcoinNetwork::Mainnet => bitcoin::Network::Bitcoin,
+                config::BitcoinNetwork::Testnet => bitcoin::Network::Testnet,
+                config::BitcoinNetwork::Regtest => bitcoin::Network::Regtest,
+                config::BitcoinNetwork::Signet => bitcoin::Network::Signet,
+            };
+            
+            let wallet = bdk_wallet::BdkWallet::from_mnemonic(
+                config.mnemonic.as_deref(),
+                config.password.as_deref(),
+                network,
+            )?;
+            
+            Ok(Arc::new(wallet))
+        },
+        _ => Err(DarkSwapError::ConfigError(format!("Unknown wallet type: {}", config.wallet_type)).into()),
+    }
 }

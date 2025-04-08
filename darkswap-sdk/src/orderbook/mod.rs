@@ -13,25 +13,8 @@ use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 use crate::error::Error;
-use crate::types::{Asset, Event};
+use crate::types::{Asset, Event, OrderId};
 use crate::wallet::WalletInterface;
-
-/// Order ID
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct OrderId(pub String);
-
-impl OrderId {
-    /// Create a new order ID
-    pub fn new() -> Self {
-        Self(Uuid::new_v4().to_string())
-    }
-}
-
-impl std::fmt::Display for OrderId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 /// Order side
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -296,7 +279,7 @@ impl Orderbook {
                         expired_order_ids.push(order_id.clone());
 
                         // Send event
-                        if let Err(e) = event_sender.send(Event::OrderExpired(order_id.clone())).await {
+                        if let Err(e) = event_sender.send(Event::OrderExpired { order_id: order_id.clone() }).await {
                             eprintln!("Failed to send order expired event: {}", e);
                         }
                     }
@@ -345,8 +328,8 @@ impl Orderbook {
     ) -> Result<Order> {
         // Create the order
         let order = Order::new(
-            base_asset,
-            quote_asset,
+            base_asset.clone(),
+            quote_asset.clone(),
             side,
             amount,
             price,
@@ -359,7 +342,7 @@ impl Orderbook {
         orders.insert(order.id.clone(), order.clone());
 
         // Add the order to the appropriate price level
-        let key = (base_asset, quote_asset, price);
+        let key = (base_asset.clone(), quote_asset.clone(), price);
         match side {
             OrderSide::Buy => {
                 let mut buy_orders = self.buy_orders.write().await;
@@ -378,7 +361,7 @@ impl Orderbook {
         }
 
         // Send event
-        self.event_sender.send(Event::OrderCreated(order.clone())).await
+        self.event_sender.send(Event::OrderCreated { order_id: order.id.clone() }).await
             .map_err(|e| Error::OrderBookError(format!("Failed to send order created event: {}", e)))?;
 
         Ok(order)
@@ -418,7 +401,7 @@ impl Orderbook {
         }
 
         // Send event
-        self.event_sender.send(Event::OrderCancelled(order_id.clone())).await
+        self.event_sender.send(Event::OrderCancelled { order_id: order_id.clone() }).await
             .map_err(|e| Error::OrderBookError(format!("Failed to send order cancelled event: {}", e)))?;
 
         Ok(order.clone())
@@ -608,7 +591,7 @@ impl Orderbook {
                                     remaining_amount -= match_amount;
 
                                     // Send event
-                                    self.event_sender.send(Event::OrderUpdated(sell_order.clone())).await
+                                    self.event_sender.send(Event::OrderCreated { order_id: sell_order.id.clone() }).await
                                         .map_err(|e| Error::OrderBookError(format!("Failed to send order updated event: {}", e)))?;
 
                                     // Check if we've matched the entire order
@@ -651,7 +634,7 @@ impl Orderbook {
                                     remaining_amount -= match_amount;
 
                                     // Send event
-                                    self.event_sender.send(Event::OrderUpdated(buy_order.clone())).await
+                                    self.event_sender.send(Event::OrderCreated { order_id: buy_order.id.clone() }).await
                                         .map_err(|e| Error::OrderBookError(format!("Failed to send order updated event: {}", e)))?;
 
                                     // Check if we've matched the entire order

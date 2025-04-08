@@ -5,11 +5,10 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use anyhow::{Context as AnyhowContext, Result};
+use anyhow::Result;
 use libp2p::multiaddr::Multiaddr;
 use libp2p::PeerId;
-use log::{debug, error, info, warn};
+use log::info;
 use tokio::sync::Mutex;
 
 /// WebRTC configuration
@@ -36,7 +35,7 @@ pub struct WebRtcTransport {
 
 impl WebRtcTransport {
     /// Create a new WebRTC transport
-    pub async fn new(webrtc_config: WebRTCConfig, event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
+    pub async fn new(webrtc_config: WebRTCConfig, _event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
         // Generate a new keypair
         let keypair = libp2p::identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(keypair.public());
@@ -141,7 +140,7 @@ impl WebRtcTransport {
     }
 
     /// Check if connected to a peer
-    pub fn is_connected_to_peer(&self, peer_id: &PeerId) -> bool {
+    pub fn is_connected_to_peer(&self, _peer_id: &PeerId) -> bool {
         // In a real implementation, we would check if we're connected to the peer
         // For now, just return false
         false
@@ -182,7 +181,7 @@ pub struct DataChannel {
 
 impl DataChannel {
     /// Send a message
-    pub async fn send(&self, data: &[u8]) -> Result<()> {
+    pub async fn send(&self, _data: &[u8]) -> Result<()> {
         // In a real implementation, we would send a message
         // For now, just log a message
         info!("Sending message to peer {} on channel {}", self.peer_id, self.channel_name);
@@ -191,7 +190,7 @@ impl DataChannel {
     }
 
     /// Register a message handler
-    pub fn on_message<F>(&self, handler: F)
+    pub fn on_message<F>(&self, _handler: F)
     where
         F: Fn(Vec<u8>) + Send + Sync + 'static,
     {

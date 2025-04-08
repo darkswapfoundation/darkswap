@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 use crate::message::Message;
-use crate::protocol::{create_request_response, DarkSwapProtocol};
+use crate::protocol::{create_request_response, DarkSwapCodec, DarkSwapProtocol};
 use libp2p::{
     gossipsub::{self, Gossipsub, GossipsubConfig, IdentTopic, MessageAuthenticity},
     identify::{self, Identify, IdentifyConfig},
@@ -28,7 +28,7 @@ pub struct DarkSwapBehaviour {
     /// Gossipsub for pubsub messaging.
     gossipsub: Gossipsub,
     /// Request-response protocol for direct messaging.
-    request_response: RequestResponse<DarkSwapProtocol, Message, Message>,
+    request_response: RequestResponse<DarkSwapCodec>,
 }
 
 /// Events emitted by the DarkSwap network behaviour.
@@ -41,9 +41,9 @@ pub enum DarkSwapEvent {
     /// Kademlia event.
     Kademlia(KademliaEvent),
     /// Gossipsub event.
-    Gossipsub(gossipsub::Event),
+    Gossipsub(gossipsub::GossipsubEvent),
     /// Request-response event.
-    RequestResponse(request_response::Event<Message, Message>),
+    RequestResponse(request_response::RequestResponseEvent<Message, Message>),
 }
 
 impl From<ping::Event> for DarkSwapEvent {
@@ -64,14 +64,14 @@ impl From<KademliaEvent> for DarkSwapEvent {
     }
 }
 
-impl From<gossipsub::Event> for DarkSwapEvent {
-    fn from(event: gossipsub::Event) -> Self {
+impl From<gossipsub::GossipsubEvent> for DarkSwapEvent {
+    fn from(event: gossipsub::GossipsubEvent) -> Self {
         Self::Gossipsub(event)
     }
 }
 
-impl From<request_response::Event<Message, Message>> for DarkSwapEvent {
-    fn from(event: request_response::Event<Message, Message>) -> Self {
+impl From<request_response::RequestResponseEvent<Message, Message>> for DarkSwapEvent {
+    fn from(event: request_response::RequestResponseEvent<Message, Message>) -> Self {
         Self::RequestResponse(event)
     }
 }
@@ -86,9 +86,30 @@ impl DarkSwapBehaviour {
         let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(30)));
 
         // Create an Identify protocol
+        // Get the public key from the peer ID
+        let public_key = match local_peer_id.clone().to_bytes() {
+            bytes if bytes.len() > 4 => {
+                // Convert the bytes to a public key
+                let mut key_bytes = [0u8; 32];
+                if bytes.len() >= 36 {
+                    key_bytes.copy_from_slice(&bytes[4..36]);
+                    libp2p::identity::PublicKey::Ed25519(libp2p::identity::ed25519::PublicKey::decode(&key_bytes).unwrap())
+                } else {
+                    // Fallback to generating a new keypair
+                    let keypair = libp2p::identity::Keypair::generate_ed25519();
+                    keypair.public()
+                }
+            }
+            _ => {
+                // Fallback to generating a new keypair
+                let keypair = libp2p::identity::Keypair::generate_ed25519();
+                keypair.public()
+            }
+        };
+
         let identify = Identify::new(IdentifyConfig::new(
             "/darkswap/1.0.0".to_string(),
-            local_peer_id,
+            public_key,
         ));
 
         // Create a Kademlia DHT
@@ -100,7 +121,7 @@ impl DarkSwapBehaviour {
         // Create a Gossipsub protocol
         let gossipsub_config = GossipsubConfig::default();
         let gossipsub = Gossipsub::new(
-            MessageAuthenticity::Signed(local_peer_id),
+            MessageAuthenticity::Signed(config.keypair.clone()),
             gossipsub_config,
         )?;
 
@@ -135,7 +156,8 @@ impl DarkSwapBehaviour {
 
     /// Send a response to a request.
     pub fn send_response(&mut self, channel: request_response::ResponseChannel<Message>, response: Message) -> Result<(), request_response::OutboundFailure> {
-        self.request_response.send_response(channel, response)
+        self.request_response.send_response(channel, response);
+        Ok(())
     }
 
     /// Add a known peer to the DHT.

@@ -139,7 +139,7 @@ impl Network {
     async fn handle_app_message(&mut self, message: Message) -> Result<(), Error> {
         // Handle the message based on its type
         match message {
-            Message::Order(order) => {
+            Message::Order(ref order) => {
                 // Publish the order to the orderbook topic
                 let topic = format!("darkswap/orderbook/{}/{}", order.base_asset, order.quote_asset);
                 if !self.subscribed_topics.contains(&topic) {
@@ -151,14 +151,14 @@ impl Network {
                     .map_err(|e| Error::P2P(format!("Failed to serialize message: {}", e)))?)
                     .map_err(|e| Error::P2P(format!("Failed to publish message: {}", e)))?;
             }
-            Message::Trade(trade) => {
+            Message::Trade(ref trade) => {
                 // Send the trade message directly to the peer
                 let peer_id = PeerId::from_bytes(&hex::decode(&trade.maker_peer_id)
                     .map_err(|e| Error::P2P(format!("Failed to decode peer ID: {}", e)))?)
                     .map_err(|e| Error::P2P(format!("Invalid peer ID: {}", e)))?;
                 self.swarm.behaviour_mut().send_request(&peer_id, message);
             }
-            Message::Chat(chat) => {
+            Message::Chat(ref chat) => {
                 // Send the chat message directly to the peer
                 let peer_id = PeerId::from_bytes(&hex::decode(&chat.recipient_peer_id)
                     .map_err(|e| Error::P2P(format!("Failed to decode peer ID: {}", e)))?)
@@ -177,10 +177,10 @@ impl Network {
     }
 
     /// Handle a swarm event.
-    async fn handle_swarm_event(&mut self, event: SwarmEvent<DarkSwapEvent>) -> Result<(), Error> {
+    async fn handle_swarm_event(&mut self, event: SwarmEvent<DarkSwapEvent, libp2p::swarm::ConnectionHandlerErr<std::io::Error>>) -> Result<(), Error> {
         match event {
             SwarmEvent::Behaviour(DarkSwapEvent::Gossipsub(gossipsub_event)) => {
-                if let gossipsub::Event::Message {
+                if let gossipsub::GossipsubEvent::Message {
                     propagation_source,
                     message_id,
                     message,
@@ -195,13 +195,13 @@ impl Network {
             }
             SwarmEvent::Behaviour(DarkSwapEvent::RequestResponse(request_response_event)) => {
                 match request_response_event {
-                    libp2p::request_response::Event::Message {
+                    libp2p::request_response::RequestResponseEvent::Message {
                         peer,
                         message,
                     } => {
                         // Handle a request-response message
                         match message {
-                            libp2p::request_response::Message::Request {
+                            libp2p::request_response::RequestResponseMessage::Request {
                                 request_id,
                                 request,
                                 channel,
@@ -214,7 +214,7 @@ impl Network {
                                 self.swarm.behaviour_mut().send_response(channel, response)
                                     .map_err(|e| Error::P2P(format!("Failed to send response: {}", e)))?;
                             }
-                            libp2p::request_response::Message::Response {
+                            libp2p::request_response::RequestResponseMessage::Response {
                                 request_id,
                                 response,
                             } => {

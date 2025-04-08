@@ -8,8 +8,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::orderbook::OrderId;
-use crate::types::TradeId;
+use crate::types::{OrderId, TradeId};
 
 /// Network error
 #[derive(Debug, Error)]
@@ -90,7 +89,7 @@ impl WebSocketClient {
     }
 
     /// Send a message to the server
-    pub async fn send(&self, message: &str) -> Result<()> {
+    pub async fn send(&self, _message: &str) -> Result<()> {
         // In a real implementation, we would send a message to the server
         // For now, just return Ok
         Ok(())
@@ -169,14 +168,14 @@ impl ApiClient {
     }
 
     /// Get deposit address
-    pub async fn get_deposit_address(&self, asset: &str) -> Result<String> {
+    pub async fn get_deposit_address(&self, _asset: &str) -> Result<String> {
         // In a real implementation, we would get a deposit address from the API
         // For now, just return a dummy address
         Ok("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx".to_string())
     }
 
     /// Withdraw
-    pub async fn withdraw(&self, asset: &str, address: &str, amount: &str) -> Result<bool> {
+    pub async fn withdraw(&self, _asset: &str, _address: &str, _amount: &str) -> Result<bool> {
         // In a real implementation, we would withdraw from the API
         // For now, just return true
         Ok(true)
@@ -185,12 +184,12 @@ impl ApiClient {
     /// Get orders
     pub async fn get_orders(
         &self,
-        base_asset: Option<&str>,
-        quote_asset: Option<&str>,
-        status: Option<&str>,
-        side: Option<&str>,
-        page: Option<u32>,
-        limit: Option<u32>,
+        _base_asset: Option<&str>,
+        _quote_asset: Option<&str>,
+        _status: Option<&str>,
+        _side: Option<&str>,
+        _page: Option<u32>,
+        _limit: Option<u32>,
     ) -> Result<Vec<Order>> {
         // In a real implementation, we would get orders from the API
         // For now, just return a dummy order

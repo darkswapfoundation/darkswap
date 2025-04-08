@@ -16,7 +16,7 @@ async fn test_rune_handler_creation() -> Result<()> {
     let wallet = Arc::new(SimpleWallet::new(None, BitcoinNetwork::Testnet)?);
     
     // Create a rune handler
-    let rune_handler = RuneHandler::new(wallet);
+    let rune_handler = RuneHandler::new(wallet, bitcoin::Network::Testnet);
     
     // Check that the rune handler is not null
     assert!(Arc::strong_count(&rune_handler) > 0);
@@ -30,7 +30,7 @@ async fn test_rune_balance() -> Result<()> {
     let wallet = Arc::new(SimpleWallet::new(None, BitcoinNetwork::Testnet)?);
     
     // Create a rune handler
-    let rune_handler = RuneHandler::new(wallet);
+    let rune_handler = RuneHandler::new(wallet, bitcoin::Network::Testnet);
     
     // Create a rune ID
     let rune_id = "test_rune".to_string();
@@ -50,7 +50,7 @@ async fn test_create_rune_transfer_psbt() -> Result<()> {
     let wallet = Arc::new(SimpleWallet::new(None, BitcoinNetwork::Testnet)?);
     
     // Create a rune handler
-    let rune_handler = RuneHandler::new(wallet);
+    let rune_handler = RuneHandler::new(wallet, bitcoin::Network::Testnet);
     
     // Create a recipient address
     let recipient = Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")?;
@@ -79,7 +79,7 @@ async fn test_verify_rune_transfer() -> Result<()> {
     let wallet = Arc::new(SimpleWallet::new(None, BitcoinNetwork::Testnet)?);
     
     // Create a rune handler
-    let rune_handler = RuneHandler::new(wallet);
+    let rune_handler = RuneHandler::new(wallet, bitcoin::Network::Testnet);
     
     // Create a recipient address
     let recipient = Address::from_str("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")?;

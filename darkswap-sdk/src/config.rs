@@ -95,6 +95,8 @@ impl Default for WebRTCConfig {
 pub struct WalletConfig {
     /// Bitcoin network
     pub bitcoin_network: BitcoinNetwork,
+    /// Wallet type (simple, bdk)
+    pub wallet_type: String,
     /// Mnemonic
     pub mnemonic: Option<String>,
     /// Password
@@ -107,9 +109,40 @@ impl Default for WalletConfig {
     fn default() -> Self {
         Self {
             bitcoin_network: BitcoinNetwork::default(),
+            wallet_type: "simple".to_string(),
             mnemonic: None,
             password: None,
             electrum_server: "ssl://electrum.blockstream.info:60002".to_string(),
+        }
+    }
+}
+
+/// Main configuration
+#[derive(Debug, Clone)]
+pub struct Config {
+    /// DarkSwap configuration
+    pub darkswap: DarkSwapConfig,
+    /// P2P configuration
+    pub p2p: P2PConfig,
+    /// WebRTC configuration
+    pub webrtc: WebRTCConfig,
+    /// Wallet configuration
+    pub wallet: WalletConfig,
+    /// Orderbook configuration
+    pub orderbook: OrderbookConfig,
+    /// Trade configuration
+    pub trade: TradeConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            darkswap: DarkSwapConfig::default(),
+            p2p: P2PConfig::default(),
+            webrtc: WebRTCConfig::default(),
+            wallet: WalletConfig::default(),
+            orderbook: OrderbookConfig::default(),
+            trade: TradeConfig::default(),
         }
     }
 }

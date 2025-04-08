@@ -46,10 +46,14 @@ impl DiscoveryBehaviour {
     }
 
     /// Get the list of discovered peers.
-    pub fn discovered_peers(&self) -> HashSet<PeerId> {
-        self.kademlia.kbuckets()
-            .flat_map(|bucket| bucket.iter().map(|entry| *entry.node.key.preimage()))
-            .collect()
+    pub fn discovered_peers(&mut self) -> HashSet<PeerId> {
+        let mut peers = HashSet::new();
+        for bucket in self.kademlia.kbuckets() {
+            for entry in bucket.iter() {
+                peers.insert(*entry.node.key.preimage());
+            }
+        }
+        peers
     }
 
     /// Bootstrap the DHT.

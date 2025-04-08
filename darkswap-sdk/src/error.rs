@@ -12,6 +12,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Error type for DarkSwap SDK
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
     /// IO error
     #[error("IO error: {0}")]
     IoError(String),

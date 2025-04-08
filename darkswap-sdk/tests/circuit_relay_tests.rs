@@ -159,7 +159,7 @@ async fn test_circuit_relay_connect_disconnect() -> Result<()> {
     assert!(connected_peers.contains(&peer_id2.to_string()));
     
     // Disconnect relay1 from relay2
-    relay1.disconnect_from_peer(peer_id2).await?;
+    relay1.disconnect_from_peer(&peer_id2).await?;
     
     // Wait for the disconnection to be processed
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -201,34 +201,34 @@ async fn test_circuit_relay_relay_connection() -> Result<()> {
     let relay_addresses = relay.listen_addresses();
     
     // Connect network1 to relay
-    network1.connect_to_peer(relay_peer_id, &relay_addresses[0]).await?;
+    network1.connect(&relay_peer_id, &relay_addresses[0]).await?;
     
     // Connect network2 to relay
-    network2.connect_to_peer(relay_peer_id, &relay_addresses[0]).await?;
+    network2.connect(&relay_peer_id, &relay_addresses[0]).await?;
     
     // Wait for the connections to be established
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Check that network1 is connected to relay
-    let connected_peers1 = network1.connected_peers().await?;
+    let connected_peers1 = network1.connected_peers().await;
     assert!(connected_peers1.contains(&relay_peer_id.to_string()));
     
     // Check that network2 is connected to relay
-    let connected_peers2 = network2.connected_peers().await?;
+    let connected_peers2 = network2.connected_peers().await;
     assert!(connected_peers2.contains(&relay_peer_id.to_string()));
     
     // Connect network1 to network2 through relay
-    network1.connect_via_relay(peer_id2, relay_peer_id).await?;
+    network1.connect_via_relay(&peer_id2, &relay_peer_id).await?;
     
     // Wait for the relay connection to be established
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
     // Check that network1 is connected to network2
-    let connected_peers1 = network1.connected_peers().await?;
+    let connected_peers1 = network1.connected_peers().await;
     assert!(connected_peers1.contains(&peer_id2.to_string()));
     
     // Check that network2 is connected to network1
-    let connected_peers2 = network2.connected_peers().await?;
+    let connected_peers2 = network2.connected_peers().await;
     assert!(connected_peers2.contains(&peer_id1.to_string()));
     
     // Subscribe to a topic

@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[derive(Clone)]
 struct MockApiServer {
     responses: Arc<RwLock<Vec<String>>>,
     requests: Arc<RwLock<Vec<String>>>,

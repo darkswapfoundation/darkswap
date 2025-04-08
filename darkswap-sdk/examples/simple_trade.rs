@@ -84,11 +84,11 @@ async fn main() -> Result<()> {
             println!("Maker event: {:?}", event);
             
             match event {
-                Event::TradeCompleted(trade) => {
+                Event::TradeCompleted { trade_id } => {
                     println!("Maker: Trade completed: {:?}", trade);
                     break;
                 }
-                Event::TradeFailed(trade) => {
+                Event::TradeFailed { trade_id, error } => {
                     println!("Maker: Trade failed: {:?}", trade);
                     break;
                 }
@@ -102,11 +102,11 @@ async fn main() -> Result<()> {
         println!("Taker event: {:?}", event);
         
         match event {
-            Event::TradeCompleted(trade) => {
+            Event::TradeCompleted { trade_id } => {
                 println!("Taker: Trade completed: {:?}", trade);
                 break;
             }
-            Event::TradeFailed(trade) => {
+            Event::TradeFailed { trade_id, error } => {
                 println!("Taker: Trade failed: {:?}", trade);
                 break;
             }

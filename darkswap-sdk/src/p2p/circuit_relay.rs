@@ -6,11 +6,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-
-use anyhow::{Context as AnyhowContext, Result};
+use anyhow::Result;
 use libp2p::multiaddr::Multiaddr;
 use libp2p::PeerId;
-use log::{debug, error, info, warn};
+use log::info;
 use tokio::sync::Mutex;
 
 /// Relay configuration
@@ -37,7 +36,7 @@ pub struct CircuitRelay {
 
 impl CircuitRelay {
     /// Create a new circuit relay
-    pub async fn new(relay_config: RelayConfig, event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
+    pub async fn new(_relay_config: RelayConfig, event_sender: tokio::sync::mpsc::Sender<crate::types::Event>) -> Result<Self> {
         // Generate a new keypair
         let keypair = libp2p::identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(keypair.public());
@@ -65,7 +64,7 @@ impl CircuitRelay {
     }
 
     /// Add a bootstrap peer
-    pub async fn add_bootstrap_peer(&mut self, peer_id: PeerId) -> Result<()> {
+    pub async fn add_bootstrap_peer(&mut self, _peer_id: PeerId) -> Result<()> {
         Ok(())
     }
 
@@ -98,17 +97,17 @@ impl CircuitRelay {
     }
 
     /// Connect to a relay
-    pub async fn connect_to_relay(&self, relay_peer_id: &PeerId, relay_addr: &Multiaddr) -> Result<()> {
+    pub async fn connect_to_relay(&self, _relay_peer_id: &PeerId, _relay_addr: &Multiaddr) -> Result<()> {
         Ok(())
     }
 
     /// Disconnect from a relay
-    pub async fn disconnect_from_relay(&self, relay_peer_id: &PeerId) -> Result<()> {
+    pub async fn disconnect_from_relay(&self, _relay_peer_id: &PeerId) -> Result<()> {
         Ok(())
     }
 
     /// Send data to a peer
-    pub async fn send_data(&self, peer_id: &PeerId, data: &[u8]) -> Result<()> {
+    pub async fn send_data(&self, _peer_id: &PeerId, _data: &[u8]) -> Result<()> {
         Ok(())
     }
 }

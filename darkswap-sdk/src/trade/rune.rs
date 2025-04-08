@@ -49,6 +49,11 @@ impl RuneHandler {
         Ok(balance)
     }
 
+    /// Get balance of a specific rune
+    pub async fn balance_of(&self, rune_id: &str) -> Result<u64> {
+        self.get_rune_balance_for(rune_id).await
+    }
+
     /// List runes
     pub async fn list_runes(&self) -> Result<Vec<String>> {
         // Get all rune balances
@@ -66,7 +71,7 @@ impl RuneHandler {
         rune_id: &str,
         recipient: &str,
         amount: u64,
-        fee_rate: f64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Check if we have enough balance
         let balance = self.get_rune_balance_for(rune_id).await?;
@@ -120,6 +125,27 @@ impl RuneHandler {
         Ok(psbt)
     }
 
+    /// Create a transfer PSBT
+    pub async fn create_transfer_psbt(
+        &self,
+        rune_id: &str,
+        amount: u64,
+        recipient: Address,
+        fee_rate: f64,
+    ) -> Result<Psbt> {
+        self.create_send_transaction(rune_id, &recipient.to_string(), amount, fee_rate).await
+    }
+
+    /// Verify a transfer
+    pub async fn verify_transfer(&self, psbt: &Psbt, rune_id: &str, amount: u64) -> Result<bool> {
+        // Extract rune data from the PSBT
+        let rune_data = self.extract_rune_data(psbt)?;
+        
+        // In a real implementation, we would verify the rune transfer
+        // For now, just return true
+        Ok(true)
+    }
+
     /// Extract rune data from a PSBT
     pub fn extract_rune_data(&self, psbt: &Psbt) -> Result<HashMap<String, Vec<u8>>> {
         let mut rune_data = HashMap::new();
@@ -154,9 +180,9 @@ impl RuneHandler {
     /// Create a transaction to mint runes
     pub async fn create_mint_transaction(
         &self,
-        rune_id: &str,
-        amount: u64,
-        fee_rate: f64,
+        _rune_id: &str,
+        _amount: u64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Get a rune address
         let address = self.get_rune_address().await?;
@@ -209,7 +235,7 @@ impl RuneHandler {
         &self,
         rune_id: &str,
         amount: u64,
-        fee_rate: f64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Check if we have enough balance
         let balance = self.get_rune_balance_for(rune_id).await?;

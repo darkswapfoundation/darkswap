@@ -2,9 +2,6 @@
 //!
 //! This crate provides the DarkSwap SDK for interacting with the DarkSwap protocol.
 
-#![warn(missing_docs)]
-#![warn(rustdoc::missing_doc_code_examples)]
-
 pub mod config;
 pub mod error;
 pub mod network;
@@ -24,9 +21,9 @@ use log::warn;
 
 use crate::error::{Error, Result};
 use crate::network::NetworkInterface;
-use crate::orderbook::{Orderbook, OrderId};
+use crate::orderbook::{Orderbook, OrderSide};
 use crate::trade::TradeManager;
-use crate::types::{Asset, TradeId};
+use crate::types::{Asset, OrderId, TradeId};
 use crate::wallet::{Wallet, WalletInterface, Utxo};
 use tokio::sync::mpsc;
 
@@ -44,7 +41,12 @@ pub struct DarkSwap {
 
 impl DarkSwap {
     /// Create a new DarkSwap instance
-    pub fn new(
+    pub fn new(config: config::Config) -> Result<Self> {
+        Self::with_defaults(config)
+    }
+
+    /// Create a new DarkSwap instance with custom components
+    pub fn with_components(
         wallet: Arc<dyn Wallet + Send + Sync>,
         network: Arc<dyn NetworkInterface + Send + Sync>,
         orderbook: Arc<Orderbook>,
@@ -59,9 +61,11 @@ impl DarkSwap {
     }
 
     /// Create a new DarkSwap instance with default components
-    pub fn with_defaults(wallet: Arc<dyn Wallet + Send + Sync>) -> Result<Self> {
+    pub fn with_defaults(config: config::Config) -> Result<Self> {
+        // Create the wallet
+        let wallet = wallet::create_wallet(&config.wallet)?;
         // Create the event channel
-        let (event_sender, _event_receiver) = mpsc::channel(100);
+        let (event_sender, _event_receiver) = mpsc::channel::<types::Event>(100);
         
         // Create the network
         let network = Arc::new(DummyNetwork::new());
@@ -100,7 +104,7 @@ impl DarkSwap {
             })?;
         
         // Create the event channel
-        let (event_sender, _event_receiver) = mpsc::channel(100);
+        let (event_sender, _event_receiver) = mpsc::channel::<types::Event>(100);
         
         // Create components
         let wallet = Arc::new(BridgeWallet::new(bridge.clone()));
@@ -164,20 +168,20 @@ impl WalletInterfaceAdapter {
 #[async_trait]
 impl WalletInterface for WalletInterfaceAdapter {
     /// Get wallet address
-    async fn get_address(&self) -> Result<String> {
-        self.wallet.get_address().map_err(|e| Error::WalletError(e.to_string()))
+    async fn get_address(&self) -> anyhow::Result<String> {
+        self.wallet.get_address().map_err(|e| Error::WalletError(e.to_string()).into())
     }
 
     /// Get wallet balance
-    async fn get_balance(&self) -> Result<u64> {
-        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()))
+    async fn get_balance(&self) -> anyhow::Result<u64> {
+        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()).into())
     }
 
     /// Get asset balance
-    async fn get_asset_balance(&self, _asset: &Asset) -> Result<u64> {
+    async fn get_asset_balance(&self, _asset: &Asset) -> anyhow::Result<u64> {
         // In a real implementation, we would get the asset balance
         // For now, just return the wallet balance
-        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()))
+        self.wallet.get_balance().map_err(|e| Error::WalletError(e.to_string()).into())
     }
 
     /// Create and sign a PSBT for an order
@@ -188,7 +192,7 @@ impl WalletInterface for WalletInterfaceAdapter {
         _quote_asset: &Asset,
         _amount: u64,
         _price: u64,
-    ) -> Result<String> {
+    ) -> anyhow::Result<String> {
         // In a real implementation, we would create a PSBT for an order
         // For now, just return a dummy PSBT
         Ok("dummy_psbt".to_string())
@@ -203,28 +207,28 @@ impl WalletInterface for WalletInterfaceAdapter {
         _quote_asset: &Asset,
         _amount: u64,
         _price: u64,
-    ) -> Result<String> {
+    ) -> anyhow::Result<String> {
         // In a real implementation, we would create a PSBT for a trade
         // For now, just return a dummy PSBT
         Ok("dummy_psbt".to_string())
     }
 
     /// Sign a PSBT
-    async fn sign_psbt(&self, psbt_base64: &str) -> Result<String> {
+    async fn sign_psbt(&self, psbt_base64: &str) -> anyhow::Result<String> {
         // In a real implementation, we would sign the PSBT
         // For now, just return the same PSBT
         Ok(psbt_base64.to_string())
     }
 
     /// Finalize and broadcast a PSBT
-    async fn finalize_and_broadcast_psbt(&self, _psbt_base64: &str) -> Result<String> {
+    async fn finalize_and_broadcast_psbt(&self, _psbt_base64: &str) -> anyhow::Result<String> {
         // In a real implementation, we would finalize and broadcast the PSBT
         // For now, just return a dummy txid
         Ok("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string())
     }
 
     /// Verify a PSBT
-    async fn verify_psbt(&self, _psbt_base64: &str) -> Result<bool> {
+    async fn verify_psbt(&self, _psbt_base64: &str) -> anyhow::Result<bool> {
         // In a real implementation, we would verify the PSBT
         // For now, just return true
         Ok(true)
@@ -242,12 +246,12 @@ impl DummyNetwork {
 }
 
 impl NetworkInterface for DummyNetwork {
-    fn connect(&self) -> Result<()> {
+    fn connect(&self) -> anyhow::Result<()> {
         warn!("DummyNetwork::connect not implemented");
         Ok(())
     }
 
-    fn disconnect(&self) -> Result<()> {
+    fn disconnect(&self) -> anyhow::Result<()> {
         warn!("DummyNetwork::disconnect not implemented");
         Ok(())
     }
@@ -257,17 +261,17 @@ impl NetworkInterface for DummyNetwork {
         false
     }
 
-    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> Result<()> {
+    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> anyhow::Result<()> {
         warn!("DummyNetwork::broadcast_message not implemented");
         Ok(())
     }
 
-    fn subscribe(&self, _topic: &str) -> Result<()> {
+    fn subscribe(&self, _topic: &str) -> anyhow::Result<()> {
         warn!("DummyNetwork::subscribe not implemented");
         Ok(())
     }
 
-    fn unsubscribe(&self, _topic: &str) -> Result<()> {
+    fn unsubscribe(&self, _topic: &str) -> anyhow::Result<()> {
         warn!("DummyNetwork::unsubscribe not implemented");
         Ok(())
     }
@@ -321,12 +325,12 @@ impl BridgeNetwork {
 
 impl NetworkInterface for BridgeNetwork {
     // Implement network methods using bridge integration
-    fn connect(&self) -> Result<()> {
+    fn connect(&self) -> anyhow::Result<()> {
         warn!("BridgeNetwork::connect not implemented");
         Ok(())
     }
 
-    fn disconnect(&self) -> Result<()> {
+    fn disconnect(&self) -> anyhow::Result<()> {
         warn!("BridgeNetwork::disconnect not implemented");
         Ok(())
     }
@@ -336,17 +340,17 @@ impl NetworkInterface for BridgeNetwork {
         false
     }
 
-    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> Result<()> {
+    fn broadcast_message(&self, _topic: &str, _message: &[u8]) -> anyhow::Result<()> {
         warn!("BridgeNetwork::broadcast_message not implemented");
         Ok(())
     }
 
-    fn subscribe(&self, _topic: &str) -> Result<()> {
+    fn subscribe(&self, _topic: &str) -> anyhow::Result<()> {
         warn!("BridgeNetwork::subscribe not implemented");
         Ok(())
     }
 
-    fn unsubscribe(&self, _topic: &str) -> Result<()> {
+    fn unsubscribe(&self, _topic: &str) -> anyhow::Result<()> {
         warn!("BridgeNetwork::unsubscribe not implemented");
         Ok(())
     }

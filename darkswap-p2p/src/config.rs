@@ -1,5 +1,6 @@
 //! Configuration for the P2P network.
 
+use libp2p::identity::Keypair;
 use std::time::Duration;
 
 /// Configuration for the P2P network.
@@ -13,6 +14,8 @@ pub struct Config {
     pub relay_servers: Vec<String>,
     /// The node ID.
     pub node_id: Option<String>,
+    /// The keypair for the node.
+    pub keypair: Keypair,
     /// Whether to enable WebRTC.
     pub enable_webrtc: bool,
     /// Whether to enable circuit relay.
@@ -27,13 +30,15 @@ pub struct Config {
     pub connection_timeout: Duration,
 }
 
-impl Default for Config {
-    fn default() -> Self {
+impl Config {
+    /// Create a new configuration with the given keypair.
+    pub fn new(keypair: Keypair) -> Self {
         Self {
             listen_addresses: vec!["/ip4/0.0.0.0/tcp/9000".to_string()],
             bootstrap_peers: vec![],
             relay_servers: vec![],
             node_id: None,
+            keypair,
             enable_webrtc: true,
             enable_circuit_relay: true,
             enable_dht: true,

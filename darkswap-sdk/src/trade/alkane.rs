@@ -66,7 +66,7 @@ impl AlkaneHandler {
         alkane_id: &str,
         recipient: &str,
         amount: u64,
-        fee_rate: f64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Check if we have enough balance
         let balance = self.get_alkane_balance_for(alkane_id).await?;
@@ -154,9 +154,9 @@ impl AlkaneHandler {
     /// Create a transaction to mint alkanes
     pub async fn create_mint_transaction(
         &self,
-        alkane_id: &str,
-        amount: u64,
-        fee_rate: f64,
+        _alkane_id: &str,
+        _amount: u64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Get an alkane address
         let address = self.get_alkane_address().await?;
@@ -209,7 +209,7 @@ impl AlkaneHandler {
         &self,
         alkane_id: &str,
         amount: u64,
-        fee_rate: f64,
+        _fee_rate: f64,
     ) -> Result<Psbt> {
         // Check if we have enough balance
         let balance = self.get_alkane_balance_for(alkane_id).await?;

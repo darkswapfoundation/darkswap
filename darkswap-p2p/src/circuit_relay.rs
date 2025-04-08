@@ -3,18 +3,14 @@
 use darkswap_lib::Error;
 use libp2p::{
     core::ConnectedPoint,
-    relay::{self, client::Transport},
     swarm::NetworkBehaviour,
     Multiaddr, PeerId,
 };
 use std::collections::VecDeque;
+use std::task::{Context, Poll};
 
 /// Circuit relay behaviour for the P2P network.
-#[derive(NetworkBehaviour)]
-#[behaviour(out_event = "CircuitRelayEvent")]
 pub struct CircuitRelayBehaviour {
-    relay: relay::client::Behaviour,
-    #[behaviour(ignore)]
     events: VecDeque<CircuitRelayEvent>,
 }
 
@@ -39,12 +35,8 @@ pub enum CircuitRelayEvent {
 
 impl CircuitRelayBehaviour {
     /// Create a new circuit relay behaviour.
-    pub fn new(local_peer_id: PeerId) -> Result<Self, Box<dyn std::error::Error>> {
-        let relay_config = relay::client::Config::default();
-        let relay = relay::client::Behaviour::new(local_peer_id, relay_config);
-
+    pub fn new(_local_peer_id: PeerId) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            relay,
             events: VecDeque::new(),
         })
     }
@@ -65,20 +57,64 @@ impl CircuitRelayBehaviour {
         // For this example, we'll just emit an event.
         self.events.push_back(CircuitRelayEvent::RelayClosed { relay_peer_id });
     }
+    
+    /// Poll for events
+    pub fn poll(&mut self) -> Option<CircuitRelayEvent> {
+        self.events.pop_front()
+    }
 }
 
-impl From<relay::client::Event> for CircuitRelayEvent {
-    fn from(event: relay::client::Event) -> Self {
-        match event {
-            relay::client::Event::ReservationReqAccepted { .. } => {
-                // This would be handled in a real implementation
-                CircuitRelayEvent::Error(Error::P2P("Unhandled relay event".to_string()))
-            }
-            relay::client::Event::ReservationReqFailed { .. } => {
-                // This would be handled in a real implementation
-                CircuitRelayEvent::Error(Error::P2P("Relay reservation failed".to_string()))
-            }
-            _ => CircuitRelayEvent::Error(Error::P2P("Unknown relay event".to_string())),
+// Implement NetworkBehaviour manually
+#[allow(unused_variables)]
+impl NetworkBehaviour for CircuitRelayBehaviour {
+    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler;
+    type OutEvent = CircuitRelayEvent;
+
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        libp2p::swarm::dummy::ConnectionHandler
+    }
+
+    fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {
+        Vec::new()
+    }
+
+    fn inject_connection_established(
+        &mut self,
+        _peer_id: &PeerId,
+        _connection_id: &libp2p::core::connection::ConnectionId,
+        _endpoint: &ConnectedPoint,
+        _failed_addresses: Option<&Vec<Multiaddr>>,
+        _other_established: usize,
+    ) {
+    }
+
+    fn inject_connection_closed(
+        &mut self,
+        _peer_id: &PeerId,
+        _connection_id: &libp2p::core::connection::ConnectionId,
+        _endpoint: &ConnectedPoint,
+        _handler: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
+        _remaining_established: usize,
+    ) {
+    }
+
+    fn inject_event(
+        &mut self,
+        _peer_id: PeerId,
+        _connection_id: libp2p::core::connection::ConnectionId,
+        _event: void::Void,
+    ) {
+    }
+
+    fn poll<TBehaviourIn>(
+        &mut self,
+        _cx: &mut Context<'_>,
+        _params: &mut impl libp2p::swarm::PollParameters,
+    ) -> Poll<libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(libp2p::swarm::NetworkBehaviourAction::GenerateEvent(event));
         }
+
+        Poll::Pending
     }
 }

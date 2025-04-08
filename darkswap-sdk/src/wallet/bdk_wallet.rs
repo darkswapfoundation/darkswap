@@ -221,7 +221,7 @@ pub struct BdkWallet {}
 #[cfg(not(feature = "bdk-wallet"))]
 impl BdkWallet {
     pub fn from_mnemonic(
-        _mnemonic: &str,
+        _mnemonic: Option<&str>,
         _password: Option<&str>,
         _network: bitcoin::Network,
     ) -> crate::Result<Self> {
@@ -236,5 +236,20 @@ impl BdkWallet {
             "BDK wallet is not enabled. Enable the bdk-wallet feature to use this functionality."
                 .to_string(),
         ))
+    }
+}
+
+#[cfg(not(feature = "bdk-wallet"))]
+impl crate::wallet::Wallet for BdkWallet {
+    fn get_balance(&self) -> anyhow::Result<u64> {
+        Err(anyhow::anyhow!("BDK wallet is not enabled. Enable the bdk-wallet feature to use this functionality."))
+    }
+
+    fn get_address(&self) -> anyhow::Result<String> {
+        Err(anyhow::anyhow!("BDK wallet is not enabled. Enable the bdk-wallet feature to use this functionality."))
+    }
+
+    fn get_utxos(&self) -> anyhow::Result<Vec<crate::wallet::Utxo>> {
+        Err(anyhow::anyhow!("BDK wallet is not enabled. Enable the bdk-wallet feature to use this functionality."))
     }
 }

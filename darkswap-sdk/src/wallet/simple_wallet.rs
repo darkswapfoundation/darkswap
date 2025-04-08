@@ -13,8 +13,7 @@ use rand::{rngs::OsRng, RngCore};
 use tokio::sync::Mutex;
 
 use crate::config::BitcoinNetwork;
-use crate::orderbook::OrderId;
-use crate::types::{Asset, TradeId};
+use crate::types::{Asset, OrderId, TradeId};
 use crate::wallet::{Utxo, Wallet, WalletError, WalletInterface};
 
 /// Simple wallet implementation
@@ -44,7 +43,7 @@ impl SimpleWallet {
         let private_key = if let Some(wif) = private_key_wif {
             PrivateKey::from_wif(wif).context("Invalid private key WIF format")?
         } else {
-            let secp = bitcoin::secp256k1::Secp256k1::new();
+            let _secp = bitcoin::secp256k1::Secp256k1::new();
             let mut rng = OsRng;
             // Generate a random secret key
             let mut random_bytes = [0u8; 32];
