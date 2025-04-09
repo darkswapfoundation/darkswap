@@ -4,8 +4,8 @@
 
 use bitcoin::{
     Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness,
-    LockTime,
 };
+use bitcoin::locktime::absolute::LockTime;
 use crate::error::{Error, Result};
 use crate::runestone::{Edict, Etching, Runestone, Terms};
 use crate::bitcoin_utils::BitcoinWallet;
@@ -318,7 +318,7 @@ impl RuneProtocol {
         let balance = self.get_balance(&wallet_address_unchecked, rune_id);
         
         if balance < amount {
-            return Err(Error::InsufficientBalance);
+            return Err(Error::InsufficientFunds("Insufficient balance for rune transfer".to_string()));
         }
         
         // Create a transaction with inputs from the wallet
@@ -515,7 +515,7 @@ impl RuneProtocol {
         // Check that the sender has enough balance
         let balance = self.get_balance(from, rune_id);
         if balance < amount {
-            return Err(Error::InsufficientBalance);
+            return Err(Error::InsufficientFunds("Insufficient balance for rune transfer validation".to_string()));
         }
         
         Ok(())

@@ -90,11 +90,11 @@ fn test_alkane_protocol_simple() -> Result<()> {
     
     // Check that the error is InsufficientBalance
     match result {
-        Err(darkswap_sdk::error::Error::InsufficientBalance) => {
-            println!("Got expected InsufficientBalance error");
+        Err(darkswap_sdk::error::Error::InsufficientFunds(_)) => {
+            println!("Got expected InsufficientFunds error");
         },
         _ => {
-            panic!("Expected InsufficientBalance error, got {:?}", result);
+            panic!("Expected InsufficientFunds error, got {:?}", result);
         }
     }
     

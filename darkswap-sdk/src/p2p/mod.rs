@@ -45,6 +45,24 @@ pub struct P2PNetwork {
     event_receiver: Arc<RwLock<mpsc::Receiver<Event>>>,
 }
 
+impl Default for P2PNetwork {
+    fn default() -> Self {
+        // Generate a random peer ID
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let local_peer_id = PeerId::from(keypair.public());
+        
+        // Create dummy channels
+        let (event_sender, event_receiver) = mpsc::channel(100);
+        
+        Self {
+            local_peer_id,
+            connected_peers: Arc::new(RwLock::new(HashMap::new())),
+            event_sender,
+            event_receiver: Arc::new(RwLock::new(event_receiver)),
+        }
+    }
+}
+
 impl P2PNetwork {
     /// Create a new P2P network
     pub async fn new(event_sender: mpsc::Sender<Event>) -> Result<Self> {
@@ -97,7 +115,7 @@ impl P2PNetwork {
     }
 
     /// Send data to a peer
-    pub async fn send_data(&self, peer_id: &PeerId, data: &[u8]) -> Result<()> {
+    pub async fn send_data(&self, peer_id: &PeerId, _data: &[u8]) -> Result<()> {
         // Check if we're connected
         let connected_peers = self.connected_peers.read().await;
         if !connected_peers.contains_key(peer_id) {

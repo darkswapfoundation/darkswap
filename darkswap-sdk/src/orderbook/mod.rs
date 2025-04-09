@@ -492,6 +492,14 @@ impl Orderbook {
 
         Ok(best_price)
     }
+    
+    /// Get the best bid and ask prices
+    pub async fn get_best_bid_ask(&self, base_asset: &Asset, quote_asset: &Asset) -> Result<(Option<Decimal>, Option<Decimal>)> {
+        let best_bid = self.get_best_bid_price(base_asset, quote_asset).await?;
+        let best_ask = self.get_best_ask_price(base_asset, quote_asset).await?;
+        
+        Ok((best_bid, best_ask))
+    }
 
     /// Get the order book
     pub async fn get_order_book(

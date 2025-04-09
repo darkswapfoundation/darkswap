@@ -37,6 +37,29 @@ impl TradeManager {
         self.psbt_handler.create_trade_psbt(outputs, fee_rate).await
             .map_err(|e| Error::TradeError(format!("Failed to create trade PSBT: {}", e)))
     }
+    
+    /// Create a transfer PSBT
+    pub async fn create_transfer_psbt(
+        &self,
+        _asset_id: &str,
+        _amount: u64,
+        recipient: bitcoin::Address,
+        fee_rate: f64,
+    ) -> crate::error::Result<Psbt> {
+        // Create an output for the recipient
+        let output = bitcoin::TxOut {
+            value: 546, // Minimum dust amount
+            script_pubkey: recipient.script_pubkey(),
+        };
+        
+        // Create a PSBT with the output
+        let psbt = self.create_trade_psbt(vec![output], fee_rate).await?;
+        
+        // In a real implementation, we would add asset transfer data to the PSBT
+        // For now, just return the PSBT
+        
+        Ok(psbt)
+    }
 
     /// Sign a PSBT
     pub async fn sign_psbt(&self, psbt: Psbt) -> crate::error::Result<Psbt> {

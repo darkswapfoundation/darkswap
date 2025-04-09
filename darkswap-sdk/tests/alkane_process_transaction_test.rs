@@ -81,7 +81,7 @@ fn test_process_transaction() -> Result<()> {
                     println!("OP_RETURN data: {}", data);
                     
                     // Push the data as a single chunk
-                    builder = builder.push_slice(data.as_bytes());
+                    builder = builder.push_slice(data.as_bytes().to_vec());
                     
                     builder.into_script()
                 },
@@ -122,7 +122,7 @@ fn test_process_transaction() -> Result<()> {
                     println!("OP_RETURN data (without prefix): {}", data);
                     
                     // Push the data as a single chunk
-                    builder = builder.push_slice(data.as_bytes());
+                    builder = builder.push_slice(data.as_bytes().to_vec());
                     
                     builder.into_script()
                 },

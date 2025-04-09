@@ -1,11 +1,12 @@
+
 //! Alkanes implementation
 //!
 //! This module provides the implementation of the Alkane structure and related functionality.
 
 use bitcoin::{
     Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Txid, Witness,
-    LockTime,
 };
+use bitcoin::locktime::absolute::LockTime;
 use crate::error::{Error, Result};
 use crate::runes::{Rune, RuneProtocol};
 use crate::bitcoin_utils::BitcoinWallet;
@@ -356,7 +357,7 @@ impl AlkaneProtocol {
         // Check if the sender has enough balance
         let sender_balance = self.get_balance(&transfer.from, &transfer.alkane_id);
         if sender_balance < transfer.amount {
-            return Err(Error::InsufficientBalance);
+            return Err(Error::InsufficientFunds("Insufficient balance for transfer".to_string()));
         }
         
         // Update the sender's balance
@@ -415,7 +416,7 @@ impl AlkaneProtocol {
         println!("  Sender balance: {}", sender_balance);
         if sender_balance < transfer.amount {
             println!("  Error: Insufficient balance. Required: {}, Available: {}", transfer.amount, sender_balance);
-            return Err(Error::InsufficientBalance);
+            return Err(Error::InsufficientFunds("Insufficient balance for alkane transfer".to_string()));
         }
         
         // Create a simple transaction with an OP_RETURN output
@@ -424,7 +425,7 @@ impl AlkaneProtocol {
             lock_time: LockTime::ZERO.into(),
             input: inputs.iter().map(|(outpoint, _)| TxIn {
                 previous_output: *outpoint,
-                script_sig: Script::new(),
+                script_sig: bitcoin::blockdata::script::Builder::new().into_script(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: Witness::new(),
             }).collect(),
@@ -445,7 +446,17 @@ impl AlkaneProtocol {
         };
         let data = format!("ALKANE:{}:{}", id_str, transfer.amount);
         // Add the data
-        builder = builder.push_slice(data.as_bytes());
+        // Use push_slice with a fixed-size array
+        let data_bytes = data.as_bytes();
+        for chunk in data_bytes.chunks(32) {
+            let mut fixed_size_array = [0u8; 32];
+            let len = chunk.len().min(32);
+            fixed_size_array[..len].copy_from_slice(&chunk[..len]);
+            // Use a different approach to push data
+            for &byte in &fixed_size_array[..len] {
+                builder = builder.push_int(byte as i64);
+            }
+        }
         
         // Build the script
         let script = builder.into_script();
@@ -463,7 +474,8 @@ impl AlkaneProtocol {
         
         // Add the change output
         let total_input = inputs.iter().map(|(_, txout)| txout.value).sum::<u64>();
-        let weight_value = tx.weight() as f32;
+        let weight = tx.weight();
+        let weight_value = weight.to_wu() as f32;
         let fee = (weight_value * fee_rate / 4.0) as u64;
         let change = total_input.saturating_sub(546 + fee);
         
@@ -641,7 +653,7 @@ impl AlkaneProtocol {
         
         // Serialize the metadata to JSON
         let metadata_json = serde_json::to_string(&alkane_metadata)
-            .map_err(|_| Error::SerializationError)?;
+            .map_err(|e| Error::SerializationError(e.to_string()))?;
         
         // Add the metadata as an OP_RETURN output
         // We need to use a fixed-size array that implements AsRef<PushBytes>
@@ -653,7 +665,14 @@ impl AlkaneProtocol {
         let metadata_bytes = metadata_json.as_bytes();
         // Add the data in chunks of 75 bytes (max size for a standard push)
         for chunk in metadata_bytes.chunks(75) {
-            builder = builder.push_slice(chunk);
+            // Use push_slice with a fixed-size array
+            let mut fixed_size_array = [0u8; 75];
+            let len = chunk.len();
+            fixed_size_array[..len].copy_from_slice(chunk);
+            // Use a different approach to push data
+            for &byte in &fixed_size_array[..len] {
+                builder = builder.push_int(byte as i64);
+            }
         }
         
         // Build the script

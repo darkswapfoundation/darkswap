@@ -96,7 +96,7 @@ impl RelayManager {
     }
 
     /// Connect to a peer via relay
-    pub async fn connect_to_peer_via_relay(&self, peer_id: &PeerId, relay_peer_id: &PeerId) -> Result<()> {
+    pub async fn connect_to_peer_via_relay(&self, _peer_id: &PeerId, _relay_peer_id: &PeerId) -> Result<()> {
         // In a real implementation, we would connect to the peer via the relay
         // For now, just return Ok
         Ok(())

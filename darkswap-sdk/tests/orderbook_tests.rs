@@ -34,7 +34,8 @@ async fn test_order_creation() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("20000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Check order properties
@@ -82,7 +83,8 @@ async fn test_order_cancellation() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("20000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Cancel the order
@@ -119,7 +121,8 @@ async fn test_get_orders_for_pair() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("20000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Create a rune asset
@@ -132,18 +135,19 @@ async fn test_get_orders_for_pair() -> Result<()> {
         OrderSide::Sell,
         Decimal::from_str("100.0")?,
         Decimal::from_str("0.0001")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Get BTC/USD orders
-    let btc_usd_orders = orderbook.get_orders(&Asset::Bitcoin, &Asset::Bitcoin).await?;
+    let btc_usd_orders = orderbook.get_orders(Some(Asset::Bitcoin), Some(Asset::Bitcoin), None, None).await?;
     
     // Check that we got the BTC/USD order
     assert_eq!(btc_usd_orders.len(), 1);
     assert_eq!(btc_usd_orders[0].id, btc_usd_order.id);
     
     // Get RUNE/BTC orders
-    let rune_btc_orders = orderbook.get_orders(&rune_asset, &Asset::Bitcoin).await?;
+    let rune_btc_orders = orderbook.get_orders(Some(rune_asset.clone()), Some(Asset::Bitcoin), None, None).await?;
     
     // Check that we got the RUNE/BTC order
     assert_eq!(rune_btc_orders.len(), 1);
@@ -174,7 +178,8 @@ async fn test_get_best_bid_ask() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("19000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     orderbook.create_order(
@@ -183,7 +188,8 @@ async fn test_get_best_bid_ask() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("20000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Create BTC/USD sell orders at different prices
@@ -193,7 +199,8 @@ async fn test_get_best_bid_ask() -> Result<()> {
         OrderSide::Sell,
         Decimal::from_str("1.0")?,
         Decimal::from_str("21000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     orderbook.create_order(
@@ -202,7 +209,8 @@ async fn test_get_best_bid_ask() -> Result<()> {
         OrderSide::Sell,
         Decimal::from_str("1.0")?,
         Decimal::from_str("22000.0")?,
-        None,
+        "".to_string(),
+        std::time::Duration::from_secs(3600),
     ).await?;
     
     // Get best bid and ask
@@ -239,7 +247,8 @@ async fn test_order_expiry() -> Result<()> {
         OrderSide::Buy,
         Decimal::from_str("1.0")?,
         Decimal::from_str("20000.0")?,
-        Some(1), // 1 second expiry
+        "".to_string(),
+        std::time::Duration::from_secs(1), // 1 second expiry
     ).await?;
     
     // Wait for the order to expire

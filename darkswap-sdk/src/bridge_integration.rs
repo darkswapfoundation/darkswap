@@ -170,7 +170,7 @@ impl BridgeIntegration {
     }
 
     /// Send a message to the bridge
-    pub async fn send_message(&self, message: BridgeMessage) -> Result<BridgeResponse> {
+    pub async fn send_message(&self, _message: BridgeMessage) -> Result<BridgeResponse> {
         // Check if we're connected
         let status = self.status.lock().await;
         if *status != BridgeStatus::Connected {

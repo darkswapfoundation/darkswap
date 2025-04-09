@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     );
     
     // Create P2P network
-    let mut network = P2PNetwork::new(&config, tx.clone())?;
+    let mut network = P2PNetwork::new(tx.clone()).await?;
     
     // Start the network
     network.start().await?;
@@ -65,16 +65,16 @@ async fn main() -> Result<()> {
     // Process events
     while let Some(event) = rx.recv().await {
         match event {
-            Event::P2P(p2p_event) => {
-                println!("P2P event: {:?}", p2p_event);
+            Event::PeerConnected { peer_id } => {
+                println!("Peer connected: {}", peer_id);
             }
-            Event::Trade(trade_event) => {
-                println!("Trade event: {:?}", trade_event);
+            Event::PeerDisconnected { peer_id } => {
+                println!("Peer disconnected: {}", peer_id);
             }
-            Event::Wallet(wallet_event) => {
-                println!("Wallet event: {:?}", wallet_event);
+            Event::OrderCreated { order_id } => {
+                println!("Order created: {}", order_id);
             }
-            Event::Error(error) => {
+            Event::Error { error } => {
                 println!("Error: {}", error);
             }
         }

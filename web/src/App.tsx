@@ -13,6 +13,12 @@ import Orders from './pages/Orders';
 import Vault from './pages/Vault';
 import Settings from './pages/Settings';
 import About from './pages/About';
+import WasmDemo from './pages/WasmDemo';
+import WebRtcDarkSwapDemo from './pages/WebRtcDarkSwapDemo';
+import LazyDarkSwapDemo from './pages/LazyDarkSwapDemo';
+import StreamingDarkSwapDemo from './pages/StreamingDarkSwapDemo';
+import WebWorkerDarkSwapDemo from './pages/WebWorkerDarkSwapDemo';
+import CodeSplitDarkSwapDemo from './pages/CodeSplitDarkSwapDemo';
 import NotFound from './pages/NotFound';
 import './styles/App.css';
 
@@ -34,6 +40,12 @@ const App: React.FC = () => {
                     <Route path="/vault" element={<Vault />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/about" element={<About />} />
+                    <Route path="/wasm-demo" element={<WasmDemo />} />
+                    <Route path="/webrtc-demo" element={<WebRtcDarkSwapDemo />} />
+                    <Route path="/lazy-demo" element={<LazyDarkSwapDemo />} />
+                    <Route path="/streaming-demo" element={<StreamingDarkSwapDemo />} />
+                    <Route path="/web-worker-demo" element={<WebWorkerDarkSwapDemo />} />
+                    <Route path="/code-split-demo" element={<CodeSplitDarkSwapDemo />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>

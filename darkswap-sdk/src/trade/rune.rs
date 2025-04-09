@@ -137,9 +137,9 @@ impl RuneHandler {
     }
 
     /// Verify a transfer
-    pub async fn verify_transfer(&self, psbt: &Psbt, rune_id: &str, amount: u64) -> Result<bool> {
+    pub async fn verify_transfer(&self, psbt: &Psbt, _rune_id: &str, _amount: u64) -> Result<bool> {
         // Extract rune data from the PSBT
-        let rune_data = self.extract_rune_data(psbt)?;
+        let _rune_data = self.extract_rune_data(psbt)?;
         
         // In a real implementation, we would verify the rune transfer
         // For now, just return true

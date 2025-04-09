@@ -1,0 +1,274 @@
+/* DarkSwap Demo styles */
+
+.darkswap-demo {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.darkswap-demo h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.darkswap-demo h2 {
+  font-size: 1.5rem;
+  margin: 1.5rem 0 1rem;
+  color: var(--color-text-primary);
+}
+
+.darkswap-demo h3 {
+  font-size: 1.2rem;
+  margin: 1rem 0 0.5rem;
+  color: var(--color-text-primary);
+}
+
+.wallet-info,
+.market-info,
+.order-form,
+.orders,
+.events,
+.performance-metrics,
+.client-actions,
+.streaming-status,
+.code-split-config {
+  margin-bottom: 2rem;
+  padding: 15px;
+  background-color: var(--color-background);
+  border-radius: 6px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Streaming status styles */
+.streaming-status {
+  background-color: var(--color-background-secondary);
+  border-left: 4px solid var(--color-primary);
+}
+
+/* Code split config styles */
+.code-split-config {
+  background-color: var(--color-background-secondary);
+  border-left: 4px solid var(--color-primary);
+}
+
+.code-split-config .config-form {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.code-split-config .config-form > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.code-split-config input[type="number"] {
+  width: 60px;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-input-background);
+  color: var(--color-text-primary);
+}
+
+.code-split-config button {
+  padding: 5px 10px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.code-split-config button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* Performance metrics styles */
+.performance-metrics {
+  background-color: var(--color-background-secondary);
+}
+
+.performance-metrics ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.performance-metrics li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.performance-metrics li:last-child {
+  border-bottom: none;
+}
+
+/* Client actions styles */
+.client-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.client-actions button {
+  padding: 10px 15px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.client-actions button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.client-actions button:disabled {
+  background-color: var(--color-border);
+  cursor: not-allowed;
+}
+
+/* Form styles */
+.order-form form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+.order-form form > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.order-form label {
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.order-form input,
+.order-form select {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-input-background);
+  color: var(--color-text-primary);
+}
+
+.order-form button {
+  padding: 10px 15px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.order-form button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* Table styles */
+.orders table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.orders th,
+.orders td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.orders th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.orders td button {
+  margin-right: 5px;
+  padding: 5px 10px;
+  background-color: var(--color-secondary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.orders td button:hover {
+  background-color: var(--color-secondary-dark);
+}
+
+/* Events styles */
+.events ul {
+  max-height: 300px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.events li {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.events li:last-child {
+  border-bottom: none;
+}
+
+/* Demo page styles */
+.lazy-darkswap-demo-page,
+.streaming-darkswap-demo-page,
+.web-worker-darkswap-demo-page,
+.code-split-darkswap-demo-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.lazy-darkswap-demo-page h1,
+.streaming-darkswap-demo-page h1,
+.web-worker-darkswap-demo-page h1,
+.code-split-darkswap-demo-page h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.lazy-darkswap-demo-page p,
+.streaming-darkswap-demo-page p,
+.web-worker-darkswap-demo-page p,
+.code-split-darkswap-demo-page p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* Responsive styles */
+@media (min-width: 768px) {
+  .order-form form {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  
+  .order-form button {
+    grid-column: span 3;
+  }
+}

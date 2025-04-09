@@ -184,7 +184,7 @@ fn create_test_transaction(
     
     tx.input.push(TxIn {
         previous_output: bitcoin::OutPoint::null(),
-        script_sig: bitcoin::Script::new(),
+        script_sig: bitcoin::Script::default(),
         sequence: bitcoin::Sequence::MAX,
         witness: Witness::new(),
     });
@@ -195,7 +195,7 @@ fn create_test_transaction(
     
     // Format: "ALKANE:<id>:<amount>"
     let data = format!("ALKANE:{}:{}", alkane_id.0, amount);
-    builder = builder.push_slice(data.as_bytes());
+    builder = builder.push_slice(data.as_bytes().to_vec());
     
     // Build the script
     let script = builder.into_script();
@@ -208,7 +208,7 @@ fn create_test_transaction(
     // Add a dummy recipient output
     tx.output.push(TxOut {
         value: 546, // Dust limit
-        script_pubkey: bitcoin::Script::new(),
+        script_pubkey: bitcoin::Script::default(),
     });
     
     tx

@@ -51,7 +51,7 @@ fn test_alkane_validation() -> Result<()> {
         input: vec![
             bitcoin::TxIn {
                 previous_output: OutPoint::new(Txid::all_zeros(), 0),
-                script_sig: Script::new(),
+                script_sig: Script::default(),
                 sequence: bitcoin::Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             }
@@ -67,7 +67,7 @@ fn test_alkane_validation() -> Result<()> {
     let data = "ALKANE:ALKANE123:10000000000";
     
     // Push the data as a single slice
-    builder = builder.push_slice(data.as_bytes());
+    builder = builder.push_slice(data.as_bytes().to_vec());
     
     // Build the script
     let script = builder.into_script();
@@ -79,7 +79,7 @@ fn test_alkane_validation() -> Result<()> {
     });
     
     // Create a recipient address
-    let pubkey_hash = PubkeyHash::from_hash(bitcoin::hashes::hash160::Hash::from_slice(&[2; 20]).unwrap());
+    let pubkey_hash = PubkeyHash::from_raw_hash(bitcoin::hashes::hash160::Hash::from_slice(&[2; 20]).unwrap());
     let recipient_address = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[2; 33]).unwrap(), network);
     
     // Add the recipient output
@@ -89,7 +89,7 @@ fn test_alkane_validation() -> Result<()> {
     });
     
     // Add a change output
-    let pubkey_hash = PubkeyHash::from_hash(bitcoin::hashes::hash160::Hash::from_slice(&[3; 20]).unwrap());
+    let pubkey_hash = PubkeyHash::from_raw_hash(bitcoin::hashes::hash160::Hash::from_slice(&[3; 20]).unwrap());
     let change_address = Address::p2pkh(&bitcoin::PublicKey::from_slice(&[3; 33]).unwrap(), network);
     
     tx.output.push(TxOut {

@@ -50,6 +50,17 @@ const Header: React.FC = () => {
             <li className="header-nav-item">
               <NavLink to="/vault" onClick={closeMenu}>Vault</NavLink>
             </li>
+            <li className="header-nav-item dropdown">
+              <span className="dropdown-toggle">Demos</span>
+              <div className="dropdown-menu">
+                <NavLink to="/wasm-demo" onClick={closeMenu}>WebAssembly Demo</NavLink>
+                <NavLink to="/webrtc-demo" onClick={closeMenu}>WebRTC Demo</NavLink>
+                <NavLink to="/lazy-demo" onClick={closeMenu}>Lazy Loading Demo</NavLink>
+                <NavLink to="/streaming-demo" onClick={closeMenu}>Streaming Demo</NavLink>
+                <NavLink to="/web-worker-demo" onClick={closeMenu}>Web Worker Demo</NavLink>
+                <NavLink to="/code-split-demo" onClick={closeMenu}>Code Split Demo</NavLink>
+              </div>
+            </li>
             <li className="header-nav-item">
               <NavLink to="/settings" onClick={closeMenu}>Settings</NavLink>
             </li>

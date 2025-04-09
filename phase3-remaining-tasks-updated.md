@@ -1,131 +1,103 @@
-# DarkSwap Phase 3 - Updated Worklist
+# DarkSwap Phase 3 Remaining Tasks (Updated)
 
-## Completed Tasks
+## Core SDK Fixes and Improvements
 
-### WebAssembly Integration
-- ✅ Created TypeScript wrapper for WebAssembly module (`DarkSwapWasm.ts`)
-- ✅ Created placeholder WebAssembly bindings (`darkswap_wasm.ts`)
-- ✅ Implemented React hook for WebAssembly module (`useDarkSwap.ts`)
-- ✅ Created context provider for WebAssembly module (`DarkSwapContext.tsx`)
-- ✅ Created build script for WebAssembly module (`build-wasm.sh`)
-- ✅ Added WebAssembly status component (`DarkSwapStatus.tsx`)
-- ✅ Updated App component to use WebAssembly module (`App.tsx`)
+### Bug Fixes
+- [x] Fix compilation errors in the core SDK
+  - [x] Fix SerializationError variant duplication in error.rs
+  - [x] Fix bitcoin_utils.rs AddressWrapper implementation for NetworkChecked vs NetworkUnchecked types
+  - [x] Fix alkanes.rs script building code (replace push_byte with push_int)
+  - [x] Fix syntax errors in alkanes.rs (extra closing braces)
+- [ ] Fix test suite compilation errors
+  - [ ] Update tests to use NetworkChecked addresses
+  - [ ] Fix example code to match current API
+  - [ ] Update alkane and rune handler tests
 
-### Wallet Integration
-- ✅ Implemented Bitcoin wallet class (`BitcoinWallet.ts`)
-- ✅ Created React hook for wallet functionality (`useWallet.ts`)
-- ✅ Created context provider for wallet (`WalletContext.tsx`)
-- ✅ Added wallet connection component (`WalletConnect.tsx`)
-- ✅ Implemented wallet management page (`Vault.tsx`)
+### WebAssembly Bindings
+- [ ] Complete WebAssembly bindings for all core SDK functionality
+- [ ] Optimize WASM binary size
+- [ ] Implement browser-native WebRTC support in WASM
+- [ ] Create comprehensive JavaScript API for Rust code
+- [ ] Add event handling for order and trade events in WASM
 
-### Trading Components
-- ✅ Implemented order book component (`OrderBook.tsx`)
-- ✅ Implemented trade history component (`TradeHistory.tsx`)
-- ✅ Implemented P2P status component (`P2PStatus.tsx`)
-- ✅ Updated trading page (`Trade.tsx`)
+## Web Interface Implementation
 
-## Remaining Tasks
+### Project Setup and Core Components
+- [ ] Set up React project with TypeScript and Tailwind CSS
+- [ ] Create core UI components (header, orderbook, trade form, etc.)
+- [ ] Implement responsive design
+- [ ] Set up relay server project structure
+- [ ] Port circuit relay implementation from Subfrost
+- [ ] Implement DTLS/ICE support for WebRTC
 
-### 1. WebAssembly Build and Integration
-- [ ] Test WebAssembly build script
-- [ ] Implement actual WebAssembly bindings for Rust functions
-- [ ] Add error handling for WebAssembly loading
-- [ ] Optimize WebAssembly performance
+### TypeScript Library and State Management
+- [ ] Set up TypeScript library structure
+- [ ] Create type definitions for core data structures
+- [ ] Set up state management
+- [ ] Add event handling
+- [ ] Create React hooks for SDK functionality
 
-### 2. Wallet Integration Enhancements
-- [ ] Implement actual wallet creation and import functionality
-- [ ] Add support for hardware wallets (Ledger, Trezor)
-- [ ] Implement transaction signing with WebAssembly
-- [ ] Add address validation and QR code support
+### SDK Integration and Page Implementation
+- [ ] Integrate WASM with web application
+- [ ] Create trade page
+- [ ] Implement orders page
+- [ ] Add settings page
+- [ ] Create wallet connection interface
+- [ ] Implement orderbook visualization
 
-### 3. Trading Functionality
-- [ ] Implement actual order creation and execution
-- [ ] Add order matching algorithm
-- [ ] Implement trade execution with atomic swaps
-- [ ] Add order book filtering and sorting
+## Testing
 
-### 4. P2P Network Enhancements
-- [ ] Implement actual P2P network connection
-- [ ] Add peer discovery and connection management
-- [ ] Implement circuit relay for NAT traversal
-- [ ] Add network health monitoring
+### Unit Tests for Core Components
+- [ ] Create unit tests for BDK Wallet Integration
+- [ ] Create unit tests for PSBT Handler
+- [ ] Create unit tests for Rune Handler
+- [ ] Create unit tests for Alkane Handler
+- [ ] Create unit tests for Trade Protocol
+- [ ] Create unit tests for WebAssembly Bindings
+- [ ] Create unit tests for TypeScript Library
+- [ ] Create unit tests for React Hooks
 
-### 5. Security Enhancements
-- [ ] Implement secure key management
-- [ ] Add transaction validation
-- [ ] Implement authentication and authorization
-- [ ] Add rate limiting and DoS protection
+### Integration Tests
+- [ ] Test API client initialization and functionality
+- [ ] Test WebSocket client connection and message handling
+- [ ] Test end-to-end trade flow
+- [ ] Test WebAssembly performance and memory usage
 
-### 6. User Experience Improvements
-- [ ] Add loading indicators and progress feedback
-- [ ] Implement responsive design for mobile devices
-- [ ] Add dark/light theme support
-- [ ] Improve accessibility features
+## Documentation
 
-### 7. Testing and Quality Assurance
-- [ ] Add unit tests for WebAssembly integration
-- [ ] Add integration tests for wallet functionality
-- [ ] Add end-to-end tests for trading workflow
-- [ ] Implement continuous integration and testing
+### API Documentation
+- [ ] Document SDK API
+- [ ] Document WebAssembly API
+- [ ] Document TypeScript library API
+- [ ] Document React hooks API
 
-### 8. Documentation and Deployment
-- [ ] Create comprehensive API documentation
-- [ ] Write user guides and tutorials
-- [ ] Set up CI/CD pipelines
-- [ ] Configure monitoring and alerting
+### User Guide
+- [ ] Create getting started guide
+- [ ] Create wallet setup guide
+- [ ] Create trading guide
+- [ ] Create troubleshooting guide
+- [ ] Create FAQ
 
-## How to Prompt for Next Steps
+## Next Steps
 
-When you're ready to continue working on the DarkSwap project, you can prompt me with specific tasks from the remaining tasks list. Here are some examples of how to prompt me:
+1. **Fix Remaining SDK Issues**: Complete the fixes for the test suite and examples to ensure all code compiles correctly.
+2. **WebAssembly Bindings**: Focus on completing and optimizing the WebAssembly bindings to enable web integration.
+3. **Web Interface Development**: Begin implementing the React-based web interface with TypeScript and Tailwind CSS.
+4. **Testing**: Create comprehensive tests for all components to ensure reliability.
+5. **Documentation**: Document the API and create user guides to facilitate adoption.
 
-### For WebAssembly Build and Integration:
-```
-Let's implement the actual WebAssembly bindings for the Rust functions in darkswap_wasm.ts
-```
+## Timeline
 
-### For Wallet Integration Enhancements:
-```
-Let's enhance the wallet integration by implementing actual wallet creation and import functionality
-```
+- **Week 1**: Complete SDK fixes and begin WebAssembly binding optimization
+- **Week 2**: Finish WebAssembly bindings and start TypeScript library development
+- **Week 3**: Complete TypeScript library and begin web interface implementation
+- **Week 4**: Finish core web interface components and implement trade functionality
+- **Week 5**: Complete orders and settings pages, add wallet integration
+- **Week 6**: Conduct testing, fix bugs, and create documentation
 
-### For Trading Functionality:
-```
-Let's implement the actual order creation and execution functionality in the Trade page
-```
+## Resources
 
-### For P2P Network Enhancements:
-```
-Let's implement the actual P2P network connection and peer discovery
-```
-
-### For Security Enhancements:
-```
-Let's implement secure key management and transaction validation
-```
-
-### For User Experience Improvements:
-```
-Let's improve the user experience by adding loading indicators and responsive design
-```
-
-### For Testing and Quality Assurance:
-```
-Let's add unit tests for the WebAssembly integration and wallet functionality
-```
-
-### For Documentation and Deployment:
-```
-Let's create comprehensive API documentation and user guides
-```
-
-You can also combine multiple tasks or be more specific about what you want to work on. For example:
-```
-Let's implement the actual order creation functionality and add order matching algorithm
-```
-
-Or:
-```
-Let's focus on security by implementing secure key management and adding transaction validation
-```
-
-I'll then help you implement the requested functionality step by step, providing code, explanations, and guidance along the way.
+- **SDK Development**: Rust, wasm-bindgen, wasm-pack
+- **Web Development**: React, TypeScript, Tailwind CSS
+- **Testing**: Jest, React Testing Library, Playwright
+- **Documentation**: TypeDoc, Storybook, Markdown

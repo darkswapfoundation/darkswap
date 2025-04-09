@@ -1,56 +1,49 @@
 /**
- * ErrorHandling.ts - Error handling utilities
- * 
- * This file provides error handling utilities for the DarkSwap application.
+ * Error handling utilities for DarkSwap
  */
 
 /**
- * Error codes
+ * DarkSwap error codes
  */
 export enum ErrorCode {
   // General errors
-  Unknown = 0,
-  NotInitialized = 1,
-  AlreadyInitialized = 2,
-  AlreadyInitializing = 3,
-  InvalidArgument = 4,
-  Timeout = 5,
-  CircuitBreakerOpen = 6,
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  INITIALIZATION_FAILED = 'INITIALIZATION_FAILED',
+  NOT_INITIALIZED = 'NOT_INITIALIZED',
+  INVALID_ARGUMENT = 'INVALID_ARGUMENT',
   
   // WebAssembly errors
-  WasmLoadFailed = 100,
-  WasmInitFailed = 101,
-  WasmExecutionFailed = 102,
-  WasmShutdownFailed = 103,
+  WASM_LOAD_FAILED = 'WASM_LOAD_FAILED',
+  WASM_INSTANTIATION_FAILED = 'WASM_INSTANTIATION_FAILED',
   
-  // Network errors
-  NetworkError = 200,
-  ConnectionFailed = 201,
-  ConnectionClosed = 202,
-  ConnectionTimeout = 203,
+  // DarkSwap errors
+  DARKSWAP_CREATION_FAILED = 'DARKSWAP_CREATION_FAILED',
+  DARKSWAP_START_FAILED = 'DARKSWAP_START_FAILED',
+  DARKSWAP_STOP_FAILED = 'DARKSWAP_STOP_FAILED',
   
   // Wallet errors
-  WalletNotConnected = 300,
-  WalletConnectionFailed = 301,
-  WalletSigningFailed = 302,
-  WalletInsufficientFunds = 303,
+  WALLET_ADDRESS_FAILED = 'WALLET_ADDRESS_FAILED',
+  WALLET_BALANCE_FAILED = 'WALLET_BALANCE_FAILED',
+  WALLET_ASSET_BALANCE_FAILED = 'WALLET_ASSET_BALANCE_FAILED',
   
   // Order errors
-  OrderNotFound = 400,
-  OrderCreationFailed = 401,
-  OrderCancellationFailed = 402,
-  OrderExecutionFailed = 403,
-  InvalidOrderParameters = 404,
+  ORDER_CREATION_FAILED = 'ORDER_CREATION_FAILED',
+  ORDER_CANCELLATION_FAILED = 'ORDER_CANCELLATION_FAILED',
+  ORDER_RETRIEVAL_FAILED = 'ORDER_RETRIEVAL_FAILED',
+  ORDERS_RETRIEVAL_FAILED = 'ORDERS_RETRIEVAL_FAILED',
   
   // Trade errors
-  TradeNotFound = 500,
-  TradeCreationFailed = 501,
-  TradeExecutionFailed = 502,
-  TradeSettlementFailed = 503,
+  TRADE_CREATION_FAILED = 'TRADE_CREATION_FAILED',
+  
+  // Market errors
+  MARKET_DATA_FAILED = 'MARKET_DATA_FAILED',
+  
+  // Event errors
+  EVENT_SUBSCRIPTION_FAILED = 'EVENT_SUBSCRIPTION_FAILED',
 }
 
 /**
- * Base error class for DarkSwap
+ * DarkSwap error
  */
 export class DarkSwapError extends Error {
   /**
@@ -59,259 +52,124 @@ export class DarkSwapError extends Error {
   public readonly code: ErrorCode;
   
   /**
-   * Error details
+   * Original error
    */
-  public readonly details?: Record<string, any>;
+  public readonly originalError?: Error | unknown;
   
   /**
-   * Create a new DarkSwapError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
+   * Create a new DarkSwap error
+   * @param code Error code
+   * @param message Error message
+   * @param originalError Original error
    */
-  constructor(message: string, code: ErrorCode = ErrorCode.Unknown, details?: Record<string, any>) {
+  constructor(code: ErrorCode, message: string, originalError?: Error | unknown) {
     super(message);
     this.name = 'DarkSwapError';
     this.code = code;
-    this.details = details;
+    this.originalError = originalError;
     
     // Ensure the prototype chain is properly set up
     Object.setPrototypeOf(this, DarkSwapError.prototype);
   }
   
   /**
-   * Get details as a string
-   * @returns Details as a string
+   * Convert the error to a string
    */
-  getDetailsString(): string {
-    if (!this.details) {
-      return '';
-    }
-    
-    return JSON.stringify(this.details, null, 2);
+  toString(): string {
+    return `${this.name} [${this.code}]: ${this.message}`;
   }
   
   /**
-   * Get full error message including details
-   * @returns Full error message
+   * Convert the error to a JSON object
    */
-  getFullMessage(): string {
-    const detailsString = this.getDetailsString();
-    
-    if (!detailsString) {
-      return this.message;
-    }
-    
-    return `${this.message}\nDetails: ${detailsString}`;
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      code: this.code,
+      message: this.message,
+      originalError: this.originalError instanceof Error
+        ? {
+            name: this.originalError.name,
+            message: this.originalError.message,
+            stack: this.originalError.stack,
+          }
+        : this.originalError,
+    };
   }
 }
 
 /**
- * WebAssembly error
- */
-export class WasmError extends DarkSwapError {
-  /**
-   * Create a new WasmError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
-   */
-  constructor(message: string, code: ErrorCode = ErrorCode.WasmExecutionFailed, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'WasmError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, WasmError.prototype);
-  }
-}
-
-/**
- * Network error
- */
-export class NetworkError extends DarkSwapError {
-  /**
-   * Create a new NetworkError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
-   */
-  constructor(message: string, code: ErrorCode = ErrorCode.NetworkError, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'NetworkError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, NetworkError.prototype);
-  }
-}
-
-/**
- * Order error
- */
-export class OrderError extends DarkSwapError {
-  /**
-   * Create a new OrderError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
-   */
-  constructor(message: string, code: ErrorCode = ErrorCode.OrderNotFound, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'OrderError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, OrderError.prototype);
-  }
-}
-
-/**
- * Wallet error
- */
-export class WalletError extends DarkSwapError {
-  /**
-   * Create a new WalletError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
-   */
-  constructor(message: string, code: ErrorCode = ErrorCode.WalletNotConnected, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'WalletError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, WalletError.prototype);
-  }
-}
-
-/**
- * Trade error
- */
-export class TradeError extends DarkSwapError {
-  /**
-   * Create a new TradeError
-   * @param message - Error message
-   * @param code - Error code
-   * @param details - Error details
-   */
-  constructor(message: string, code: ErrorCode = ErrorCode.TradeNotFound, details?: Record<string, any>) {
-    super(message, code, details);
-    this.name = 'TradeError';
-    
-    // Ensure the prototype chain is properly set up
-    Object.setPrototypeOf(this, TradeError.prototype);
-  }
-}
-
-/**
- * Create a DarkSwapError from any error
- * @param error - Error to convert
- * @param defaultMessage - Default message if error is not an Error
- * @param defaultCode - Default error code
- * @returns DarkSwapError
+ * Create a DarkSwap error
+ * @param code Error code
+ * @param message Error message
+ * @param originalError Original error
  */
 export function createError(
-  error: unknown,
-  defaultMessage: string = 'An unknown error occurred',
-  defaultCode: ErrorCode = ErrorCode.Unknown,
+  code: ErrorCode,
+  message: string,
+  originalError?: Error | unknown,
 ): DarkSwapError {
-  // If error is already a DarkSwapError, return it
+  return new DarkSwapError(code, message, originalError);
+}
+
+/**
+ * Handle an error
+ * @param error Error to handle
+ * @param defaultCode Default error code
+ * @param defaultMessage Default error message
+ */
+export function handleError(
+  error: unknown,
+  defaultCode: ErrorCode = ErrorCode.UNKNOWN_ERROR,
+  defaultMessage: string = 'An unknown error occurred',
+): DarkSwapError {
   if (error instanceof DarkSwapError) {
     return error;
   }
   
-  // If error is an Error, create a DarkSwapError from it
   if (error instanceof Error) {
-    return new DarkSwapError(error.message, defaultCode, {
-      originalError: {
-        name: error.name,
-        stack: error.stack,
-      },
-    });
+    return createError(defaultCode, error.message, error);
   }
   
-  // If error is a string, create a DarkSwapError from it
   if (typeof error === 'string') {
-    return new DarkSwapError(error, defaultCode);
+    return createError(defaultCode, error);
   }
   
-  // Otherwise, create a DarkSwapError with the default message
-  return new DarkSwapError(defaultMessage, defaultCode, { originalError: error });
+  return createError(defaultCode, defaultMessage, error);
 }
 
 /**
- * Log an error
- * @param error - Error to log
- * @param context - Error context
- */
-export function logError(error: unknown, context?: string): void {
-  // Convert error to DarkSwapError
-  const darkswapError = createError(error);
-  
-  // Log error
-  if (context) {
-    console.error(`[${context}] ${darkswapError.name}: ${darkswapError.message}`);
-  } else {
-    console.error(`${darkswapError.name}: ${darkswapError.message}`);
-  }
-  
-  // Log details if available
-  if (darkswapError.details) {
-    console.error('Error details:', darkswapError.details);
-  }
-  
-  // Log stack trace if available
-  if (darkswapError.stack) {
-    console.error('Stack trace:', darkswapError.stack);
-  }
-}
-
-/**
- * Try to execute an async function and handle errors
- * @param fn - Function to execute
- * @param errorHandler - Error handler
- * @returns Result of the function
+ * Try to execute a function and handle any errors
+ * @param fn Function to execute
+ * @param errorCode Error code to use if the function throws
+ * @param errorMessage Error message to use if the function throws
  */
 export async function tryAsync<T>(
   fn: () => Promise<T>,
-  errorHandler?: (error: DarkSwapError) => Promise<T>,
+  errorCode: ErrorCode,
+  errorMessage: string,
 ): Promise<T> {
   try {
     return await fn();
   } catch (error) {
-    // Convert error to DarkSwapError
-    const darkswapError = createError(error);
-    
-    // Handle error if handler is provided
-    if (errorHandler) {
-      return await errorHandler(darkswapError);
-    }
-    
-    // Otherwise, rethrow error
-    throw darkswapError;
+    throw handleError(error, errorCode, errorMessage);
   }
 }
 
 /**
- * Try to execute a sync function and handle errors
- * @param fn - Function to execute
- * @param errorHandler - Error handler
- * @returns Result of the function
+ * Try to execute a function and handle any errors
+ * @param fn Function to execute
+ * @param errorCode Error code to use if the function throws
+ * @param errorMessage Error message to use if the function throws
  */
 export function trySync<T>(
   fn: () => T,
-  errorHandler?: (error: DarkSwapError) => T,
+  errorCode: ErrorCode,
+  errorMessage: string,
 ): T {
   try {
     return fn();
   } catch (error) {
-    // Convert error to DarkSwapError
-    const darkswapError = createError(error);
-    
-    // Handle error if handler is provided
-    if (errorHandler) {
-      return errorHandler(darkswapError);
-    }
-    
-    // Otherwise, rethrow error
-    throw darkswapError;
+    throw handleError(error, errorCode, errorMessage);
   }
 }

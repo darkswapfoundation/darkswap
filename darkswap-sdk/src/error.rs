@@ -2,7 +2,7 @@
 //!
 //! This module provides error types for the DarkSwap SDK.
 
-use std::fmt;
+// Removed unused import
 use std::io;
 use thiserror::Error;
 
@@ -12,6 +12,64 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Error type for DarkSwap SDK
 #[derive(Error, Debug)]
 pub enum Error {
+    /// Invalid name
+    #[error("Invalid name")]
+    InvalidName,
+    
+    /// Invalid description
+    #[error("Invalid description")]
+    InvalidDescription,
+    
+    /// Invalid icon
+    #[error("Invalid icon")]
+    InvalidIcon,
+    
+    /// Invalid metadata
+    #[error("Invalid metadata")]
+    InvalidMetadata,
+    
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    /// Insufficient balance
+    #[error("Insufficient balance")]
+    InsufficientBalance,
+    /// Invalid amount
+    #[error("Invalid amount: {0}")]
+    InvalidAmount(String),
+    
+    /// Invalid symbol
+    #[error("Invalid symbol")]
+    InvalidSymbol,
+    
+    /// Invalid decimals
+    #[error("Invalid decimals")]
+    InvalidDecimals,
+    
+    /// Invalid recipient
+    #[error("Invalid recipient")]
+    InvalidRecipient,
+    
+    /// Lock error
+    #[error("Lock error")]
+    LockError,
+    
+    /// Rune not found
+    #[error("Rune not found")]
+    RuneNotFound,
+    
+    /// Alkane already exists
+    #[error("Alkane already exists")]
+    AlkaneAlreadyExists,
+    
+    /// Alkane not found
+    #[error("Alkane not found: {0}")]
+    AlkaneNotFound(String),
+    
+    /// Invalid alkane
+    #[error("Invalid alkane")]
+    InvalidAlkane,
     /// Configuration error
     #[error("Configuration error: {0}")]
     ConfigError(String),
@@ -31,6 +89,8 @@ pub enum Error {
     #[error("Order book error: {0}")]
     OrderBookError(String),
     
+    // Removed duplicate OrderbookError variant
+    
     /// Trade error
     #[error("Trade error: {0}")]
     TradeError(String),
@@ -47,9 +107,7 @@ pub enum Error {
     #[error("Runtime error: {0}")]
     RuntimeError(String),
     
-    /// Serialization error
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
+    // SerializationError is already defined above
     
     /// Deserialization error
     #[error("Deserialization error: {0}")]

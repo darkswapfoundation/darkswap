@@ -12,7 +12,7 @@ use tokio::sync::{mpsc, RwLock};
 #[tokio::test]
 async fn test_p2p_network_creation() -> Result<()> {
     // Create event channel
-    let (event_sender, _event_receiver) = mpsc::channel::<Event>(100);
+    let (_event_sender, _event_receiver) = mpsc::channel::<Event>(100);
     
     // Create a P2P network
     let (network, _) = darkswap_sdk::p2p::create_memory_network().await?;
@@ -26,7 +26,7 @@ async fn test_p2p_network_creation() -> Result<()> {
 #[tokio::test]
 async fn test_p2p_network_local_peer_id() -> Result<()> {
     // Create event channel
-    let (event_sender, _event_receiver) = mpsc::channel::<Event>(100);
+    let (_event_sender, _event_receiver) = mpsc::channel::<Event>(100);
     
     // Create a P2P network
     let (network, _) = darkswap_sdk::p2p::create_memory_network().await?;
@@ -43,10 +43,10 @@ async fn test_p2p_network_local_peer_id() -> Result<()> {
 #[tokio::test]
 async fn test_p2p_network_subscribe_publish() -> Result<()> {
     // Create event channel
-    let (event_sender, _event_receiver) = mpsc::channel::<Event>(100);
+    let (_event_sender, _event_receiver) = mpsc::channel::<Event>(100);
     
     // Create a P2P network
-    let (mut network, _) = darkswap_sdk::p2p::create_memory_network().await?;
+    let (network, _) = darkswap_sdk::p2p::create_memory_network().await?;
     
     // Subscribe to a topic
     let topic = "test-topic";
@@ -81,8 +81,8 @@ async fn test_p2p_network_subscribe_publish() -> Result<()> {
 #[tokio::test]
 async fn test_p2p_network_connect_disconnect() -> Result<()> {
     // Create event channels
-    let (event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
-    let (event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
+    let (_event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
+    let (_event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
     
     // Create two P2P networks
     let (mut network1, _) = darkswap_sdk::p2p::create_memory_network().await?;
@@ -93,27 +93,29 @@ async fn test_p2p_network_connect_disconnect() -> Result<()> {
     let peer_id2 = network2.local_peer_id();
     
     // Connect the networks
-    network1.connect(peer_id2).await?;
+    // Create a dummy multiaddr for testing
+    let peer_addr2 = "/ip4/127.0.0.1/tcp/10000".parse().unwrap();
+    network1.connect(&peer_id2, &peer_addr2).await?;
     
     // Wait for the connection to be established
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Check that the networks are connected
-    let peers1 = network1.connected_peers().await?;
-    let peers2 = network2.connected_peers().await?;
+    let peers1 = network1.connected_peers().await;
+    let peers2 = network2.connected_peers().await;
     
     assert!(peers1.contains(&peer_id2.to_string()));
     assert!(peers2.contains(&peer_id1.to_string()));
     
     // Disconnect the networks
-    network1.disconnect(peer_id2).await?;
+    network1.disconnect(&peer_id2).await?;
     
     // Wait for the disconnection to be processed
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // Check that the networks are disconnected
-    let peers1 = network1.connected_peers().await?;
-    let peers2 = network2.connected_peers().await?;
+    let peers1 = network1.connected_peers().await;
+    let peers2 = network2.connected_peers().await;
     
     assert!(!peers1.contains(&peer_id2.to_string()));
     assert!(!peers2.contains(&peer_id1.to_string()));
@@ -124,8 +126,8 @@ async fn test_p2p_network_connect_disconnect() -> Result<()> {
 #[tokio::test]
 async fn test_p2p_network_message_routing() -> Result<()> {
     // Create event channels
-    let (event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
-    let (event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
+    let (_event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
+    let (_event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
     
     // Create two P2P networks
     let (mut network1, _) = darkswap_sdk::p2p::create_memory_network().await?;
@@ -136,6 +138,8 @@ async fn test_p2p_network_message_routing() -> Result<()> {
     let peer_id2 = network2.local_peer_id();
     
     // Connect the networks
+    // Create a dummy multiaddr for testing
+    let peer_addr2 = "/ip4/127.0.0.1/tcp/10003".parse().unwrap();
     network1.connect(&peer_id2, &peer_addr2).await?;
     
     // Wait for the connection to be established
@@ -211,6 +215,8 @@ async fn test_p2p_network_event_handling() -> Result<()> {
     let other_peer_id = other_network.local_peer_id();
     
     // Connect the networks
+    // Create a dummy multiaddr for testing
+    let other_peer_addr = "/ip4/127.0.0.1/tcp/10004".parse().unwrap();
     network.connect(&other_peer_id, &other_peer_addr).await?;
     
     // Wait for the connection to be established
@@ -236,19 +242,21 @@ async fn test_p2p_network_event_handling() -> Result<()> {
 #[tokio::test]
 async fn test_p2p_network_discovery() -> Result<()> {
     // Create event channels
-    let (event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
-    let (event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
+    let (_event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
+    let (_event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
     
     // Create two P2P networks
-    let (mut network1, _) = darkswap_sdk::p2p::create_memory_network().await?;
-    let (mut network2, _) = darkswap_sdk::p2p::create_memory_network().await?;
+    let (network1, _) = darkswap_sdk::p2p::create_memory_network().await?;
+    let (network2, _) = darkswap_sdk::p2p::create_memory_network().await?;
     
     // Get peer IDs
     let peer_id1 = network1.local_peer_id();
     let peer_id2 = network2.local_peer_id();
     
     // Add network2 as a bootstrap peer for network1
-    network1.add_bootstrap_peer(&peer_id2).await?;
+    // Create a dummy multiaddr for the bootstrap peer
+    let bootstrap_addr = "/ip4/127.0.0.1/tcp/10001".parse().unwrap();
+    network1.add_bootstrap_peer(&peer_id2, &bootstrap_addr).await?;
     
     // Start discovery
     network1.start_discovery().await?;
@@ -257,7 +265,7 @@ async fn test_p2p_network_discovery() -> Result<()> {
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
     // Check that network1 discovered network2
-    let peers = network1.discovered_peers().await?;
+    let peers = network1.discovered_peers().await;
     assert!(peers.contains(&peer_id2.to_string()));
     
     Ok(())
@@ -267,8 +275,8 @@ async fn test_p2p_network_discovery() -> Result<()> {
 #[cfg(feature = "webrtc")]
 async fn test_p2p_network_webrtc_transport() -> Result<()> {
     // Create event channels
-    let (event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
-    let (event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
+    let (_event_sender1, _event_receiver1) = mpsc::channel::<Event>(100);
+    let (_event_sender2, _event_receiver2) = mpsc::channel::<Event>(100);
     
     // Create two P2P networks with WebRTC transport
     let (mut network1, _) = darkswap_sdk::p2p::create_webrtc_network(event_sender1).await?;
@@ -279,14 +287,16 @@ async fn test_p2p_network_webrtc_transport() -> Result<()> {
     let peer_id2 = network2.local_peer_id();
     
     // Connect the networks
-    network1.connect(peer_id2).await?;
+    // Create a dummy multiaddr for testing
+    let peer_addr2 = "/ip4/127.0.0.1/tcp/10002".parse().unwrap();
+    network1.connect(&peer_id2, &peer_addr2).await?;
     
     // Wait for the connection to be established
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
     // Check that the networks are connected
-    let peers1 = network1.connected_peers().await?;
-    let peers2 = network2.connected_peers().await?;
+    let peers1 = network1.connected_peers().await;
+    let peers2 = network2.connected_peers().await;
     
     assert!(peers1.contains(&peer_id2.to_string()));
     assert!(peers2.contains(&peer_id1.to_string()));
