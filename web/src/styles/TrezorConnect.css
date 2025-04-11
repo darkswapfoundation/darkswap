@@ -1,0 +1,252 @@
+/* Trezor connect styles */
+
+.trezor-connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.trezor-connect-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Size variants */
+.trezor-connect-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.trezor-connect-small .trezor-connect-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.trezor-connect-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.trezor-connect-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+.trezor-connect-large .trezor-connect-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Color variants */
+.trezor-connect-primary {
+  background-color: #1a1a1a;
+  color: white;
+}
+
+.trezor-connect-primary:hover {
+  background-color: #000000;
+}
+
+.trezor-connect-secondary {
+  background-color: #0d86e3;
+  color: white;
+}
+
+.trezor-connect-secondary:hover {
+  background-color: #0a6fc0;
+}
+
+.trezor-connect-outline {
+  background-color: transparent;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+}
+
+.trezor-connect-outline:hover {
+  background-color: rgba(26, 26, 26, 0.1);
+}
+
+/* Loading state */
+.trezor-connect-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.trezor-connect-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: trezor-connect-spin 1s linear infinite;
+}
+
+@keyframes trezor-connect-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Connected state */
+.trezor-connected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.trezor-connected-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.trezor-connected-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.trezor-connected-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+/* Network indicator */
+.trezor-network {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trezor-network-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.trezor-network-ethereum-mainnet {
+  background-color: #29b6af;
+}
+
+.trezor-network-ropsten-testnet {
+  background-color: #ff4a8d;
+}
+
+.trezor-network-rinkeby-testnet {
+  background-color: #f6c343;
+}
+
+.trezor-network-goerli-testnet {
+  background-color: #3099f2;
+}
+
+.trezor-network-kovan-testnet {
+  background-color: #9064ff;
+}
+
+.trezor-network-binance-smart-chain {
+  background-color: #f3ba2f;
+}
+
+.trezor-network-binance-smart-chain-testnet {
+  background-color: #f3ba2f;
+  opacity: 0.7;
+}
+
+.trezor-network-polygon-mainnet {
+  background-color: #8247e5;
+}
+
+.trezor-network-polygon-mumbai-testnet {
+  background-color: #8247e5;
+  opacity: 0.7;
+}
+
+.trezor-network-unknown {
+  background-color: #ccc;
+}
+
+/* Address */
+.trezor-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: monospace;
+}
+
+/* Balance */
+.trezor-balance {
+  font-weight: 600;
+}
+
+/* Disconnect button */
+.trezor-disconnect {
+  background-color: transparent;
+  color: #1a1a1a;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.trezor-disconnect:hover {
+  background-color: rgba(26, 26, 26, 0.1);
+}
+
+.trezor-disconnect-small {
+  font-size: 0.8rem;
+}
+
+.trezor-disconnect-medium {
+  font-size: 1rem;
+}
+
+.trezor-disconnect-large {
+  font-size: 1.2rem;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .trezor-connected {
+    background-color: #333;
+    color: white;
+  }
+  
+  .trezor-address {
+    background-color: #444;
+    color: white;
+  }
+  
+  .trezor-disconnect {
+    color: #ffffff;
+  }
+  
+  .trezor-disconnect:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .trezor-connect-outline {
+    color: #ffffff;
+    border-color: #ffffff;
+  }
+  
+  .trezor-connect-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}

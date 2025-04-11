@@ -238,7 +238,10 @@
 .lazy-darkswap-demo-page,
 .streaming-darkswap-demo-page,
 .web-worker-darkswap-demo-page,
-.code-split-darkswap-demo-page {
+.code-split-darkswap-demo-page,
+.simd-darkswap-demo-page,
+.shared-memory-darkswap-demo-page,
+.dynamic-chunk-size-darkswap-demo-page {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
@@ -247,7 +250,10 @@
 .lazy-darkswap-demo-page h1,
 .streaming-darkswap-demo-page h1,
 .web-worker-darkswap-demo-page h1,
-.code-split-darkswap-demo-page h1 {
+.code-split-darkswap-demo-page h1,
+.simd-darkswap-demo-page h1,
+.shared-memory-darkswap-demo-page h1,
+.dynamic-chunk-size-darkswap-demo-page h1 {
   font-size: 2.5rem;
   margin-bottom: 1rem;
   color: var(--color-primary);
@@ -256,7 +262,10 @@
 .lazy-darkswap-demo-page p,
 .streaming-darkswap-demo-page p,
 .web-worker-darkswap-demo-page p,
-.code-split-darkswap-demo-page p {
+.code-split-darkswap-demo-page p,
+.simd-darkswap-demo-page p,
+.shared-memory-darkswap-demo-page p,
+.dynamic-chunk-size-darkswap-demo-page p {
   margin-bottom: 1rem;
   line-height: 1.6;
   color: var(--color-text-secondary);

@@ -1,0 +1,115 @@
+# Alertmanager configuration for DarkSwap
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@darkswap.io'
+  smtp_auth_username: 'alertmanager'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# The root route on which each incoming alert enters.
+route:
+  # The root route must not have any matchers as it is the entry point for all alerts.
+  # It needs to have a receiver configured so alerts that do not match any of the sub-routes
+  # are sent to someone.
+  receiver: 'team-darkswap'
+
+  # The labels by which incoming alerts are grouped together. For example,
+  # multiple alerts coming in for cluster=A and alertname=LatencyHigh would
+  # be batched into a single group.
+  group_by: ['alertname', 'cluster', 'service']
+
+  # When a new group of alerts is created by an incoming alert, wait at
+  # least 'group_wait' to send the initial notification.
+  # This way ensures that you get multiple alerts for the same group that start
+  # firing shortly after another are batched together on the first notification.
+  group_wait: 30s
+
+  # When the first notification was sent, wait 'group_interval' to send a batch
+  # of new alerts that started firing for that group.
+  group_interval: 5m
+
+  # If an alert has successfully been sent, wait 'repeat_interval' to
+  # resend them.
+  repeat_interval: 4h
+
+  # Child routes
+  routes:
+    # All critical alerts go to slack and email
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+
+    # All warning alerts go to slack
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      continue: true
+
+    # All info alerts go to slack
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+
+# Inhibition rules allow to mute a set of alerts given that another alert is
+# firing. We use this to mute alerts that are less severe than others.
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    # Apply inhibition if the alertname is the same.
+    equal: ['alertname', 'cluster', 'service']
+
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    # Apply inhibition if the alertname is the same.
+    equal: ['alertname', 'cluster', 'service']
+
+receivers:
+  - name: 'team-darkswap'
+    email_configs:
+      - to: 'team@darkswap.io'
+        send_resolved: true
+    slack_configs:
+      - api_url: '${SLACK_API_URL}'
+        channel: '#alerts'
+        send_resolved: true
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@darkswap.io'
+        send_resolved: true
+    slack_configs:
+      - api_url: '${SLACK_API_URL}'
+        channel: '#critical-alerts'
+        send_resolved: true
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        send_resolved: true
+
+  - name: 'warning-alerts'
+    slack_configs:
+      - api_url: '${SLACK_API_URL}'
+        channel: '#alerts'
+        send_resolved: true
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+
+  - name: 'info-alerts'
+    slack_configs:
+      - api_url: '${SLACK_API_URL}'
+        channel: '#alerts'
+        send_resolved: true
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+
+templates:
+  - '/etc/alertmanager/template/*.tmpl'

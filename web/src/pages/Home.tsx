@@ -114,6 +114,66 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      <section className="demo-section simd-demo-section">
+        <h2>Try Our SIMD Demo</h2>
+        <p>
+          Experience improved performance with our SIMD-enabled WebAssembly integration.
+          SIMD (Single Instruction, Multiple Data) instructions can significantly improve
+          performance for certain operations by processing multiple data points in parallel.
+        </p>
+        <div className="demo-buttons">
+          <Link to="/simd-demo" className="btn btn-primary">Launch SIMD Demo</Link>
+        </div>
+      </section>
+
+      <section className="demo-section shared-memory-demo-section">
+        <h2>Try Our Shared Memory Demo</h2>
+        <p>
+          Experience improved performance with our shared memory WebAssembly integration.
+          Shared memory allows the main thread and Web Workers to share memory using
+          Shared Array Buffers, which can significantly improve performance for certain operations.
+        </p>
+        <div className="demo-buttons">
+          <Link to="/shared-memory-demo" className="btn btn-primary">Launch Shared Memory Demo</Link>
+        </div>
+      </section>
+
+      <section className="demo-section dynamic-chunk-size-demo-section">
+        <h2>Try Our Dynamic Chunk Size Demo</h2>
+        <p>
+          Experience improved initial load time with our dynamic chunk size WebAssembly integration.
+          The WebAssembly module is split into chunks with sizes optimized for your network conditions,
+          which can significantly improve the initial page load time.
+        </p>
+        <div className="demo-buttons">
+          <Link to="/dynamic-chunk-size-demo" className="btn btn-primary">Launch Dynamic Chunk Size Demo</Link>
+        </div>
+      </section>
+
+      <section className="demo-section combined-optimizations-demo-section">
+        <h2>Try Our Combined Optimizations Demo</h2>
+        <p>
+          Experience the best performance with our combined optimizations WebAssembly integration.
+          This demo combines SIMD instructions, Web Workers, streaming compilation, and shared memory
+          to achieve even better performance than using each optimization individually.
+        </p>
+        <div className="demo-buttons">
+          <Link to="/combined-optimizations-demo" className="btn btn-primary">Launch Combined Optimizations Demo</Link>
+        </div>
+      </section>
+
+      <section className="tools-section">
+        <h2>Wallet Tools</h2>
+        <div className="tools-grid">
+          <div className="tool-card">
+            <div className="tool-icon">🔑</div>
+            <h3>Mnemonic Generator</h3>
+            <p>Generate and validate BIP39 mnemonic phrases for wallet creation and recovery</p>
+            <Link to="/mnemonic-generator" className="btn btn-primary">Open Mnemonic Generator</Link>
+          </div>
+        </div>
+      </section>
+
       <section className="getting-started">
         <h2>Getting Started</h2>
         <div className="steps">

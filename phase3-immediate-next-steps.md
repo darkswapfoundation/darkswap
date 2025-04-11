@@ -1,244 +1,227 @@
 # DarkSwap Phase 3 Immediate Next Steps
 
-This document outlines the immediate next steps for Phase 3 of the DarkSwap project, following the successful resolution of core SDK compilation issues.
-
-## 1. Fix Test Suite and Examples
-
-### 1.1 Update Test Suite
-
-#### Implementation Plan
-
-1. **Fix wallet_tests.rs**
-   - Update address handling to use NetworkChecked addresses
-   - Fix any type mismatches in function calls
-   - Update assertions to match new behavior
-
-2. **Fix darkswap_tests.rs**
-   - Update P2P network initialization
-   - Fix any WebRTC transport issues
-   - Update trade protocol tests
-
-3. **Fix alkane_handler_tests.rs and rune_handler_tests.rs**
-   - Update address handling to use NetworkChecked addresses
-   - Fix function signatures and parameter types
-   - Update test assertions
-
-#### Timeline
-
-- Day 1-2: Fix wallet_tests.rs and darkswap_tests.rs
-- Day 3-4: Fix alkane_handler_tests.rs and rune_handler_tests.rs
-- Day 5: Run full test suite and verify all tests pass
-
-### 1.2 Update Example Code
-
-#### Implementation Plan
-
-1. **Fix simple_trade.rs example**
-   - Update order creation parameters
-   - Fix event handling
-   - Update address handling
-
-2. **Fix trading_bot.rs example**
-   - Update API calls to match current SDK
-   - Fix event subscription
-   - Update order creation parameters
-
-3. **Fix predicate examples**
-   - Update predicate creation and validation
-   - Fix script building code
-   - Update transaction handling
-
-#### Timeline
-
-- Day 1-2: Fix simple_trade.rs example
-- Day 3-4: Fix trading_bot.rs example
-- Day 5: Fix predicate examples and verify all examples run correctly
-
-## 2. Complete WebAssembly Bindings
-
-### 2.1 Optimize WASM Module
-
-#### Implementation Plan
-
-1. **Reduce WASM binary size**
-   - Use wasm-opt for optimization
-   - Remove unused code with feature flags
-   - Implement code splitting for large modules
-
-2. **Improve WASM performance**
-   - Profile hot code paths
-   - Optimize memory usage
-   - Reduce serialization overhead
-
-3. **Enhance browser compatibility**
-   - Test on multiple browsers
-   - Implement feature detection
-   - Add fallback mechanisms
-
-#### Timeline
-
-- Day 1-2: Implement WASM size optimizations
-- Day 3-4: Improve WASM performance
-- Day 5: Enhance browser compatibility and test
-
-### 2.2 Complete JavaScript API
-
-#### Implementation Plan
-
-1. **Implement remaining API functions**
-   - Complete order management functions
-   - Add trade execution functions
-   - Implement wallet integration
-
-2. **Enhance event handling**
-   - Create event subscription system
-   - Add event filtering
-   - Implement event buffering
-
-3. **Add error handling**
-   - Create detailed error messages
-   - Implement error categorization
-   - Add recovery mechanisms
-
-#### Timeline
-
-- Day 1-2: Implement remaining API functions
-- Day 3-4: Enhance event handling
-- Day 5: Add error handling and test
-
-## 3. Begin TypeScript Library Development
-
-### 3.1 Set Up TypeScript Project
-
-#### Implementation Plan
-
-1. **Create project structure**
-   - Set up TypeScript configuration
-   - Configure build system
-   - Add testing framework
-
-2. **Define core interfaces**
-   - Create TypeScript interfaces for SDK types
-   - Define API contracts
-   - Add documentation comments
-
-3. **Implement utility functions**
-   - Create serialization helpers
-   - Add validation functions
-   - Implement type conversions
-
-#### Timeline
-
-- Day 1: Create project structure
-- Day 2-3: Define core interfaces
-- Day 4-5: Implement utility functions
-
-### 3.2 Implement Core Functionality
-
-#### Implementation Plan
-
-1. **Create WASM wrapper**
-   - Implement initialization logic
-   - Add memory management
-   - Create clean shutdown
-
-2. **Implement order management**
-   - Create order builder
-   - Add orderbook access
-   - Implement order matching
-
-3. **Add trade execution**
-   - Implement trade creation
-   - Add PSBT handling
-   - Create transaction broadcasting
-
-#### Timeline
-
-- Day 1-2: Create WASM wrapper
-- Day 3-4: Implement order management
-- Day 5: Add trade execution and test
-
-## 4. Start Web Interface Development
-
-### 4.1 Set Up React Project
-
-#### Implementation Plan
-
-1. **Create project structure**
-   - Set up React with TypeScript
-   - Configure Tailwind CSS
-   - Add routing
-
-2. **Implement core components**
-   - Create layout components
-   - Add navigation
-   - Implement theme support
-
-3. **Set up state management**
-   - Configure Redux or Context API
-   - Create store structure
-   - Add action creators
-
-#### Timeline
-
-- Day 1: Create project structure
-- Day 2-3: Implement core components
-- Day 4-5: Set up state management
-
-### 4.2 Implement SDK Integration
-
-#### Implementation Plan
-
-1. **Create SDK provider**
-   - Implement SDK initialization
-   - Add configuration
-   - Create connection management
-
-2. **Add wallet integration**
-   - Implement wallet connection
-   - Create address management
-   - Add balance display
-
-3. **Implement orderbook visualization**
-   - Create order list component
-   - Add order filtering
-   - Implement order sorting
-
-#### Timeline
-
-- Day 1-2: Create SDK provider
-- Day 3-4: Add wallet integration
-- Day 5: Implement orderbook visualization
-
-## Priority Tasks
-
-1. **Fix test suite and examples** - This is critical to ensure the SDK is working correctly and to provide working examples for developers.
-2. **Complete WebAssembly bindings** - The WASM bindings are essential for web integration and must be completed before the TypeScript library.
-3. **Begin TypeScript library development** - The TypeScript library will provide a clean API for web developers and is needed for the web interface.
-4. **Start web interface development** - The web interface will provide a user-friendly way to interact with the DarkSwap platform.
-
-## Resource Allocation
-
-- **SDK Developer**: Focus on fixing test suite and examples, then assist with WebAssembly bindings
-- **WASM Developer**: Complete WebAssembly bindings and optimize performance
-- **TypeScript Developer**: Begin TypeScript library development
-- **Frontend Developer**: Start web interface development
-
-## Success Criteria
-
-The immediate next steps will be considered successful when:
-
-1. All tests and examples compile and run correctly
-2. WebAssembly bindings are complete and optimized
-3. TypeScript library development is underway with core interfaces defined
-4. Web interface development has started with basic components implemented
+Based on the current project status and the updated roadmap, here are the immediate next steps for the DarkSwap Phase 3 implementation:
+
+## 1. Testing
+
+### Unit Tests for Core Components
+- [ ] Create unit tests for BDK Wallet Integration
+- [ ] Create unit tests for PSBT Handler
+- [ ] Create unit tests for Rune Handler
+- [ ] Create unit tests for Alkane Handler
+- [ ] Create unit tests for Trade Protocol
+
+**Approach**: Use Jest for JavaScript/TypeScript components and Rust's built-in testing framework for Rust components. Focus on testing core functionality and edge cases.
+
+### Integration Tests for API Client
+- [ ] Test API client initialization
+- [ ] Test API client authentication
+- [ ] Test API client error handling
+- [ ] Test API client timeout handling
+- [ ] Test API client response parsing
+
+**Approach**: Use Jest and mock server responses to test API client functionality. Ensure all endpoints are covered.
+
+### Integration Tests for WebSocket Client
+- [ ] Test WebSocket client initialization
+- [ ] Test WebSocket client connection
+- [ ] Test WebSocket client reconnection
+- [ ] Test WebSocket client message handling
+- [ ] Test WebSocket client error handling
+
+**Approach**: Use Jest and mock WebSocket server to test WebSocket client functionality. Focus on connection handling, message processing, and error recovery.
+
+### End-to-End Tests for Trade Flow
+- [ ] Test creating a trade offer
+- [ ] Test viewing trade offers
+- [ ] Test accepting a trade offer
+- [ ] Test cancelling a trade offer
+- [ ] Test trade execution
+- [ ] Test trade history
+
+**Approach**: Use Playwright for end-to-end testing. Create test scenarios that cover the entire trade flow from creation to completion.
+
+## 2. Documentation
+
+### API Documentation
+- [ ] Document API endpoints
+- [ ] Document API request/response formats
+- [ ] Document API authentication
+- [ ] Document API error codes
+- [ ] Document API rate limits
+
+**Approach**: Use OpenAPI/Swagger for API documentation. Ensure all endpoints, parameters, and responses are documented.
+
+### Component Documentation
+- [ ] Document React components
+- [ ] Document React hooks
+- [ ] Document TypeScript types
+- [ ] Document WebAssembly bindings
+- [ ] Document Rust SDK
+
+**Approach**: Use TypeDoc for TypeScript components and Rustdoc for Rust components. Include examples and usage patterns.
+
+### User Guide
+- [ ] Create getting started guide
+- [ ] Create wallet setup guide
+- [ ] Create trading guide
+- [ ] Create troubleshooting guide
+- [ ] Create FAQ
+
+**Approach**: Use Markdown for user guides. Include screenshots and step-by-step instructions.
+
+## 3. Deployment
+
+### Continuous Integration Setup
+- [ ] Set up GitHub Actions workflow
+- [ ] Configure build steps
+- [ ] Configure test steps
+- [ ] Configure linting steps
+- [ ] Configure code coverage reporting
+
+**Approach**: Create GitHub Actions workflows for CI. Ensure all tests are run on pull requests and main branch commits.
+
+### Continuous Deployment Setup
+- [ ] Set up deployment workflow
+- [ ] Configure staging deployment
+- [ ] Configure production deployment
+- [ ] Configure rollback mechanism
+- [ ] Configure deployment notifications
+
+**Approach**: Extend GitHub Actions workflows for CD. Set up automatic deployment to staging and manual approval for production.
+
+### Docker Container for Relay Server
+- [ ] Create Dockerfile for relay server
+- [ ] Configure Docker Compose for local development
+- [ ] Configure Docker Compose for production
+- [ ] Create Docker image build script
+- [ ] Create Docker image push script
+
+**Approach**: Create Docker configuration files for relay server. Ensure proper configuration for different environments.
+
+## 4. Security Enhancements
+
+### Error Handling
+- [ ] Implement client-side error handling
+- [ ] Implement server-side error handling
+- [ ] Implement WebAssembly error handling
+- [ ] Implement API error handling
+- [ ] Implement WebSocket error handling
+
+**Approach**: Create consistent error handling patterns across all components. Ensure errors are logged and reported appropriately.
+
+### Logging
+- [ ] Implement client-side logging
+- [ ] Implement server-side logging
+- [ ] Implement WebAssembly logging
+- [ ] Implement API logging
+- [ ] Implement WebSocket logging
+
+**Approach**: Use a centralized logging system. Ensure all components log errors, warnings, and important events.
+
+### Authentication
+- [ ] Implement user authentication
+- [ ] Implement API authentication
+- [ ] Implement WebSocket authentication
+- [ ] Implement session management
+- [ ] Implement token refresh
+
+**Approach**: Use JWT for authentication. Ensure secure token storage and proper session management.
+
+### Authorization
+- [ ] Implement role-based access control
+- [ ] Implement permission-based access control
+- [ ] Implement API authorization
+- [ ] Implement WebSocket authorization
+- [ ] Implement resource-based authorization
+
+**Approach**: Use the role-based access control system. Define roles and permissions for different user types.
+
+## 5. Performance Optimization
+
+### WebAssembly Size Optimization
+- [ ] Optimize WebAssembly binary size
+- [ ] Implement code splitting
+- [ ] Implement lazy loading
+- [ ] Implement tree shaking
+- [ ] Implement dead code elimination
+
+**Approach**: Use wasm-opt and other optimization tools. Measure binary size before and after optimization.
+
+### React Component Memoization
+- [ ] Implement React.memo for functional components
+- [ ] Implement shouldComponentUpdate for class components
+- [ ] Implement useMemo for computed values
+- [ ] Implement useCallback for event handlers
+- [ ] Implement context optimization
+
+**Approach**: Profile React components and identify performance bottlenecks. Apply memoization techniques to expensive components.
+
+### API Response Caching
+- [ ] Implement client-side caching
+- [ ] Implement server-side caching
+- [ ] Implement cache invalidation
+- [ ] Implement cache revalidation
+- [ ] Implement cache prefetching
+
+**Approach**: Use browser cache and memory cache for client-side caching. Use Redis or similar for server-side caching.
+
+### Lazy Loading of Components
+- [ ] Implement React.lazy for component loading
+- [ ] Implement Suspense for loading states
+- [ ] Implement route-based code splitting
+- [ ] Implement feature-based code splitting
+- [ ] Implement dynamic imports
+
+**Approach**: Use React.lazy and Suspense for component loading. Split code by routes and features.
 
 ## Timeline
 
-- **Week 1**: Fix test suite and examples, begin WebAssembly optimization
-- **Week 2**: Complete WebAssembly bindings, start TypeScript library development
-- **Week 3**: Continue TypeScript library development, begin web interface implementation
+### Week 1 (Current Week)
+- Complete unit tests for core components
+- Start API documentation
+- Set up continuous integration
 
-## Conclusion
+### Week 2
+- Complete integration tests for API and WebSocket clients
+- Continue documentation
+- Set up continuous deployment
+- Start error handling and logging implementation
 
-By focusing on these immediate next steps, we can make significant progress on Phase 3 of the DarkSwap project. The successful resolution of core SDK compilation issues has cleared a major blocker, and we can now move forward with the remaining tasks.
+### Week 3
+- Complete end-to-end tests for trade flow
+- Complete documentation
+- Implement authentication and authorization
+- Start performance optimization
+
+### Week 4
+- Complete performance optimization
+- Final testing and bug fixing
+- Prepare for release
+
+## Resources
+
+### Testing
+- Jest: https://jestjs.io/
+- Playwright: https://playwright.dev/
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+### Documentation
+- TypeDoc: https://typedoc.org/
+- Rustdoc: https://doc.rust-lang.org/rustdoc/
+- OpenAPI/Swagger: https://swagger.io/specification/
+
+### Deployment
+- GitHub Actions: https://docs.github.com/en/actions
+- Docker: https://docs.docker.com/
+- Docker Compose: https://docs.docker.com/compose/
+
+### Security
+- OWASP Top 10: https://owasp.org/www-project-top-ten/
+- JWT: https://jwt.io/
+- Role-Based Access Control: https://en.wikipedia.org/wiki/Role-based_access_control
+
+### Performance
+- React Performance: https://reactjs.org/docs/optimizing-performance.html
+- WebAssembly Optimization: https://rustwasm.github.io/book/reference/code-size.html
+- Lazy Loading: https://reactjs.org/docs/code-splitting.html

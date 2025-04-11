@@ -1,152 +1,84 @@
 # DarkSwap API Documentation
 
-## Overview
-
-The DarkSwap API provides programmatic access to the DarkSwap platform, allowing developers to integrate DarkSwap functionality into their applications. This document provides comprehensive documentation for all available API endpoints, request/response formats, authentication methods, error codes, and rate limits.
+This document provides comprehensive documentation for the DarkSwap API, including endpoints, request/response formats, authentication, error codes, and rate limits.
 
 ## Base URL
 
-All API endpoints are relative to the base URL:
-
 ```
-https://api.darkswap.io/v1
-```
-
-For development and testing, you can use the staging environment:
-
-```
-https://api-staging.darkswap.io/v1
+https://api.darkswap.io
 ```
 
 ## Authentication
 
-### JWT Authentication
-
-Most API endpoints require authentication using JSON Web Tokens (JWT). To authenticate, include the JWT token in the `Authorization` header of your request:
+Most API endpoints require authentication. To authenticate, include a JWT token in the `Authorization` header:
 
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <your-jwt-token>
 ```
 
-### Obtaining a JWT Token
+To obtain a token, use the `/api/auth/login` endpoint.
 
-To obtain a JWT token, use the `/auth/login` endpoint with your credentials:
+## Error Handling
 
-```http
-POST /auth/login
-Content-Type: application/json
-
-{
-  "username": "your_username",
-  "password": "your_password"
-}
-```
-
-The response will include a JWT token:
+All API errors follow a standard format:
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_at": "2025-04-05T16:00:00Z"
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": { /* Additional error details */ }
 }
 ```
 
-### Token Refresh
+### Common Error Codes
 
-JWT tokens expire after a certain period. To refresh your token before it expires, use the `/auth/refresh` endpoint:
+| Code | Description |
+|------|-------------|
+| `UNAUTHORIZED` | Authentication is required or failed |
+| `FORBIDDEN` | User does not have permission to access the resource |
+| `NOT_FOUND` | The requested resource was not found |
+| `VALIDATION_ERROR` | The request data failed validation |
+| `RATE_LIMITED` | The request was rate limited |
+| `SERVER_ERROR` | An internal server error occurred |
 
-```http
-POST /auth/refresh
-Authorization: Bearer <your_current_jwt_token>
+## Rate Limiting
+
+API requests are rate limited to prevent abuse. Rate limits are applied per IP address and per user.
+
+| Endpoint | Rate Limit |
+|----------|------------|
+| `/api/auth/*` | 10 requests per minute |
+| `/api/wallet/*` | 60 requests per minute |
+| `/api/orders/*` | 120 requests per minute |
+| `/api/trades/*` | 120 requests per minute |
+| `/api/market/*` | 300 requests per minute |
+| `/api/p2p/*` | 60 requests per minute |
+
+Rate limit headers are included in all responses:
+
 ```
-
-The response will include a new JWT token:
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_at": "2025-04-05T16:00:00Z"
-}
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 59
+X-RateLimit-Reset: 1617984000
 ```
 
 ## API Endpoints
 
-### Health Check
+### Authentication
 
-#### GET /health
+#### Register a new user
 
-Check the health status of the API.
-
-**Authentication:** None
-
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "timestamp": "2025-04-05T12:00:00Z"
-}
 ```
-
-### Orders
-
-#### GET /orders
-
-Get a list of orders.
-
-**Authentication:** Required
-
-**Query Parameters:**
-
-- `base_asset` (optional): Filter by base asset (e.g., "BTC")
-- `quote_asset` (optional): Filter by quote asset (e.g., "USD")
-- `side` (optional): Filter by side ("buy" or "sell")
-- `status` (optional): Filter by status ("open", "filled", "cancelled", "expired")
-- `limit` (optional): Maximum number of orders to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
-
-**Response:**
-
-```json
-{
-  "orders": [
-    {
-      "id": "order123",
-      "base_asset": "BTC",
-      "quote_asset": "USD",
-      "side": "buy",
-      "amount": 1.5,
-      "price": 50000,
-      "total": 75000,
-      "timestamp": "2025-04-05T12:00:00Z",
-      "status": "open",
-      "maker": "user123"
-    },
-    ...
-  ],
-  "total": 150,
-  "limit": 100,
-  "offset": 0
-}
+POST /api/auth/register
 ```
-
-#### POST /orders
-
-Create a new order.
-
-**Authentication:** Required
 
 **Request Body:**
 
 ```json
 {
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "side": "buy",
-  "amount": 1.5,
-  "price": 50000,
-  "expiry": 3600
+  "username": "user123",
+  "email": "user@example.com",
+  "password": "securepassword"
 }
 ```
 
@@ -154,83 +86,25 @@ Create a new order.
 
 ```json
 {
-  "id": "order123",
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "side": "buy",
-  "amount": 1.5,
-  "price": 50000,
-  "total": 75000,
-  "timestamp": "2025-04-05T12:00:00Z",
-  "status": "open",
-  "maker": "user123",
-  "expiry": "2025-04-05T13:00:00Z"
+  "userId": "123456789",
+  "username": "user123",
+  "email": "user@example.com",
+  "token": "jwt-token"
 }
 ```
 
-#### GET /orders/{id}
+#### Login
 
-Get details of a specific order.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-- `id`: Order ID
-
-**Response:**
-
-```json
-{
-  "id": "order123",
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "side": "buy",
-  "amount": 1.5,
-  "price": 50000,
-  "total": 75000,
-  "timestamp": "2025-04-05T12:00:00Z",
-  "status": "open",
-  "maker": "user123",
-  "expiry": "2025-04-05T13:00:00Z"
-}
 ```
-
-#### DELETE /orders/{id}
-
-Cancel an order.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-- `id`: Order ID
-
-**Response:**
-
-```json
-{
-  "id": "order123",
-  "status": "cancelled",
-  "timestamp": "2025-04-05T12:30:00Z"
-}
+POST /api/auth/login
 ```
-
-#### POST /orders/{id}/take
-
-Take an order.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-- `id`: Order ID
 
 **Request Body:**
 
 ```json
 {
-  "amount": 1.0
+  "email": "user@example.com",
+  "password": "securepassword"
 }
 ```
 
@@ -238,548 +112,1010 @@ Take an order.
 
 ```json
 {
-  "trade_id": "trade123",
-  "order_id": "order123",
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "side": "buy",
-  "amount": 1.0,
-  "price": 50000,
-  "total": 50000,
-  "timestamp": "2025-04-05T12:30:00Z",
-  "status": "pending",
-  "maker": "user123",
-  "taker": "user456"
+  "userId": "123456789",
+  "username": "user123",
+  "email": "user@example.com",
+  "token": "jwt-token"
 }
 ```
 
-### Trades
+#### Verify Token
 
-#### GET /trades
-
-Get a list of trades.
-
-**Authentication:** Required
-
-**Query Parameters:**
-
-- `base_asset` (optional): Filter by base asset (e.g., "BTC")
-- `quote_asset` (optional): Filter by quote asset (e.g., "USD")
-- `side` (optional): Filter by side ("buy" or "sell")
-- `status` (optional): Filter by status ("pending", "completed", "failed")
-- `limit` (optional): Maximum number of trades to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
+```
+GET /api/auth/verify
+```
 
 **Response:**
 
 ```json
 {
-  "trades": [
-    {
-      "id": "trade123",
-      "order_id": "order123",
-      "base_asset": "BTC",
-      "quote_asset": "USD",
-      "side": "buy",
-      "amount": 1.0,
-      "price": 50000,
-      "total": 50000,
-      "timestamp": "2025-04-05T12:30:00Z",
-      "status": "completed",
-      "maker": "user123",
-      "taker": "user456",
-      "txid": "tx123"
-    },
-    ...
-  ],
-  "total": 50,
-  "limit": 100,
-  "offset": 0
+  "valid": true,
+  "userId": "123456789",
+  "username": "user123",
+  "email": "user@example.com"
 }
 ```
 
-#### GET /trades/{id}
+#### Refresh Token
 
-Get details of a specific trade.
+```
+POST /api/auth/refresh
+```
 
-**Authentication:** Required
+**Request Body:**
 
-**Path Parameters:**
-
-- `id`: Trade ID
+```json
+{
+  "token": "jwt-token"
+}
+```
 
 **Response:**
 
 ```json
 {
-  "id": "trade123",
-  "order_id": "order123",
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "side": "buy",
-  "amount": 1.0,
-  "price": 50000,
-  "total": 50000,
-  "timestamp": "2025-04-05T12:30:00Z",
-  "status": "completed",
-  "maker": "user123",
-  "taker": "user456",
-  "txid": "tx123"
-}
-```
-
-### Markets
-
-#### GET /markets
-
-Get a list of markets.
-
-**Authentication:** None
-
-**Response:**
-
-```json
-{
-  "markets": [
-    {
-      "base_asset": "BTC",
-      "quote_asset": "USD",
-      "last_price": 50000,
-      "change_24h": 2.5,
-      "high_24h": 51000,
-      "low_24h": 49000,
-      "volume_24h": 100,
-      "timestamp": "2025-04-05T12:00:00Z"
-    },
-    ...
-  ]
-}
-```
-
-#### GET /markets/{base_asset}/{quote_asset}
-
-Get details of a specific market.
-
-**Authentication:** None
-
-**Path Parameters:**
-
-- `base_asset`: Base asset (e.g., "BTC")
-- `quote_asset`: Quote asset (e.g., "USD")
-
-**Response:**
-
-```json
-{
-  "base_asset": "BTC",
-  "quote_asset": "USD",
-  "last_price": 50000,
-  "change_24h": 2.5,
-  "high_24h": 51000,
-  "low_24h": 49000,
-  "volume_24h": 100,
-  "timestamp": "2025-04-05T12:00:00Z",
-  "price_history": [
-    {
-      "timestamp": "2025-04-05T11:00:00Z",
-      "price": 49500
-    },
-    {
-      "timestamp": "2025-04-05T10:00:00Z",
-      "price": 49000
-    },
-    ...
-  ]
-}
-```
-
-### Runes
-
-#### GET /runes
-
-Get a list of runes.
-
-**Authentication:** None
-
-**Query Parameters:**
-
-- `limit` (optional): Maximum number of runes to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
-- `sort_by` (optional): Sort by field (price, market_cap, volume_24h)
-- `order` (optional): Sort order (asc, desc)
-
-**Response:**
-
-```json
-{
-  "runes": [
-    {
-      "id": "RUNE:123",
-      "name": "Example Rune",
-      "supply": 1000000,
-      "price": 10,
-      "market_cap": 10000000,
-      "volume_24h": 500000,
-      "change_24h": 5.0
-    },
-    ...
-  ],
-  "total": 500,
-  "limit": 100,
-  "offset": 0
-}
-```
-
-#### GET /runes/{id}
-
-Get details of a specific rune.
-
-**Authentication:** None
-
-**Path Parameters:**
-
-- `id`: Rune ID (e.g., "RUNE:123")
-
-**Response:**
-
-```json
-{
-  "id": "RUNE:123",
-  "name": "Example Rune",
-  "supply": 1000000,
-  "price": 10,
-  "market_cap": 10000000,
-  "volume_24h": 500000,
-  "change_24h": 5.0,
-  "description": "Example rune description",
-  "creator": "user123",
-  "created_at": "2025-01-01T00:00:00Z",
-  "transactions": [
-    {
-      "txid": "tx123",
-      "timestamp": "2025-04-05T12:00:00Z",
-      "amount": 1000,
-      "type": "mint"
-    },
-    ...
-  ]
-}
-```
-
-### Alkanes
-
-#### GET /alkanes
-
-Get a list of alkanes.
-
-**Authentication:** None
-
-**Query Parameters:**
-
-- `limit` (optional): Maximum number of alkanes to return (default: 100)
-- `offset` (optional): Offset for pagination (default: 0)
-- `sort_by` (optional): Sort by field (price, market_cap, volume_24h)
-- `order` (optional): Sort order (asc, desc)
-
-**Response:**
-
-```json
-{
-  "alkanes": [
-    {
-      "id": "ALKANE:456",
-      "name": "Example Alkane",
-      "supply": 1000000,
-      "price": 20,
-      "market_cap": 20000000,
-      "volume_24h": 1000000,
-      "change_24h": 10.0
-    },
-    ...
-  ],
-  "total": 200,
-  "limit": 100,
-  "offset": 0
-}
-```
-
-#### GET /alkanes/{id}
-
-Get details of a specific alkane.
-
-**Authentication:** None
-
-**Path Parameters:**
-
-- `id`: Alkane ID (e.g., "ALKANE:456")
-
-**Response:**
-
-```json
-{
-  "id": "ALKANE:456",
-  "name": "Example Alkane",
-  "supply": 1000000,
-  "price": 20,
-  "market_cap": 20000000,
-  "volume_24h": 1000000,
-  "change_24h": 10.0,
-  "description": "Example alkane description",
-  "creator": "user456",
-  "created_at": "2025-02-01T00:00:00Z",
-  "transactions": [
-    {
-      "txid": "tx456",
-      "timestamp": "2025-04-05T12:00:00Z",
-      "amount": 2000,
-      "type": "mint"
-    },
-    ...
-  ]
+  "token": "new-jwt-token",
+  "expiresAt": "2025-04-11T12:00:00.000Z"
 }
 ```
 
 ### Wallet
 
-#### GET /wallet/balance
+#### Get Wallet Balance
 
-Get wallet balance.
-
-**Authentication:** Required
+```
+GET /api/wallet/balance
+```
 
 **Response:**
 
 ```json
 {
-  "balances": {
-    "BTC": 1.5,
-    "RUNE:123": 1000,
-    "ALKANE:456": 2000
-  }
+  "BTC": "1.23456789",
+  "ETH": "10.0",
+  "RUNE_ABC": "1000.0",
+  "ALKANE_XYZ": "500.0"
 }
 ```
 
-#### GET /wallet/addresses
+#### Get Transaction History
 
-Get wallet addresses.
-
-**Authentication:** Required
-
-**Response:**
-
-```json
-{
-  "addresses": {
-    "bitcoin": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-    "ethereum": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
-  }
-}
 ```
-
-#### GET /wallet/transactions
-
-Get wallet transactions.
-
-**Authentication:** Required
+GET /api/wallet/transactions
+```
 
 **Query Parameters:**
 
-- `asset` (optional): Filter by asset (e.g., "BTC", "RUNE:123")
-- `type` (optional): Filter by type ("deposit", "withdrawal", "trade")
-- `status` (optional): Filter by status ("pending", "confirmed", "failed")
+- `asset` (optional): Filter by asset
+- `type` (optional): Filter by transaction type (deposit, withdrawal)
 - `limit` (optional): Maximum number of transactions to return (default: 100)
 - `offset` (optional): Offset for pagination (default: 0)
 
 **Response:**
 
 ```json
+[
+  {
+    "id": "tx123456",
+    "asset": "BTC",
+    "amount": "0.1",
+    "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+    "type": "withdrawal",
+    "status": "completed",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  },
+  {
+    "id": "tx123457",
+    "asset": "ETH",
+    "amount": "1.0",
+    "address": "0x1234567890abcdef1234567890abcdef12345678",
+    "type": "deposit",
+    "status": "completed",
+    "timestamp": "2025-04-09T12:00:00.000Z"
+  }
+]
+```
+
+#### Create Deposit Address
+
+```
+POST /api/wallet/deposit-address
+```
+
+**Request Body:**
+
+```json
 {
-  "transactions": [
+  "asset": "BTC"
+}
+```
+
+**Response:**
+
+```json
+{
+  "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+}
+```
+
+#### Withdraw Funds
+
+```
+POST /api/wallet/withdraw
+```
+
+**Request Body:**
+
+```json
+{
+  "asset": "BTC",
+  "amount": "0.1",
+  "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+}
+```
+
+**Response:**
+
+```json
+{
+  "transactionId": "tx123456"
+}
+```
+
+### Orders
+
+#### Get All Orders
+
+```
+GET /api/orders
+```
+
+**Query Parameters:**
+
+- `status` (optional): Filter by status (open, filled, cancelled)
+- `type` (optional): Filter by type (buy, sell)
+- `baseAsset` (optional): Filter by base asset
+- `quoteAsset` (optional): Filter by quote asset
+- `limit` (optional): Maximum number of orders to return (default: 100)
+- `offset` (optional): Offset for pagination (default: 0)
+
+**Response:**
+
+```json
+[
+  {
+    "id": "order123456",
+    "userId": "123456789",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "10.0",
+    "amount": "1.0",
+    "filled": "0.5",
+    "type": "buy",
+    "status": "open",
+    "createdAt": "2025-04-10T12:00:00.000Z",
+    "updatedAt": "2025-04-10T12:00:00.000Z"
+  },
+  {
+    "id": "order123457",
+    "userId": "123456789",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "11.0",
+    "amount": "1.0",
+    "filled": "1.0",
+    "type": "sell",
+    "status": "filled",
+    "createdAt": "2025-04-09T12:00:00.000Z",
+    "updatedAt": "2025-04-09T12:00:00.000Z"
+  }
+]
+```
+
+#### Get Order
+
+```
+GET /api/orders/:id
+```
+
+**Response:**
+
+```json
+{
+  "id": "order123456",
+  "userId": "123456789",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "filled": "0.5",
+  "type": "buy",
+  "status": "open",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+#### Create Order
+
+```
+POST /api/orders
+```
+
+**Request Body:**
+
+```json
+{
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "type": "buy"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "order123456",
+  "userId": "123456789",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "filled": "0.0",
+  "type": "buy",
+  "status": "open",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+#### Cancel Order
+
+```
+DELETE /api/orders/:id
+```
+
+**Response:**
+
+```json
+{
+  "id": "order123456",
+  "userId": "123456789",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "filled": "0.0",
+  "type": "buy",
+  "status": "cancelled",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+### Trades
+
+#### Get All Trades
+
+```
+GET /api/trades
+```
+
+**Query Parameters:**
+
+- `status` (optional): Filter by status (pending, completed, cancelled)
+- `baseAsset` (optional): Filter by base asset
+- `quoteAsset` (optional): Filter by quote asset
+- `limit` (optional): Maximum number of trades to return (default: 100)
+- `offset` (optional): Offset for pagination (default: 0)
+
+**Response:**
+
+```json
+[
+  {
+    "id": "trade123456",
+    "buyOrderId": "order123456",
+    "sellOrderId": "order123458",
+    "buyUserId": "123456789",
+    "sellUserId": "987654321",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "10.0",
+    "amount": "1.0",
+    "status": "completed",
+    "createdAt": "2025-04-10T12:00:00.000Z",
+    "updatedAt": "2025-04-10T12:00:00.000Z"
+  },
+  {
+    "id": "trade123457",
+    "buyOrderId": "order123457",
+    "sellOrderId": "order123459",
+    "buyUserId": "123456789",
+    "sellUserId": "987654321",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "11.0",
+    "amount": "1.0",
+    "status": "pending",
+    "createdAt": "2025-04-09T12:00:00.000Z",
+    "updatedAt": "2025-04-09T12:00:00.000Z"
+  }
+]
+```
+
+#### Get Trade
+
+```
+GET /api/trades/:id
+```
+
+**Response:**
+
+```json
+{
+  "id": "trade123456",
+  "buyOrderId": "order123456",
+  "sellOrderId": "order123458",
+  "buyUserId": "123456789",
+  "sellUserId": "987654321",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "status": "completed",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+#### Create Trade
+
+```
+POST /api/trades
+```
+
+**Request Body:**
+
+```json
+{
+  "buyOrderId": "order123456",
+  "sellOrderId": "order123458"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "trade123456",
+  "buyOrderId": "order123456",
+  "sellOrderId": "order123458",
+  "buyUserId": "123456789",
+  "sellUserId": "987654321",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "status": "pending",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+#### Update Trade
+
+```
+PUT /api/trades/:id
+```
+
+**Request Body:**
+
+```json
+{
+  "status": "completed"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "trade123456",
+  "buyOrderId": "order123456",
+  "sellOrderId": "order123458",
+  "buyUserId": "123456789",
+  "sellUserId": "987654321",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "status": "completed",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+#### Cancel Trade
+
+```
+DELETE /api/trades/:id
+```
+
+**Response:**
+
+```json
+{
+  "id": "trade123456",
+  "buyOrderId": "order123456",
+  "sellOrderId": "order123458",
+  "buyUserId": "123456789",
+  "sellUserId": "987654321",
+  "baseAsset": "BTC",
+  "quoteAsset": "ETH",
+  "price": "10.0",
+  "amount": "1.0",
+  "status": "cancelled",
+  "createdAt": "2025-04-10T12:00:00.000Z",
+  "updatedAt": "2025-04-10T12:00:00.000Z"
+}
+```
+
+### Market
+
+#### Get Ticker
+
+```
+GET /api/market/ticker
+```
+
+**Response:**
+
+```json
+[
+  {
+    "pair": "BTC/ETH",
+    "last": "10.0",
+    "bid": "9.9",
+    "ask": "10.1",
+    "volume": "100.0",
+    "change24h": "5.0",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  },
+  {
+    "pair": "RUNE_ABC/BTC",
+    "last": "0.0001",
+    "bid": "0.00009",
+    "ask": "0.00011",
+    "volume": "1000.0",
+    "change24h": "-2.0",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  }
+]
+```
+
+#### Get Orderbook
+
+```
+GET /api/market/orderbook
+```
+
+**Query Parameters:**
+
+- `pair` (required): Trading pair (e.g., BTC/ETH)
+
+**Response:**
+
+```json
+{
+  "bids": [
     {
-      "id": "tx123",
-      "type": "deposit",
-      "status": "confirmed",
-      "amount": 1.0,
-      "asset": "BTC",
-      "timestamp": "2025-04-05T12:00:00Z",
-      "txid": "1a2b3c4d5e6f7g8h9i0j"
+      "price": "9.9",
+      "amount": "1.0",
+      "total": "9.9"
     },
-    ...
+    {
+      "price": "9.8",
+      "amount": "2.0",
+      "total": "19.6"
+    }
   ],
-  "total": 50,
-  "limit": 100,
-  "offset": 0
+  "asks": [
+    {
+      "price": "10.1",
+      "amount": "1.0",
+      "total": "10.1"
+    },
+    {
+      "price": "10.2",
+      "amount": "2.0",
+      "total": "20.4"
+    }
+  ]
 }
 ```
 
-### WebSocket
-
-#### GET /ws
-
-WebSocket endpoint for real-time updates.
-
-**Authentication:** Required (via query parameter or initial message)
-
-**Connection:**
+#### Get Trades
 
 ```
-wss://api.darkswap.io/v1/ws?token=<your_jwt_token>
+GET /api/market/trades
 ```
 
-**Subscribe to Events:**
+**Query Parameters:**
+
+- `pair` (required): Trading pair (e.g., BTC/ETH)
+- `limit` (optional): Maximum number of trades to return (default: 100)
+- `offset` (optional): Offset for pagination (default: 0)
+
+**Response:**
+
+```json
+[
+  {
+    "id": "trade123456",
+    "price": "10.0",
+    "amount": "1.0",
+    "type": "buy",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  },
+  {
+    "id": "trade123457",
+    "price": "11.0",
+    "amount": "1.0",
+    "type": "sell",
+    "timestamp": "2025-04-09T12:00:00.000Z"
+  }
+]
+```
+
+#### Get Price History
+
+```
+GET /api/market/history
+```
+
+**Query Parameters:**
+
+- `pair` (required): Trading pair (e.g., BTC/ETH)
+- `interval` (required): Interval for price history (1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w)
+
+**Response:**
+
+```json
+[
+  {
+    "timestamp": "2025-04-10T12:00:00.000Z",
+    "open": "10.0",
+    "high": "10.5",
+    "low": "9.5",
+    "close": "10.2",
+    "volume": "100.0"
+  },
+  {
+    "timestamp": "2025-04-10T11:00:00.000Z",
+    "open": "9.8",
+    "high": "10.2",
+    "low": "9.7",
+    "close": "10.0",
+    "volume": "120.0"
+  }
+]
+```
+
+### P2P
+
+#### Get Peers
+
+```
+GET /api/p2p/peers
+```
+
+**Response:**
 
 ```json
 {
-  "type": "Subscribe",
-  "payload": {
-    "events": ["order_created", "order_cancelled", "trade_started"]
+  "count": 10,
+  "connected": 8
+}
+```
+
+#### Get Peer List
+
+```
+GET /api/p2p/peers/list
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "peer123456",
+    "ip": "192.168.1.1",
+    "port": 8333,
+    "lastSeen": "2025-04-10T12:00:00.000Z",
+    "connected": true,
+    "version": "1.0.0",
+    "userAgent": "DarkSwap/1.0.0"
+  },
+  {
+    "id": "peer123457",
+    "ip": "192.168.1.2",
+    "port": 8333,
+    "lastSeen": "2025-04-10T11:00:00.000Z",
+    "connected": true,
+    "version": "1.0.0",
+    "userAgent": "DarkSwap/1.0.0"
+  }
+]
+```
+
+#### Get Relay Servers
+
+```
+GET /api/p2p/relays
+```
+
+**Response:**
+
+```json
+[
+  {
+    "id": "relay123456",
+    "ip": "192.168.1.3",
+    "port": 8334,
+    "lastSeen": "2025-04-10T12:00:00.000Z",
+    "connected": true,
+    "version": "1.0.0",
+    "userAgent": "DarkSwap/1.0.0"
+  },
+  {
+    "id": "relay123457",
+    "ip": "192.168.1.4",
+    "port": 8334,
+    "lastSeen": "2025-04-10T11:00:00.000Z",
+    "connected": true,
+    "version": "1.0.0",
+    "userAgent": "DarkSwap/1.0.0"
+  }
+]
+```
+
+#### Get Network Status
+
+```
+GET /api/p2p/status
+```
+
+**Response:**
+
+```json
+{
+  "peers": 10,
+  "relays": 5,
+  "orders": 100,
+  "trades": 50,
+  "uptime": 86400
+}
+```
+
+### WebSocket API
+
+The WebSocket API provides real-time updates for various events. To connect to the WebSocket API, use the following URL:
+
+```
+wss://api.darkswap.io/ws
+```
+
+#### Authentication
+
+To authenticate with the WebSocket API, send an `authenticate` event with a JWT token:
+
+```json
+{
+  "event": "authenticate",
+  "data": {
+    "token": "jwt-token"
   }
 }
 ```
 
-**Unsubscribe from Events:**
+#### Subscription
+
+To subscribe to a channel, send a `subscribe` event with the channel name and optional parameters:
 
 ```json
 {
-  "type": "Unsubscribe",
-  "payload": {
-    "events": ["order_created"]
-  }
-}
-```
-
-**Event Types:**
-
-- `order_created`: New order created
-- `order_cancelled`: Order cancelled
-- `order_filled`: Order filled
-- `trade_started`: Trade started
-- `trade_completed`: Trade completed
-- `trade_failed`: Trade failed
-- `market_update`: Market data updated
-
-**Example Event:**
-
-```json
-{
-  "type": "order_created",
-  "payload": {
-    "order": {
-      "id": "order123",
-      "base_asset": "BTC",
-      "quote_asset": "USD",
-      "side": "buy",
-      "amount": 1.5,
-      "price": 50000,
-      "total": 75000,
-      "timestamp": "2025-04-05T12:00:00Z",
-      "status": "open",
-      "maker": "user123"
+  "event": "subscribe",
+  "data": {
+    "channel": "ticker",
+    "params": {
+      "baseAsset": "BTC",
+      "quoteAsset": "ETH"
     }
   }
 }
 ```
 
-## Error Codes
-
-The API uses standard HTTP status codes to indicate the success or failure of a request. In addition, the response body will include an error code and message for more detailed information.
-
-### HTTP Status Codes
-
-- `200 OK`: The request was successful
-- `201 Created`: The resource was successfully created
-- `400 Bad Request`: The request was invalid
-- `401 Unauthorized`: Authentication failed
-- `403 Forbidden`: The authenticated user does not have permission to access the requested resource
-- `404 Not Found`: The requested resource was not found
-- `409 Conflict`: The request could not be completed due to a conflict with the current state of the resource
-- `429 Too Many Requests`: The user has sent too many requests in a given amount of time
-- `500 Internal Server Error`: An error occurred on the server
-
-### Error Response Format
+To unsubscribe from a channel, send an `unsubscribe` event with the channel name and optional parameters:
 
 ```json
 {
-  "error": {
-    "code": "invalid_request",
-    "message": "Invalid request parameters",
-    "details": {
-      "field": "amount",
-      "reason": "must be greater than 0"
+  "event": "unsubscribe",
+  "data": {
+    "channel": "ticker",
+    "params": {
+      "baseAsset": "BTC",
+      "quoteAsset": "ETH"
     }
   }
 }
 ```
 
-### Common Error Codes
+#### Channels
 
-- `invalid_request`: The request was invalid
-- `authentication_failed`: Authentication failed
-- `permission_denied`: The authenticated user does not have permission to access the requested resource
-- `resource_not_found`: The requested resource was not found
-- `resource_conflict`: The request could not be completed due to a conflict with the current state of the resource
-- `rate_limit_exceeded`: The user has sent too many requests in a given amount of time
-- `internal_error`: An error occurred on the server
+##### Ticker Channel
 
-## Rate Limits
+Provides real-time ticker updates for a trading pair.
 
-The API enforces rate limits to prevent abuse and ensure fair usage. Rate limits are applied per user and per IP address.
-
-### Rate Limit Headers
-
-The following headers are included in the response to provide information about the rate limits:
-
-- `X-RateLimit-Limit`: The maximum number of requests allowed in the current time window
-- `X-RateLimit-Remaining`: The number of requests remaining in the current time window
-- `X-RateLimit-Reset`: The time at which the current rate limit window resets, in UTC epoch seconds
-
-### Rate Limit Tiers
-
-The API has different rate limit tiers based on the user's account type:
-
-- **Basic**: 100 requests per minute
-- **Premium**: 500 requests per minute
-- **Enterprise**: 1000 requests per minute
-
-### Rate Limit Exceeded
-
-If the rate limit is exceeded, the API will return a `429 Too Many Requests` response with the following body:
+**Subscribe:**
 
 ```json
 {
-  "error": {
-    "code": "rate_limit_exceeded",
-    "message": "Rate limit exceeded. Please try again later.",
-    "details": {
-      "limit": 100,
-      "reset": 1712336400
+  "event": "subscribe",
+  "data": {
+    "channel": "ticker",
+    "params": {
+      "baseAsset": "BTC",
+      "quoteAsset": "ETH"
     }
   }
 }
 ```
 
-## Pagination
-
-Many API endpoints that return lists of items support pagination using the `limit` and `offset` query parameters:
-
-- `limit`: Maximum number of items to return (default: 100, max: 1000)
-- `offset`: Offset for pagination (default: 0)
-
-The response will include the total number of items, the limit, and the offset:
+**Update:**
 
 ```json
 {
-  "items": [...],
-  "total": 150,
-  "limit": 100,
-  "offset": 0
+  "event": "ticker_update",
+  "data": {
+    "pair": "BTC/ETH",
+    "last": "10.0",
+    "bid": "9.9",
+    "ask": "10.1",
+    "volume": "100.0",
+    "change24h": "5.0",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  }
 }
 ```
 
-## Versioning
+##### Orderbook Channel
 
-The API is versioned using the URL path. The current version is `v1`. When a new version is released, the old version will be maintained for a period of time to allow for a smooth transition.
+Provides real-time orderbook updates for a trading pair.
 
-## Support
+**Subscribe:**
 
-If you have any questions or need assistance with the API, please contact our support team at api-support@darkswap.io or join our Discord community at https://discord.gg/darkswap.
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "orderbook",
+    "params": {
+      "baseAsset": "BTC",
+      "quoteAsset": "ETH"
+    }
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "orderbook_update",
+  "data": {
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "bids": [
+      {
+        "price": "9.9",
+        "amount": "1.0",
+        "total": "9.9"
+      },
+      {
+        "price": "9.8",
+        "amount": "2.0",
+        "total": "19.6"
+      }
+    ],
+    "asks": [
+      {
+        "price": "10.1",
+        "amount": "1.0",
+        "total": "10.1"
+      },
+      {
+        "price": "10.2",
+        "amount": "2.0",
+        "total": "20.4"
+      }
+    ],
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  }
+}
+```
+
+##### Trades Channel
+
+Provides real-time trade updates for a trading pair.
+
+**Subscribe:**
+
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "trades",
+    "params": {
+      "baseAsset": "BTC",
+      "quoteAsset": "ETH"
+    }
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "trade_created",
+  "data": {
+    "id": "trade123456",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "10.0",
+    "amount": "1.0",
+    "type": "buy",
+    "timestamp": "2025-04-10T12:00:00.000Z"
+  }
+}
+```
+
+##### Orders Channel
+
+Provides real-time order updates for the authenticated user.
+
+**Subscribe:**
+
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "orders"
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "order_created",
+  "data": {
+    "id": "order123456",
+    "userId": "123456789",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "10.0",
+    "amount": "1.0",
+    "filled": "0.0",
+    "type": "buy",
+    "status": "open",
+    "createdAt": "2025-04-10T12:00:00.000Z",
+    "updatedAt": "2025-04-10T12:00:00.000Z"
+  }
+}
+```
+
+##### User Trades Channel
+
+Provides real-time trade updates for the authenticated user.
+
+**Subscribe:**
+
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "user_trades"
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "trade_created",
+  "data": {
+    "id": "trade123456",
+    "buyOrderId": "order123456",
+    "sellOrderId": "order123458",
+    "buyUserId": "123456789",
+    "sellUserId": "987654321",
+    "baseAsset": "BTC",
+    "quoteAsset": "ETH",
+    "price": "10.0",
+    "amount": "1.0",
+    "status": "pending",
+    "createdAt": "2025-04-10T12:00:00.000Z",
+    "updatedAt": "2025-04-10T12:00:00.000Z"
+  }
+}
+```
+
+##### Balance Channel
+
+Provides real-time balance updates for the authenticated user.
+
+**Subscribe:**
+
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "balance"
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "balance_update",
+  "data": {
+    "balance": {
+      "BTC": "1.23456789",
+      "ETH": "10.0",
+      "RUNE_ABC": "1000.0",
+      "ALKANE_XYZ": "500.0"
+    }
+  }
+}
+```
+
+##### P2P Channel
+
+Provides real-time P2P network updates.
+
+**Subscribe:**
+
+```json
+{
+  "event": "subscribe",
+  "data": {
+    "channel": "p2p"
+  }
+}
+```
+
+**Update:**
+
+```json
+{
+  "event": "peer_connected",
+  "data": {
+    "id": "peer123456",
+    "ip": "192.168.1.1",
+    "port": 8333,
+    "lastSeen": "2025-04-10T12:00:00.000Z",
+    "connected": true,
+    "version": "1.0.0",
+    "userAgent": "DarkSwap/1.0.0"
+  }
+}

@@ -1,0 +1,243 @@
+/* MetaMask connect button styles */
+
+.metamask-connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.metamask-connect-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Size variants */
+.metamask-connect-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.metamask-connect-small .metamask-connect-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.metamask-connect-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.metamask-connect-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+.metamask-connect-large .metamask-connect-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Color variants */
+.metamask-connect-primary {
+  background-color: #f6851b;
+  color: white;
+}
+
+.metamask-connect-primary:hover {
+  background-color: #e2761b;
+}
+
+.metamask-connect-secondary {
+  background-color: #1098fc;
+  color: white;
+}
+
+.metamask-connect-secondary:hover {
+  background-color: #0d86e3;
+}
+
+.metamask-connect-outline {
+  background-color: transparent;
+  color: #f6851b;
+  border: 2px solid #f6851b;
+}
+
+.metamask-connect-outline:hover {
+  background-color: rgba(246, 133, 27, 0.1);
+}
+
+/* Loading state */
+.metamask-connect-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.metamask-connect-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: metamask-connect-spin 1s linear infinite;
+}
+
+@keyframes metamask-connect-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Connected state */
+.metamask-connected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.metamask-connected-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.metamask-connected-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.metamask-connected-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+/* Network indicator */
+.metamask-network {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metamask-network-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.metamask-network-ethereum-mainnet {
+  background-color: #29b6af;
+}
+
+.metamask-network-ropsten-testnet {
+  background-color: #ff4a8d;
+}
+
+.metamask-network-rinkeby-testnet {
+  background-color: #f6c343;
+}
+
+.metamask-network-goerli-testnet {
+  background-color: #3099f2;
+}
+
+.metamask-network-kovan-testnet {
+  background-color: #9064ff;
+}
+
+.metamask-network-binance-smart-chain {
+  background-color: #f3ba2f;
+}
+
+.metamask-network-binance-smart-chain-testnet {
+  background-color: #f3ba2f;
+  opacity: 0.7;
+}
+
+.metamask-network-polygon-mainnet {
+  background-color: #8247e5;
+}
+
+.metamask-network-polygon-mumbai-testnet {
+  background-color: #8247e5;
+  opacity: 0.7;
+}
+
+.metamask-network-unknown {
+  background-color: #ccc;
+}
+
+/* Address */
+.metamask-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: monospace;
+}
+
+/* Balance */
+.metamask-balance {
+  font-weight: 600;
+}
+
+/* Disconnect button */
+.metamask-disconnect {
+  background-color: transparent;
+  color: #f6851b;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.metamask-disconnect:hover {
+  background-color: rgba(246, 133, 27, 0.1);
+}
+
+.metamask-disconnect-small {
+  font-size: 0.8rem;
+}
+
+.metamask-disconnect-medium {
+  font-size: 1rem;
+}
+
+.metamask-disconnect-large {
+  font-size: 1.2rem;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .metamask-connected {
+    background-color: #333;
+    color: white;
+  }
+  
+  .metamask-address {
+    background-color: #444;
+    color: white;
+  }
+  
+  .metamask-disconnect {
+    color: #f6851b;
+  }
+  
+  .metamask-disconnect:hover {
+    background-color: rgba(246, 133, 27, 0.2);
+  }
+}

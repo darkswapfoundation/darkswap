@@ -1,76 +1,67 @@
 import React from 'react';
-import { useBitcoinBalance, useRuneBalance, useAlkaneBalance } from '../hooks/useTradeHooks';
+import { useWalletBalance } from '../contexts/WebSocketContext';
 
+// Wallet balance props
 interface WalletBalanceProps {
-  runeIds?: string[];
-  alkaneIds?: string[];
+  className?: string;
+  showZeroBalances?: boolean;
 }
 
-export const WalletBalance: React.FC<WalletBalanceProps> = ({ runeIds = [], alkaneIds = [] }) => {
-  // Get Bitcoin balance
-  const { balance: bitcoinBalance } = useBitcoinBalance();
+/**
+ * Wallet balance component
+ * @param props Component props
+ * @returns Wallet balance component
+ */
+const WalletBalance: React.FC<WalletBalanceProps> = ({
+  className,
+  showZeroBalances = false,
+}) => {
+  // Get wallet balance
+  const balance = useWalletBalance();
   
-  // Format Bitcoin balance
-  const formattedBitcoinBalance = (bitcoinBalance / 100000000).toFixed(8);
+  // Format balance
+  const formatBalance = (balance: string) => {
+    return parseFloat(balance).toFixed(8);
+  };
+  
+  // Filter assets
+  const assets = Object.entries(balance)
+    .filter(([_, value]) => showZeroBalances || parseFloat(value) > 0)
+    .sort(([assetA], [assetB]) => assetA.localeCompare(assetB));
   
   return (
-    <div className="wallet-balance">
-      <h2>Wallet Balance</h2>
-      <div className="balance-item">
-        <div className="balance-label">Bitcoin</div>
-        <div className="balance-value">{formattedBitcoinBalance} BTC</div>
-        <div className="balance-value-usd">${(bitcoinBalance / 100000000 * 65000).toFixed(2)}</div>
+    <div className={`wallet-balance ${className || ''}`}>
+      <div className="wallet-balance-header">
+        <h3>Wallet Balance</h3>
       </div>
       
-      {runeIds.length > 0 && (
-        <>
-          <h3>Runes</h3>
-          {runeIds.map(runeId => (
-            <RuneBalanceItem key={runeId} runeId={runeId} />
-          ))}
-        </>
-      )}
-      
-      {alkaneIds.length > 0 && (
-        <>
-          <h3>Alkanes</h3>
-          {alkaneIds.map(alkaneId => (
-            <AlkaneBalanceItem key={alkaneId} alkaneId={alkaneId} />
-          ))}
-        </>
-      )}
+      <div className="wallet-balance-content">
+        {assets.length > 0 ? (
+          <div className="wallet-balance-list">
+            <div className="wallet-balance-row wallet-balance-header-row">
+              <div className="wallet-balance-cell">Asset</div>
+              <div className="wallet-balance-cell">Balance</div>
+            </div>
+            
+            {assets.map(([asset, value]) => (
+              <div key={asset} className="wallet-balance-row">
+                <div className="wallet-balance-cell wallet-balance-asset">{asset}</div>
+                <div className="wallet-balance-cell wallet-balance-value">
+                  {formatBalance(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="wallet-balance-empty">
+            {Object.keys(balance).length === 0
+              ? 'Connect your wallet to view your balance'
+              : 'No assets found'}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-interface RuneBalanceItemProps {
-  runeId: string;
-}
-
-const RuneBalanceItem: React.FC<RuneBalanceItemProps> = ({ runeId }) => {
-  // Get rune balance
-  const { balance: runeBalance } = useRuneBalance(runeId);
-  
-  return (
-    <div className="balance-item">
-      <div className="balance-label">{runeId}</div>
-      <div className="balance-value">{runeBalance} RUNE</div>
-    </div>
-  );
-};
-
-interface AlkaneBalanceItemProps {
-  alkaneId: string;
-}
-
-const AlkaneBalanceItem: React.FC<AlkaneBalanceItemProps> = ({ alkaneId }) => {
-  // Get alkane balance
-  const { balance: alkaneBalance } = useAlkaneBalance(alkaneId);
-  
-  return (
-    <div className="balance-item">
-      <div className="balance-label">{alkaneId}</div>
-      <div className="balance-value">{alkaneBalance} ALKANE</div>
-    </div>
-  );
-};
+export default WalletBalance;

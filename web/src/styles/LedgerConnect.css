@@ -1,0 +1,252 @@
+/* Ledger connect styles */
+
+.ledger-connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.ledger-connect-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Size variants */
+.ledger-connect-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.ledger-connect-small .ledger-connect-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ledger-connect-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.ledger-connect-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+.ledger-connect-large .ledger-connect-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Color variants */
+.ledger-connect-primary {
+  background-color: #142533;
+  color: white;
+}
+
+.ledger-connect-primary:hover {
+  background-color: #0a1520;
+}
+
+.ledger-connect-secondary {
+  background-color: #0d86e3;
+  color: white;
+}
+
+.ledger-connect-secondary:hover {
+  background-color: #0a6fc0;
+}
+
+.ledger-connect-outline {
+  background-color: transparent;
+  color: #142533;
+  border: 2px solid #142533;
+}
+
+.ledger-connect-outline:hover {
+  background-color: rgba(20, 37, 51, 0.1);
+}
+
+/* Loading state */
+.ledger-connect-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ledger-connect-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: ledger-connect-spin 1s linear infinite;
+}
+
+@keyframes ledger-connect-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Connected state */
+.ledger-connected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.ledger-connected-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.ledger-connected-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.ledger-connected-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+/* Network indicator */
+.ledger-network {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ledger-network-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ledger-network-ethereum-mainnet {
+  background-color: #29b6af;
+}
+
+.ledger-network-ropsten-testnet {
+  background-color: #ff4a8d;
+}
+
+.ledger-network-rinkeby-testnet {
+  background-color: #f6c343;
+}
+
+.ledger-network-goerli-testnet {
+  background-color: #3099f2;
+}
+
+.ledger-network-kovan-testnet {
+  background-color: #9064ff;
+}
+
+.ledger-network-binance-smart-chain {
+  background-color: #f3ba2f;
+}
+
+.ledger-network-binance-smart-chain-testnet {
+  background-color: #f3ba2f;
+  opacity: 0.7;
+}
+
+.ledger-network-polygon-mainnet {
+  background-color: #8247e5;
+}
+
+.ledger-network-polygon-mumbai-testnet {
+  background-color: #8247e5;
+  opacity: 0.7;
+}
+
+.ledger-network-unknown {
+  background-color: #ccc;
+}
+
+/* Address */
+.ledger-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: monospace;
+}
+
+/* Balance */
+.ledger-balance {
+  font-weight: 600;
+}
+
+/* Disconnect button */
+.ledger-disconnect {
+  background-color: transparent;
+  color: #142533;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.ledger-disconnect:hover {
+  background-color: rgba(20, 37, 51, 0.1);
+}
+
+.ledger-disconnect-small {
+  font-size: 0.8rem;
+}
+
+.ledger-disconnect-medium {
+  font-size: 1rem;
+}
+
+.ledger-disconnect-large {
+  font-size: 1.2rem;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .ledger-connected {
+    background-color: #333;
+    color: white;
+  }
+  
+  .ledger-address {
+    background-color: #444;
+    color: white;
+  }
+  
+  .ledger-disconnect {
+    color: #ffffff;
+  }
+  
+  .ledger-disconnect:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .ledger-connect-outline {
+    color: #ffffff;
+    border-color: #ffffff;
+  }
+  
+  .ledger-connect-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}

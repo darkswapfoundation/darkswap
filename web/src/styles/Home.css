@@ -207,6 +207,138 @@
   font-weight: 500;
 }
 
+/* SIMD demo section */
+.simd-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/simd-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.simd-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.simd-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Shared Memory demo section */
+.shared-memory-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/shared-memory-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.shared-memory-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.shared-memory-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Dynamic Chunk Size demo section */
+.dynamic-chunk-size-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/dynamic-chunk-size-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.dynamic-chunk-size-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.dynamic-chunk-size-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Combined Optimizations demo section */
+.combined-optimizations-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/combined-optimizations-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.combined-optimizations-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.combined-optimizations-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Tools section */
+.tools-section {
+  padding: 40px 0;
+  margin-bottom: 40px;
+}
+
+.tools-section h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-primary);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+}
+
+.tool-card {
+  background-color: var(--color-background-secondary);
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tool-card:hover {
+  transform: translateY(-5px);
+}
+
+.tool-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.tool-card h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.tool-card p {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.tool-card .btn {
+  margin-top: auto;
+}
+
 /* Getting started section */
 .getting-started {
   padding: 40px 0;
@@ -306,7 +438,8 @@
   }
   
   .feature-grid,
-  .steps {
+  .steps,
+  .tools-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,28 +1,34 @@
 import React from 'react';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { useTheme } from '../contexts/ThemeContext';
-import '../styles/WebSocketStatus.css';
 
+// WebSocket status props
 interface WebSocketStatusProps {
-  showLabel?: boolean;
-  size?: 'small' | 'medium' | 'large';
+  className?: string;
 }
 
-const WebSocketStatus: React.FC<WebSocketStatusProps> = ({
-  showLabel = false,
-  size = 'small',
-}) => {
-  const { theme } = useTheme();
-  const { connected, connecting } = useWebSocket();
+/**
+ * WebSocket status component
+ * @param props Component props
+ * @returns WebSocket status component
+ */
+const WebSocketStatus: React.FC<WebSocketStatusProps> = ({ className }) => {
+  // Get WebSocket context
+  const { connected, authenticated } = useWebSocket();
   
   return (
-    <div className={`websocket-status websocket-status-${theme} websocket-status-${size}`}>
-      <div className={`websocket-status-indicator ${connected ? 'connected' : connecting ? 'connecting' : 'disconnected'}`}></div>
-      {showLabel && (
-        <span className="websocket-status-label">
-          {connected ? 'Connected' : connecting ? 'Connecting...' : 'Disconnected'}
+    <div className={`websocket-status ${className || ''}`}>
+      <div className="websocket-status-item">
+        <span className="websocket-status-label">Connection:</span>
+        <span className={`websocket-status-value ${connected ? 'connected' : 'disconnected'}`}>
+          {connected ? 'Connected' : 'Disconnected'}
         </span>
-      )}
+      </div>
+      <div className="websocket-status-item">
+        <span className="websocket-status-label">Authentication:</span>
+        <span className={`websocket-status-value ${authenticated ? 'authenticated' : 'unauthenticated'}`}>
+          {authenticated ? 'Authenticated' : 'Unauthenticated'}
+        </span>
+      </div>
     </div>
   );
 };

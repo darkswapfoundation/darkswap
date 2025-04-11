@@ -1,296 +1,261 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-import { useApi } from '../contexts/ApiContext';
-import { useNotification } from '../contexts/NotificationContext';
-import { OrderSide, OrderType } from '../types';
-import '../styles/TradeForm.css';
+import React, { useState, useEffect } from 'react';
+import { useWalletBalance } from '../contexts/WebSocketContext';
 
+// Trade form props
 interface TradeFormProps {
   baseAsset: string;
   quoteAsset: string;
-  lastPrice?: string;
+  className?: string;
+  onSubmit?: (order: {
+    baseAsset: string;
+    quoteAsset: string;
+    price: string;
+    amount: string;
+    type: 'buy' | 'sell';
+  }) => void;
+  initialPrice?: string;
+  initialType?: 'buy' | 'sell';
 }
 
+/**
+ * Trade form component
+ * @param props Component props
+ * @returns Trade form component
+ */
 const TradeForm: React.FC<TradeFormProps> = ({
   baseAsset,
   quoteAsset,
-  lastPrice = '',
+  className,
+  onSubmit,
+  initialPrice = '',
+  initialType = 'buy',
 }) => {
-  const { theme } = useTheme();
-  const { api } = useApi();
-  const { addNotification } = useNotification();
-  
-  const [side, setSide] = useState<OrderSide>(OrderSide.Buy);
-  const [type, setType] = useState<OrderType>(OrderType.Limit);
-  const [price, setPrice] = useState<string>('');
+  // State
+  const [type, setType] = useState<'buy' | 'sell'>(initialType);
+  const [price, setPrice] = useState<string>(initialPrice);
   const [amount, setAmount] = useState<string>('');
   const [total, setTotal] = useState<string>('');
-  const [baseBalance, setBaseBalance] = useState<string>('0');
-  const [quoteBalance, setQuoteBalance] = useState<string>('0');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{
+    price?: string;
+    amount?: string;
+    total?: string;
+    balance?: string;
+  }>({});
   
-  // Fetch balances
-  const fetchBalances = useCallback(async () => {
-    try {
-      const balances = await api.getBalances();
-      
-      // Find base asset balance
-      const baseAssetBalance = balances.find(balance => balance.symbol === baseAsset);
-      if (baseAssetBalance) {
-        setBaseBalance(baseAssetBalance.available);
-      }
-      
-      // Find quote asset balance
-      const quoteAssetBalance = balances.find(balance => balance.symbol === quoteAsset);
-      if (quoteAssetBalance) {
-        setQuoteBalance(quoteAssetBalance.available);
-      }
-    } catch (error) {
-      console.error('Failed to fetch balances:', error);
-    }
-  }, [api, baseAsset, quoteAsset]);
+  // Get wallet balance
+  const balance = useWalletBalance();
   
-  // Fetch balances on mount and when assets change
-  useEffect(() => {
-    fetchBalances();
-  }, [fetchBalances]);
-  
-  // Update price when lastPrice changes
-  useEffect(() => {
-    if (lastPrice && !price) {
-      setPrice(lastPrice);
-    }
-  }, [lastPrice, price]);
-  
-  // Calculate total when price or amount changes
+  // Update total when price or amount changes
   useEffect(() => {
     if (price && amount) {
-      const calculatedTotal = (parseFloat(price) * parseFloat(amount)).toString();
-      setTotal(calculatedTotal);
+      const priceValue = parseFloat(price);
+      const amountValue = parseFloat(amount);
+      
+      if (!isNaN(priceValue) && !isNaN(amountValue)) {
+        setTotal((priceValue * amountValue).toFixed(8));
+      } else {
+        setTotal('');
+      }
     } else {
       setTotal('');
     }
   }, [price, amount]);
   
-  // Calculate amount when price or total changes
-  const calculateAmount = useCallback(() => {
+  // Update amount when price or total changes
+  useEffect(() => {
     if (price && total && parseFloat(price) > 0) {
-      const calculatedAmount = (parseFloat(total) / parseFloat(price)).toString();
-      setAmount(calculatedAmount);
+      const priceValue = parseFloat(price);
+      const totalValue = parseFloat(total);
+      
+      if (!isNaN(priceValue) && !isNaN(totalValue)) {
+        setAmount((totalValue / priceValue).toFixed(8));
+      }
     }
   }, [price, total]);
   
-  // Handle side change
-  const handleSideChange = (newSide: OrderSide) => {
-    setSide(newSide);
-    setError(null);
+  // Validate form
+  const validateForm = () => {
+    const newErrors: {
+      price?: string;
+      amount?: string;
+      total?: string;
+      balance?: string;
+    } = {};
+    
+    // Validate price
+    if (!price) {
+      newErrors.price = 'Price is required';
+    } else if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+      newErrors.price = 'Price must be a positive number';
+    }
+    
+    // Validate amount
+    if (!amount) {
+      newErrors.amount = 'Amount is required';
+    } else if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      newErrors.amount = 'Amount must be a positive number';
+    }
+    
+    // Validate balance
+    if (type === 'buy' && balance[quoteAsset]) {
+      const totalValue = parseFloat(total);
+      const balanceValue = parseFloat(balance[quoteAsset]);
+      
+      if (totalValue > balanceValue) {
+        newErrors.balance = `Insufficient ${quoteAsset} balance`;
+      }
+    } else if (type === 'sell' && balance[baseAsset]) {
+      const amountValue = parseFloat(amount);
+      const balanceValue = parseFloat(balance[baseAsset]);
+      
+      if (amountValue > balanceValue) {
+        newErrors.balance = `Insufficient ${baseAsset} balance`;
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
   
-  // Handle type change
-  const handleTypeChange = (newType: OrderType) => {
-    setType(newType);
-    setError(null);
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (validateForm() && onSubmit) {
+      onSubmit({
+        baseAsset,
+        quoteAsset,
+        price,
+        amount,
+        type,
+      });
+      
+      // Reset form
+      setAmount('');
+      setTotal('');
+    }
   };
   
   // Handle price change
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setPrice(value);
-      setError(null);
-    }
+    setPrice(e.target.value);
   };
   
   // Handle amount change
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setAmount(value);
-      setError(null);
-    }
+    setAmount(e.target.value);
   };
   
   // Handle total change
   const handleTotalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setTotal(value);
-      calculateAmount();
-      setError(null);
-    }
+    setTotal(e.target.value);
   };
   
-  // Handle max button click
-  const handleMaxClick = () => {
-    if (side === OrderSide.Buy) {
-      setTotal(quoteBalance);
-      calculateAmount();
-    } else {
-      setAmount(baseBalance);
-    }
-    setError(null);
+  // Handle type change
+  const handleTypeChange = (newType: 'buy' | 'sell') => {
+    setType(newType);
+    setErrors({});
   };
   
-  // Validate form
-  const validateForm = (): boolean => {
-    if (type === OrderType.Limit && (!price || parseFloat(price) <= 0)) {
-      setError('Please enter a valid price.');
-      return false;
+  // Format balance
+  const formatBalance = (balanceValue: string | undefined) => {
+    if (!balanceValue) {
+      return '0.00000000';
     }
     
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount.');
-      return false;
-    }
-    
-    if (side === OrderSide.Buy) {
-      const requiredBalance = parseFloat(total);
-      if (requiredBalance > parseFloat(quoteBalance)) {
-        setError(`Insufficient ${quoteAsset} balance.`);
-        return false;
-      }
-    } else {
-      const requiredBalance = parseFloat(amount);
-      if (requiredBalance > parseFloat(baseBalance)) {
-        setError(`Insufficient ${baseAsset} balance.`);
-        return false;
-      }
-    }
-    
-    return true;
-  };
-  
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      setIsSubmitting(true);
-      
-      // Create order
-      const orderId = await api.createOrder({
-        side,
-        type,
-        baseAsset,
-        quoteAsset,
-        price: type === OrderType.Limit ? price : '0',
-        amount,
-        maker: 'user',
-      });
-      
-      // Show success notification
-      addNotification({
-        type: 'success',
-        title: 'Order Created',
-        message: `Your ${side === OrderSide.Buy ? 'buy' : 'sell'} order has been created.`,
-      });
-      
-      // Reset form
-      if (side === OrderSide.Buy) {
-        setAmount('');
-        setTotal('');
-      } else {
-        setAmount('');
-      }
-      
-      // Refresh balances
-      fetchBalances();
-    } catch (error) {
-      console.error('Failed to create order:', error);
-      setError('Failed to create order. Please try again later.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    return parseFloat(balanceValue).toFixed(8);
   };
   
   return (
-    <div className={`trade-form trade-form-${theme}`}>
+    <div className={`trade-form ${className || ''}`}>
       <div className="trade-form-header">
-        <h3>Place Order</h3>
+        <h3>Trade</h3>
+        <div className="trade-form-pair">{baseAsset}/{quoteAsset}</div>
+      </div>
+      
+      <div className="trade-form-content">
         <div className="trade-form-tabs">
           <button
-            className={`${side === OrderSide.Buy ? 'active' : ''} buy`}
-            onClick={() => handleSideChange(OrderSide.Buy)}
+            className={`trade-form-tab ${type === 'buy' ? 'active' : ''}`}
+            onClick={() => handleTypeChange('buy')}
           >
             Buy
           </button>
           <button
-            className={`${side === OrderSide.Sell ? 'active' : ''} sell`}
-            onClick={() => handleSideChange(OrderSide.Sell)}
+            className={`trade-form-tab ${type === 'sell' ? 'active' : ''}`}
+            onClick={() => handleTypeChange('sell')}
           >
             Sell
           </button>
         </div>
-      </div>
-      
-      <form onSubmit={handleSubmit}>
-        <div className="trade-form-group">
-          <label htmlFor="price">Price ({quoteAsset})</label>
-          <div className="trade-form-input-group">
+        
+        <form className="trade-form-form" onSubmit={handleSubmit}>
+          <div className="trade-form-group">
+            <label htmlFor="price">Price ({quoteAsset})</label>
             <input
-              id="price"
               type="text"
+              id="price"
               value={price}
               onChange={handlePriceChange}
-              placeholder="0.00"
-              disabled={type === OrderType.Market}
+              placeholder="0.00000000"
+              className={errors.price ? 'error' : ''}
             />
+            {errors.price && <div className="trade-form-error">{errors.price}</div>}
           </div>
-        </div>
-        
-        <div className="trade-form-group">
-          <label htmlFor="amount">Amount ({baseAsset})</label>
-          <div className="trade-form-input-group">
+          
+          <div className="trade-form-group">
+            <label htmlFor="amount">Amount ({baseAsset})</label>
             <input
-              id="amount"
               type="text"
+              id="amount"
               value={amount}
               onChange={handleAmountChange}
-              placeholder="0.00"
+              placeholder="0.00000000"
+              className={errors.amount ? 'error' : ''}
             />
-            <button
-              type="button"
-              className="trade-form-max-button"
-              onClick={handleMaxClick}
-            >
-              MAX
-            </button>
+            {errors.amount && <div className="trade-form-error">{errors.amount}</div>}
           </div>
-          <div className="trade-form-balance">
-            Available: {side === OrderSide.Buy ? quoteBalance : baseBalance} {side === OrderSide.Buy ? quoteAsset : baseAsset}
-          </div>
-        </div>
-        
-        {side === OrderSide.Buy && (
+          
           <div className="trade-form-group">
             <label htmlFor="total">Total ({quoteAsset})</label>
-            <div className="trade-form-input-group">
-              <input
-                id="total"
-                type="text"
-                value={total}
-                onChange={handleTotalChange}
-                placeholder="0.00"
-              />
+            <input
+              type="text"
+              id="total"
+              value={total}
+              onChange={handleTotalChange}
+              placeholder="0.00000000"
+              className={errors.total ? 'error' : ''}
+            />
+            {errors.total && <div className="trade-form-error">{errors.total}</div>}
+          </div>
+          
+          <div className="trade-form-balance">
+            <div className="trade-form-balance-label">
+              {type === 'buy'
+                ? `${quoteAsset} Balance:`
+                : `${baseAsset} Balance:`}
+            </div>
+            <div className="trade-form-balance-value">
+              {type === 'buy'
+                ? formatBalance(balance[quoteAsset])
+                : formatBalance(balance[baseAsset])}
             </div>
           </div>
-        )}
-        
-        {error && <div className="trade-form-error">{error}</div>}
-        
-        <button
-          type="submit"
-          className={`trade-form-submit-button ${side === OrderSide.Buy ? 'buy' : 'sell'}`}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Processing...' : `${side === OrderSide.Buy ? 'Buy' : 'Sell'} ${baseAsset}`}
-        </button>
-      </form>
+          
+          {errors.balance && (
+            <div className="trade-form-error trade-form-balance-error">
+              {errors.balance}
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            className={`trade-form-submit trade-form-submit-${type}`}
+          >
+            {type === 'buy' ? `Buy ${baseAsset}` : `Sell ${baseAsset}`}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

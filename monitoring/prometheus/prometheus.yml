@@ -1,0 +1,59 @@
+# Prometheus configuration for DarkSwap
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Rule files
+rule_files:
+  - "rules/node_rules.yml"
+  - "rules/app_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape Node Exporter
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'darkswap-server'
+
+  # Scrape Cadvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Scrape DarkSwap Relay
+  - job_name: 'darkswap-relay'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['darkswap-relay:8080']
+        labels:
+          service: 'relay'
+
+  # Scrape DarkSwap Daemon
+  - job_name: 'darkswap-daemon'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['darkswap-daemon:3000']
+        labels:
+          service: 'daemon'
+
+  # Scrape DarkSwap Web
+  - job_name: 'darkswap-web'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['darkswap-web:80']
+        labels:
+          service: 'web'

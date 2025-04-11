@@ -1,318 +1,423 @@
-/**
- * WebSocketClient - WebSocket client with reconnection and batching support
- * 
- * This utility provides a WebSocket client with automatic reconnection,
- * event handling, and message batching capabilities.
- */
+import { io, Socket } from 'socket.io-client';
 
-import { WebSocketBatcher } from './WebSocketBatcher';
+// WebSocket event types
+export enum WebSocketEventType {
+  // Connection events
+  CONNECT = 'connect',
+  DISCONNECT = 'disconnect',
+  ERROR = 'error',
+  
+  // Authentication events
+  AUTHENTICATE = 'authenticate',
+  AUTHENTICATION_SUCCESS = 'authentication_success',
+  AUTHENTICATION_FAILURE = 'authentication_failure',
+  
+  // Subscription events
+  SUBSCRIBE = 'subscribe',
+  UNSUBSCRIBE = 'unsubscribe',
+  SUBSCRIPTION_SUCCESS = 'subscription_success',
+  SUBSCRIPTION_FAILURE = 'subscription_failure',
+  
+  // Order events
+  ORDER_CREATED = 'order_created',
+  ORDER_UPDATED = 'order_updated',
+  ORDER_CANCELLED = 'order_cancelled',
+  
+  // Trade events
+  TRADE_CREATED = 'trade_created',
+  TRADE_UPDATED = 'trade_updated',
+  TRADE_CANCELLED = 'trade_cancelled',
+  
+  // Orderbook events
+  ORDERBOOK_UPDATE = 'orderbook_update',
+  
+  // Market events
+  TICKER_UPDATE = 'ticker_update',
+  PRICE_UPDATE = 'price_update',
+  
+  // Wallet events
+  BALANCE_UPDATE = 'balance_update',
+  TRANSACTION_CREATED = 'transaction_created',
+  TRANSACTION_UPDATED = 'transaction_updated',
+  
+  // P2P events
+  PEER_CONNECTED = 'peer_connected',
+  PEER_DISCONNECTED = 'peer_disconnected',
+  MESSAGE_RECEIVED = 'message_received',
+}
 
-/**
- * WebSocket client options
- */
+// WebSocket channel types
+export enum WebSocketChannelType {
+  // Public channels
+  TICKER = 'ticker',
+  ORDERBOOK = 'orderbook',
+  TRADES = 'trades',
+  
+  // Private channels
+  ORDERS = 'orders',
+  TRADES_PRIVATE = 'trades_private',
+  WALLET = 'wallet',
+  
+  // P2P channels
+  P2P = 'p2p',
+}
+
+// WebSocket subscription
+export interface WebSocketSubscription {
+  channel: WebSocketChannelType;
+  params?: Record<string, string>;
+}
+
+// WebSocket client options
 export interface WebSocketClientOptions {
-  /** URL of the WebSocket server */
   url: string;
-  /** Reconnection interval in milliseconds */
-  reconnectInterval?: number;
-  /** Maximum number of reconnection attempts */
-  maxReconnectAttempts?: number;
-  /** Whether to automatically connect on instantiation */
   autoConnect?: boolean;
-  /** Whether to enable message batching */
-  enableBatching?: boolean;
-  /** Batching options */
-  batcherOptions?: {
-    /** Maximum batch size in bytes */
-    maxBatchSize?: number;
-    /** Low priority message interval */
-    lowPriorityInterval?: number;
-    /** Medium priority message interval */
-    mediumPriorityInterval?: number;
-    /** Whether to enable compression */
-    enableCompression?: boolean;
-  };
-  /** Whether to enable debug logging */
-  debug?: boolean;
+  reconnection?: boolean;
+  reconnectionAttempts?: number;
+  reconnectionDelay?: number;
+  reconnectionDelayMax?: number;
+  timeout?: number;
 }
 
-/**
- * WebSocket message priority
- */
-export enum MessagePriority {
-  /** High priority - send immediately */
-  HIGH = 'high',
-  /** Medium priority - batch with short delay */
-  MEDIUM = 'medium',
-  /** Low priority - batch with longer delay */
-  LOW = 'low',
-}
-
-/**
- * WebSocket client event handler
- */
-export type WebSocketEventHandler = (data: any) => void;
-
-/**
- * WebSocket client class
- */
+// WebSocket client
 export class WebSocketClient {
-  private url: string;
-  private socket: WebSocket | null = null;
-  private reconnectInterval: number;
-  private maxReconnectAttempts: number;
-  private reconnectAttempts = 0;
-  private eventHandlers: Map<string, WebSocketEventHandler[]> = new Map();
-  private enableBatching: boolean;
-  private batcherOptions: {
-    maxBatchSize: number;
-    lowPriorityInterval: number;
-    mediumPriorityInterval: number;
-    enableCompression: boolean;
-  };
-  private batcher: WebSocketBatcher | null = null;
-  private debug: boolean;
-
+  private socket: Socket;
+  private options: WebSocketClientOptions;
+  private authenticated: boolean = false;
+  private subscriptions: WebSocketSubscription[] = [];
+  private eventHandlers: Map<string, Set<(data: any) => void>> = new Map();
+  
   /**
-   * Create a new WebSocketClient
+   * Creates a new WebSocket client
    * @param options WebSocket client options
    */
   constructor(options: WebSocketClientOptions) {
-    this.url = options.url;
-    this.reconnectInterval = options.reconnectInterval || 1000;
-    this.maxReconnectAttempts = options.maxReconnectAttempts || 5;
-    this.enableBatching = options.enableBatching || false;
-    this.batcherOptions = {
-      maxBatchSize: options.batcherOptions?.maxBatchSize || 1024 * 1024, // 1MB
-      lowPriorityInterval: options.batcherOptions?.lowPriorityInterval || 1000, // 1s
-      mediumPriorityInterval: options.batcherOptions?.mediumPriorityInterval || 500, // 500ms
-      enableCompression: options.batcherOptions?.enableCompression || false,
+    this.options = {
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      ...options,
     };
-    this.debug = options.debug || false;
-
-    if (options.autoConnect) {
-      this.connect();
-    }
+    
+    // Create the Socket.IO client
+    this.socket = io(this.options.url, {
+      autoConnect: this.options.autoConnect,
+      reconnection: this.options.reconnection,
+      reconnectionAttempts: this.options.reconnectionAttempts,
+      reconnectionDelay: this.options.reconnectionDelay,
+      reconnectionDelayMax: this.options.reconnectionDelayMax,
+      timeout: this.options.timeout,
+    });
+    
+    // Set up event handlers
+    this.setupEventHandlers();
   }
-
+  
   /**
-   * Connect to the WebSocket server
-   * @returns Promise that resolves when connected
+   * Sets up event handlers
    */
-  public connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        resolve();
-        return;
+  private setupEventHandlers(): void {
+    // Handle connection
+    this.socket.on(WebSocketEventType.CONNECT, () => {
+      console.log('WebSocket connected');
+      this.emit('connect');
+      
+      // Authenticate if we have a token
+      const token = localStorage.getItem('token');
+      if (token) {
+        this.authenticate(token);
       }
-
-      try {
-        this.socket = new WebSocket(this.url);
-
-        this.socket.onopen = () => {
-          this.reconnectAttempts = 0;
-          this.log('Connected to WebSocket server');
-          
-          // Initialize batcher if batching is enabled
-          if (this.enableBatching) {
-            this.batcher = new WebSocketBatcher();
-          }
-          
-          resolve();
-        };
-
-        this.socket.onclose = (event) => {
-          this.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-          
-          // Stop the batcher if it exists
-          if (this.batcher) {
-            this.batcher = null;
-          }
-          
-          // Attempt to reconnect
-          if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            this.log(`Reconnecting (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-            setTimeout(() => this.connect(), this.reconnectInterval);
-          } else {
-            this.log('Maximum reconnection attempts reached');
-            this.emit('max_reconnect_attempts');
-          }
-        };
-
-        this.socket.onerror = (error) => {
-          this.log('WebSocket error:', error);
-          this.emit('error', error);
-          reject(error);
-        };
-
-        this.socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type) {
-              this.emit(data.type, data.payload);
-            } else {
-              this.emit('message', data);
-            }
-          } catch (error) {
-            this.log('Error parsing WebSocket message:', error);
-            this.emit('error', error);
-          }
-        };
-      } catch (error) {
-        this.log('Error connecting to WebSocket server:', error);
-        reject(error);
-      }
+      
+      // Resubscribe to channels
+      this.resubscribe();
+    });
+    
+    // Handle disconnection
+    this.socket.on(WebSocketEventType.DISCONNECT, (reason) => {
+      console.log('WebSocket disconnected:', reason);
+      this.emit('disconnect', reason);
+    });
+    
+    // Handle error
+    this.socket.on(WebSocketEventType.ERROR, (error) => {
+      console.error('WebSocket error:', error);
+      this.emit('error', error);
+    });
+    
+    // Handle authentication success
+    this.socket.on(WebSocketEventType.AUTHENTICATION_SUCCESS, (data) => {
+      console.log('WebSocket authentication success:', data);
+      this.authenticated = true;
+      this.emit('authentication_success', data);
+    });
+    
+    // Handle authentication failure
+    this.socket.on(WebSocketEventType.AUTHENTICATION_FAILURE, (data) => {
+      console.error('WebSocket authentication failure:', data);
+      this.authenticated = false;
+      this.emit('authentication_failure', data);
+    });
+    
+    // Handle subscription success
+    this.socket.on(WebSocketEventType.SUBSCRIPTION_SUCCESS, (data) => {
+      console.log('WebSocket subscription success:', data);
+      this.emit('subscription_success', data);
+    });
+    
+    // Handle subscription failure
+    this.socket.on(WebSocketEventType.SUBSCRIPTION_FAILURE, (data) => {
+      console.error('WebSocket subscription failure:', data);
+      this.emit('subscription_failure', data);
+    });
+    
+    // Handle order events
+    this.socket.on(WebSocketEventType.ORDER_CREATED, (data) => {
+      this.emit('order_created', data);
+    });
+    
+    this.socket.on(WebSocketEventType.ORDER_UPDATED, (data) => {
+      this.emit('order_updated', data);
+    });
+    
+    this.socket.on(WebSocketEventType.ORDER_CANCELLED, (data) => {
+      this.emit('order_cancelled', data);
+    });
+    
+    // Handle trade events
+    this.socket.on(WebSocketEventType.TRADE_CREATED, (data) => {
+      this.emit('trade_created', data);
+    });
+    
+    this.socket.on(WebSocketEventType.TRADE_UPDATED, (data) => {
+      this.emit('trade_updated', data);
+    });
+    
+    this.socket.on(WebSocketEventType.TRADE_CANCELLED, (data) => {
+      this.emit('trade_cancelled', data);
+    });
+    
+    // Handle orderbook events
+    this.socket.on(WebSocketEventType.ORDERBOOK_UPDATE, (data) => {
+      this.emit('orderbook_update', data);
+    });
+    
+    // Handle market events
+    this.socket.on(WebSocketEventType.TICKER_UPDATE, (data) => {
+      this.emit('ticker_update', data);
+    });
+    
+    this.socket.on(WebSocketEventType.PRICE_UPDATE, (data) => {
+      this.emit('price_update', data);
+    });
+    
+    // Handle wallet events
+    this.socket.on(WebSocketEventType.BALANCE_UPDATE, (data) => {
+      this.emit('balance_update', data);
+    });
+    
+    this.socket.on(WebSocketEventType.TRANSACTION_CREATED, (data) => {
+      this.emit('transaction_created', data);
+    });
+    
+    this.socket.on(WebSocketEventType.TRANSACTION_UPDATED, (data) => {
+      this.emit('transaction_updated', data);
+    });
+    
+    // Handle P2P events
+    this.socket.on(WebSocketEventType.PEER_CONNECTED, (data) => {
+      this.emit('peer_connected', data);
+    });
+    
+    this.socket.on(WebSocketEventType.PEER_DISCONNECTED, (data) => {
+      this.emit('peer_disconnected', data);
+    });
+    
+    this.socket.on(WebSocketEventType.MESSAGE_RECEIVED, (data) => {
+      this.emit('message_received', data);
     });
   }
-
+  
   /**
-   * Disconnect from the WebSocket server
+   * Connects to the WebSocket server
+   */
+  public connect(): void {
+    this.socket.connect();
+  }
+  
+  /**
+   * Disconnects from the WebSocket server
    */
   public disconnect(): void {
-    if (!this.socket) return;
+    this.socket.disconnect();
+  }
+  
+  /**
+   * Authenticates with the WebSocket server
+   * @param token Authentication token
+   */
+  public authenticate(token: string): void {
+    this.socket.emit(WebSocketEventType.AUTHENTICATE, { token });
+  }
+  
+  /**
+   * Subscribes to a channel
+   * @param channel Channel
+   * @param params Parameters
+   */
+  public subscribe(channel: WebSocketChannelType, params?: Record<string, string>): void {
+    // Add the subscription to the subscriptions list
+    this.subscriptions.push({ channel, params });
     
-    this.log('Disconnecting from WebSocket server');
+    // Subscribe to the channel
+    this.socket.emit(WebSocketEventType.SUBSCRIBE, { channel, params });
+  }
+  
+  /**
+   * Unsubscribes from a channel
+   * @param channel Channel
+   * @param params Parameters
+   */
+  public unsubscribe(channel: WebSocketChannelType, params?: Record<string, string>): void {
+    // Remove the subscription from the subscriptions list
+    this.subscriptions = this.subscriptions.filter(
+      (subscription) => subscription.channel !== channel ||
+        JSON.stringify(subscription.params) !== JSON.stringify(params)
+    );
     
-    // Stop the batcher if it exists
-    if (this.batcher) {
-      this.batcher = null;
+    // Unsubscribe from the channel
+    this.socket.emit(WebSocketEventType.UNSUBSCRIBE, { channel, params });
+  }
+  
+  /**
+   * Resubscribes to all channels
+   */
+  private resubscribe(): void {
+    // Resubscribe to all channels
+    for (const subscription of this.subscriptions) {
+      this.socket.emit(WebSocketEventType.SUBSCRIBE, subscription);
+    }
+  }
+  
+  /**
+   * Adds an event handler
+   * @param event Event
+   * @param handler Handler
+   */
+  public on(event: string, handler: (data: any) => void): void {
+    // Get the event handlers for this event
+    let handlers = this.eventHandlers.get(event);
+    
+    // If there are no handlers for this event, create a new set
+    if (!handlers) {
+      handlers = new Set();
+      this.eventHandlers.set(event, handlers);
     }
     
-    this.socket.close();
-    this.socket = null;
+    // Add the handler to the set
+    handlers.add(handler);
   }
-
+  
   /**
-   * Send a message to the WebSocket server
-   * @param type Message type
-   * @param data Message data
-   * @param priority Message priority
+   * Removes an event handler
+   * @param event Event
+   * @param handler Handler
    */
-  public send(type: string, data?: any, priority: MessagePriority = MessagePriority.HIGH): void {
-    const message = {
-      type,
-      payload: data,
-    };
+  public off(event: string, handler: (data: any) => void): void {
+    // Get the event handlers for this event
+    const handlers = this.eventHandlers.get(event);
     
-    const serializedData = JSON.stringify(message);
-    
-    if (this.enableBatching && this.batcher && priority !== MessagePriority.HIGH) {
-      // If batching is enabled, queue the message
-      this.batcher.send(type, data, priority === MessagePriority.MEDIUM ? 1 : 0);
-    } else {
-      // Otherwise, send the message directly
-      this.sendRaw(serializedData);
-    }
-  }
-
-  /**
-   * Send raw data to the WebSocket server
-   * @param data Data to send
-   */
-  private sendRaw(data: string): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      this.log('Cannot send message: WebSocket is not connected');
+    // If there are no handlers for this event, return
+    if (!handlers) {
       return;
     }
     
-    try {
-      this.socket.send(data);
-    } catch (error) {
-      this.log('Error sending WebSocket message:', error);
-      this.emit('error', error);
+    // Remove the handler from the set
+    handlers.delete(handler);
+    
+    // If there are no more handlers for this event, remove the set
+    if (handlers.size === 0) {
+      this.eventHandlers.delete(event);
     }
   }
-
+  
   /**
-   * Register an event handler
-   * @param event Event name
-   * @param handler Event handler
-   */
-  public on(event: string, handler: WebSocketEventHandler): void {
-    if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, []);
-    }
-    
-    this.eventHandlers.get(event)!.push(handler);
-  }
-
-  /**
-   * Unregister an event handler
-   * @param event Event name
-   * @param handler Event handler
-   */
-  public off(event: string, handler: WebSocketEventHandler): void {
-    if (!this.eventHandlers.has(event)) return;
-    
-    const handlers = this.eventHandlers.get(event)!;
-    const index = handlers.indexOf(handler);
-    
-    if (index !== -1) {
-      handlers.splice(index, 1);
-    }
-  }
-
-  /**
-   * Emit an event
-   * @param event Event name
-   * @param data Event data
+   * Emits an event
+   * @param event Event
+   * @param data Data
    */
   private emit(event: string, data?: any): void {
-    if (!this.eventHandlers.has(event)) return;
+    // Get the event handlers for this event
+    const handlers = this.eventHandlers.get(event);
     
-    for (const handler of this.eventHandlers.get(event)!) {
+    // If there are no handlers for this event, return
+    if (!handlers) {
+      return;
+    }
+    
+    // Call each handler
+    for (const handler of handlers) {
       try {
         handler(data);
       } catch (error) {
-        this.log(`Error in event handler for ${event}:`, error);
+        console.error('Error in WebSocket event handler:', error);
       }
     }
   }
-
+  
   /**
-   * Log a message if debug is enabled
-   * @param message Message to log
-   * @param args Additional arguments
-   */
-  private log(message: string, ...args: any[]): void {
-    if (this.debug) {
-      console.log(`[WebSocketClient] ${message}`, ...args);
-    }
-  }
-
-  /**
-   * Check if the WebSocket is connected
-   * @returns Whether the WebSocket is connected
+   * Checks if the client is connected
+   * @returns Whether the client is connected
    */
   public isConnected(): boolean {
-    return !!this.socket && this.socket.readyState === WebSocket.OPEN;
+    return this.socket.connected;
   }
-
+  
   /**
-   * Check if the WebSocket is connecting
-   * @returns Whether the WebSocket is connecting
+   * Checks if the client is authenticated
+   * @returns Whether the client is authenticated
    */
-  public isConnecting(): boolean {
-    return !!this.socket && this.socket.readyState === WebSocket.CONNECTING;
+  public isAuthenticated(): boolean {
+    return this.authenticated;
   }
-
+  
   /**
-   * Get the WebSocket readyState
-   * @returns WebSocket readyState
+   * Gets the Socket.IO client
+   * @returns Socket.IO client
    */
-  public getReadyState(): number | null {
-    return this.socket ? this.socket.readyState : null;
-  }
-
-  /**
-   * Flush the message queue
-   */
-  public flushMessageQueue(): void {
-    if (this.batcher) {
-      this.batcher.flush();
-    }
+  public getSocket(): Socket {
+    return this.socket;
   }
 }
 
-export default WebSocketClient;
+// Create a singleton instance
+let instance: WebSocketClient | null = null;
+
+/**
+ * Gets the WebSocket client instance
+ * @param options WebSocket client options
+ * @returns WebSocket client instance
+ */
+export function getWebSocketClient(options?: WebSocketClientOptions): WebSocketClient {
+  if (!instance && options) {
+    instance = new WebSocketClient(options);
+  }
+  
+  if (!instance) {
+    throw new Error('WebSocket client not initialized');
+  }
+  
+  return instance;
+}
+
+/**
+ * Initializes the WebSocket client
+ * @param options WebSocket client options
+ * @returns WebSocket client instance
+ */
+export function initWebSocketClient(options: WebSocketClientOptions): WebSocketClient {
+  instance = new WebSocketClient(options);
+  return instance;
+}

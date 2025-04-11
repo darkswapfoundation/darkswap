@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      overflow: auto;
+    }
+    .connection-info {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .connection-info > div {
+      flex: 1;
+      margin-right: 10px;
+    }
+    .connection-info > div:last-child {
+      margin-right: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WebRTC Test Page</h1>
+    <div id="status" class="status">Checking WebRTC support...</div>
+    
+    <div class="connection-info">
+      <div>
+        <h2>WebRTC Support</h2>
+        <pre id="support-output"></pre>
+      </div>
+      <div>
+        <h2>Connection Status</h2>
+        <pre id="connection-output"></pre>
+      </div>
+    </div>
+    
+    <div id="tests">
+      <h2>WebRTC Tests</h2>
+      <pre id="tests-output"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Check WebRTC support
+    window.isWebRTCSupported = !!(window.RTCPeerConnection && window.RTCSessionDescription);
+    
+    // Display WebRTC support
+    const supportOutput = document.getElementById('support-output');
+    supportOutput.textContent = `WebRTC Supported: ${window.isWebRTCSupported}\n`;
+    supportOutput.textContent += `RTCPeerConnection: ${!!window.RTCPeerConnection}\n`;
+    supportOutput.textContent += `RTCSessionDescription: ${!!window.RTCSessionDescription}\n`;
+    supportOutput.textContent += `RTCIceCandidate: ${!!window.RTCIceCandidate}\n`;
+    
+    // Update status
+    const status = document.getElementById('status');
+    if (window.isWebRTCSupported) {
+      status.textContent = 'WebRTC is supported';
+      status.className = 'status success';
+    } else {
+      status.textContent = 'WebRTC is not supported';
+      status.className = 'status error';
+    }
+    
+    // Create a WebRTC connection
+    window.createConnection = async () => {
+      const iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ];
+      
+      const connection = new RTCPeerConnection({ iceServers });
+      
+      // Store the connection for later use
+      window.connection = connection;
+      
+      // Log connection state changes
+      connection.oniceconnectionstatechange = () => {
+        const connectionOutput = document.getElementById('connection-output');
+        connectionOutput.textContent = `ICE Connection State: ${connection.iceConnectionState}\n`;
+        connectionOutput.textContent += `Connection State: ${connection.connectionState}\n`;
+        connectionOutput.textContent += `Signaling State: ${connection.signalingState}\n`;
+        connectionOutput.textContent += `ICE Gathering State: ${connection.iceGatheringState}\n`;
+      };
+      
+      // Log ICE candidates
+      connection.onicecandidate = (event) => {
+        if (event.candidate) {
+          const testsOutput = document.getElementById('tests-output');
+          testsOutput.textContent += `ICE Candidate: ${event.candidate.candidate}\n`;
+        }
+      };
+      
+      return connection;
+    };
+    
+    // Create a WebRTC connection with custom configuration
+    window.createConnectionWithConfig = async (config) => {
+      const connection = new RTCPeerConnection(config);
+      
+      // Store the connection for later use
+      window.connection = connection;
+      
+      // Log connection state changes
+      connection.oniceconnectionstatechange = () => {
+        const connectionOutput = document.getElementById('connection-output');
+        connectionOutput.textContent = `ICE Connection State: ${connection.iceConnectionState}\n`;
+        connectionOutput.textContent += `Connection State: ${connection.connectionState}\n`;
+        connectionOutput.textContent += `Signaling State: ${connection.signalingState}\n`;
+        connectionOutput.textContent += `ICE Gathering State: ${connection.iceGatheringState}\n`;
+      };
+      
+      return connection;
+    };
+    
+    // Create a data channel
+    window.createDataChannel = async (connection, label) => {
+      const dataChannel = connection.createDataChannel(label);
+      
+      // Store the data channel for later use
+      window.dataChannel = dataChannel;
+      
+      // Log data channel state changes
+      dataChannel.onopen = () => {
+        const testsOutput = document.getElementById('tests-output');
+        testsOutput.textContent += `Data Channel '${label}' opened\n`;
+      };
+      
+      dataChannel.onclose = () => {
+        const testsOutput = document.getElementById('tests-output');
+        testsOutput.textContent += `Data Channel '${label}' closed\n`;
+      };
+      
+      dataChannel.onerror = (error) => {
+        const testsOutput = document.getElementById('tests-output');
+        testsOutput.textContent += `Data Channel '${label}' error: ${error}\n`;
+      };
+      
+      dataChannel.onmessage = (event) => {
+        const testsOutput = document.getElementById('tests-output');
+        testsOutput.textContent += `Message received on '${label}': ${event.data}\n`;
+      };
+      
+      return dataChannel;
+    };
+    
+    // Run basic tests
+    const testsOutput = document.getElementById('tests-output');
+    testsOutput.textContent = 'WebRTC test page loaded. Ready for testing.\n';
+  </script>
+</body>
+</html>

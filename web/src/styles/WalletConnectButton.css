@@ -1,0 +1,243 @@
+/* WalletConnect button styles */
+
+.walletconnect-connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.walletconnect-connect-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Size variants */
+.walletconnect-connect-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.walletconnect-connect-small .walletconnect-connect-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.walletconnect-connect-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.walletconnect-connect-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+.walletconnect-connect-large .walletconnect-connect-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Color variants */
+.walletconnect-connect-primary {
+  background-color: #3b99fc;
+  color: white;
+}
+
+.walletconnect-connect-primary:hover {
+  background-color: #2d7ad9;
+}
+
+.walletconnect-connect-secondary {
+  background-color: #1098fc;
+  color: white;
+}
+
+.walletconnect-connect-secondary:hover {
+  background-color: #0d86e3;
+}
+
+.walletconnect-connect-outline {
+  background-color: transparent;
+  color: #3b99fc;
+  border: 2px solid #3b99fc;
+}
+
+.walletconnect-connect-outline:hover {
+  background-color: rgba(59, 153, 252, 0.1);
+}
+
+/* Loading state */
+.walletconnect-connect-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.walletconnect-connect-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: walletconnect-connect-spin 1s linear infinite;
+}
+
+@keyframes walletconnect-connect-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Connected state */
+.walletconnect-connected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.walletconnect-connected-small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.walletconnect-connected-medium {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.walletconnect-connected-large {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+}
+
+/* Network indicator */
+.walletconnect-network {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.walletconnect-network-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.walletconnect-network-ethereum-mainnet {
+  background-color: #29b6af;
+}
+
+.walletconnect-network-ropsten-testnet {
+  background-color: #ff4a8d;
+}
+
+.walletconnect-network-rinkeby-testnet {
+  background-color: #f6c343;
+}
+
+.walletconnect-network-goerli-testnet {
+  background-color: #3099f2;
+}
+
+.walletconnect-network-kovan-testnet {
+  background-color: #9064ff;
+}
+
+.walletconnect-network-binance-smart-chain {
+  background-color: #f3ba2f;
+}
+
+.walletconnect-network-binance-smart-chain-testnet {
+  background-color: #f3ba2f;
+  opacity: 0.7;
+}
+
+.walletconnect-network-polygon-mainnet {
+  background-color: #8247e5;
+}
+
+.walletconnect-network-polygon-mumbai-testnet {
+  background-color: #8247e5;
+  opacity: 0.7;
+}
+
+.walletconnect-network-unknown {
+  background-color: #ccc;
+}
+
+/* Address */
+.walletconnect-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: monospace;
+}
+
+/* Balance */
+.walletconnect-balance {
+  font-weight: 600;
+}
+
+/* Disconnect button */
+.walletconnect-disconnect {
+  background-color: transparent;
+  color: #3b99fc;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.walletconnect-disconnect:hover {
+  background-color: rgba(59, 153, 252, 0.1);
+}
+
+.walletconnect-disconnect-small {
+  font-size: 0.8rem;
+}
+
+.walletconnect-disconnect-medium {
+  font-size: 1rem;
+}
+
+.walletconnect-disconnect-large {
+  font-size: 1.2rem;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .walletconnect-connected {
+    background-color: #333;
+    color: white;
+  }
+  
+  .walletconnect-address {
+    background-color: #444;
+    color: white;
+  }
+  
+  .walletconnect-disconnect {
+    color: #3b99fc;
+  }
+  
+  .walletconnect-disconnect:hover {
+    background-color: rgba(59, 153, 252, 0.2);
+  }
+}

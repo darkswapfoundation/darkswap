@@ -1,1049 +1,536 @@
 # DarkSwap Developer Guide
 
+This guide provides comprehensive documentation for developers who want to integrate with or contribute to the DarkSwap platform.
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Development Environment Setup](#development-environment-setup)
-   - [Prerequisites](#prerequisites)
-   - [Installation](#installation)
-   - [Configuration](#configuration)
-3. [Project Structure](#project-structure)
-   - [Core Components](#core-components)
-   - [Web Interface](#web-interface)
-   - [SDK](#sdk)
-   - [Daemon](#daemon)
-   - [CLI](#cli)
-4. [Build and Deployment](#build-and-deployment)
-   - [Building the Project](#building-the-project)
-   - [Running Tests](#running-tests)
-   - [Deployment](#deployment)
-   - [CI/CD Integration](#cicd-integration)
-5. [API Integration](#api-integration)
-   - [Authentication](#authentication)
-   - [Error Handling](#error-handling)
-   - [Real-time Updates](#real-time-updates)
-   - [Rate Limiting](#rate-limiting)
-6. [WebRTC Integration](#webrtc-integration)
-   - [Connection Establishment](#connection-establishment)
-   - [Data Channels](#data-channels)
-   - [NAT Traversal](#nat-traversal)
-   - [Circuit Relay](#circuit-relay)
-7. [WebAssembly Integration](#webassembly-integration)
-   - [Building for WebAssembly](#building-for-webassembly)
-   - [JavaScript API](#javascript-api)
-   - [Browser Integration](#browser-integration)
-8. [Custom Component Development](#custom-component-development)
-   - [Component Architecture](#component-architecture)
-   - [Context Integration](#context-integration)
-   - [Styling](#styling)
-   - [Testing](#testing)
-9. [Testing](#testing-1)
-   - [Unit Testing](#unit-testing)
-   - [Integration Testing](#integration-testing)
-   - [End-to-End Testing](#end-to-end-testing)
-   - [Performance Testing](#performance-testing)
-10. [Best Practices](#best-practices)
-    - [Code Style](#code-style)
-    - [Error Handling](#error-handling-1)
-    - [Security](#security)
-    - [Performance](#performance)
-11. [Troubleshooting](#troubleshooting)
-    - [Common Issues](#common-issues)
-    - [Debugging](#debugging)
-    - [Getting Help](#getting-help)
+2. [Architecture Overview](#architecture-overview)
+3. [Development Environment Setup](#development-environment-setup)
+4. [Core SDK](#core-sdk)
+5. [WebAssembly Integration](#webassembly-integration)
+6. [TypeScript Library](#typescript-library)
+7. [API Integration](#api-integration)
+8. [WebSocket Integration](#websocket-integration)
+9. [P2P Network](#p2p-network)
+10. [Contributing Guidelines](#contributing-guidelines)
+11. [Testing](#testing)
+12. [Deployment](#deployment)
 
 ## Introduction
 
-This developer guide provides comprehensive information for developers who want to contribute to the DarkSwap project or build applications that integrate with DarkSwap. It covers everything from setting up your development environment to building, testing, and deploying the project.
+DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It enables users to trade these assets without requiring a central server or authority, using WebRTC for browser-to-browser communication and circuit relay for NAT traversal.
 
-DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It uses WebRTC for browser-to-browser communication and circuit relay for NAT traversal, enabling users to trade directly with each other without relying on a central server or authority.
+This guide is intended for developers who want to:
+
+- Integrate DarkSwap into their applications
+- Contribute to the DarkSwap codebase
+- Understand the architecture and design of DarkSwap
+
+## Architecture Overview
+
+DarkSwap consists of several components:
+
+- **Core SDK**: A Rust library that provides the core functionality for P2P networking, orderbook management, and trade execution.
+- **CLI**: A command-line interface for interacting with the DarkSwap SDK.
+- **Daemon**: A background service that provides a REST API for interacting with the DarkSwap SDK.
+- **Relay Server**: A server that helps peers connect to each other when they are behind NATs or firewalls.
+- **WebAssembly Bindings**: Bindings that allow the Rust code to be used in web browsers.
+- **TypeScript Library**: A TypeScript library that provides a high-level API for interacting with the DarkSwap SDK.
+- **Web Interface**: A React-based web interface for interacting with the DarkSwap platform.
+
+### Component Diagram
+
+```
++----------------+     +----------------+     +----------------+
+|                |     |                |     |                |
+|  Web Interface |     |      CLI       |     |     Daemon     |
+|                |     |                |     |                |
++-------+--------+     +-------+--------+     +-------+--------+
+        |                      |                      |
+        v                      v                      v
++-------+------------------------+--------------------+--------+
+|                                                              |
+|                        TypeScript Library                    |
+|                                                              |
++-------+------------------------+--------------------+--------+
+        |                                             |
+        v                                             v
++-------+--------+                          +--------+--------+
+|                |                          |                 |
+| WebAssembly    |                          | REST API        |
+| Bindings       |                          |                 |
+|                |                          |                 |
++-------+--------+                          +-----------------+
+        |
+        v
++-------+--------+
+|                |
+|    Core SDK    |
+|                |
++----------------+
+```
+
+### Data Flow
+
+1. User interacts with the web interface, CLI, or daemon.
+2. The web interface, CLI, or daemon uses the TypeScript library to interact with the DarkSwap SDK.
+3. The TypeScript library uses the WebAssembly bindings or REST API to interact with the Core SDK.
+4. The Core SDK handles P2P networking, orderbook management, and trade execution.
+5. The Core SDK communicates with other peers using WebRTC and circuit relay.
+6. The Core SDK interacts with the Bitcoin network to execute trades using PSBTs.
 
 ## Development Environment Setup
 
 ### Prerequisites
 
-Before you begin, make sure you have the following installed:
+- **Rust**: 1.60.0 or later
+- **Node.js**: 16.0.0 or later
+- **npm**: 8.0.0 or later
+- **Cargo**: 1.60.0 or later
+- **wasm-pack**: 0.10.0 or later
+- **Git**: 2.30.0 or later
 
-- **Rust** (1.70.0 or later): Required for building the core components, SDK, daemon, and CLI.
-  - Install using [rustup](https://rustup.rs/): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-  - Add WebAssembly target: `rustup target add wasm32-unknown-unknown`
-
-- **Node.js** (18.x or later) and **npm** (9.x or later): Required for building the web interface.
-  - Install using [nvm](https://github.com/nvm-sh/nvm): `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash`
-  - Install Node.js: `nvm install 18`
-
-- **wasm-pack** (0.10.0 or later): Required for building WebAssembly modules.
-  - Install using cargo: `cargo install wasm-pack`
-
-- **Docker** (20.10.0 or later) and **Docker Compose** (2.0.0 or later): Required for running the relay server and other services.
-  - Install Docker: [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
-  - Install Docker Compose: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
-
-- **Git** (2.30.0 or later): Required for version control.
-  - Install using your package manager: `apt install git` (Ubuntu/Debian) or `brew install git` (macOS)
-
-### Installation
-
-1. Clone the repository:
+### Clone the Repository
 
 ```bash
 git clone https://github.com/darkswap/darkswap.git
 cd darkswap
 ```
 
-2. Install dependencies:
+### Install Dependencies
 
 ```bash
 # Install Rust dependencies
 cargo build
 
 # Install Node.js dependencies
-cd web
 npm install
-cd ..
+
+# Install wasm-pack
+cargo install wasm-pack
 ```
 
-3. Build the project:
+### Build the Project
 
 ```bash
-# Build everything
-./build.sh --all
+# Build the Core SDK
+cargo build --release
 
-# Or build specific components
-./build.sh --sdk
-./build.sh --daemon
-./build.sh --cli
-./build.sh --web
-```
+# Build the WebAssembly bindings
+wasm-pack build --target web
 
-### Configuration
-
-DarkSwap uses configuration files for various components. The default configuration files are located in the `config` directory. You can create your own configuration files by copying the default ones and modifying them as needed.
-
-#### Core Configuration
-
-The core configuration file is `config/darkswap.toml`. It contains settings for the core components, including the SDK, daemon, and CLI.
-
-```toml
-[network]
-bootstrap_peers = [
-    "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-    "/ip4/104.131.131.83/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuK"
-]
-relay_servers = [
-    "wss://relay1.darkswap.io",
-    "wss://relay2.darkswap.io"
-]
-
-[wallet]
-default_wallet_type = "bdk"
-bdk_network = "testnet"
-bdk_database_path = "./wallet.db"
-
-[api]
-url = "https://api.darkswap.io"
-ws_url = "wss://api.darkswap.io/ws"
-```
-
-#### Web Configuration
-
-The web configuration file is `web/.env`. It contains settings for the web interface.
-
-```
-REACT_APP_API_URL=https://api.darkswap.io
-REACT_APP_WS_URL=wss://api.darkswap.io/ws
-REACT_APP_RELAY_SERVERS=wss://relay1.darkswap.io,wss://relay2.darkswap.io
-```
-
-#### Relay Server Configuration
-
-The relay server configuration file is `relay/config.toml`. It contains settings for the relay server.
-
-```toml
-[server]
-host = "0.0.0.0"
-port = 8080
-tls_cert = "./certs/server.crt"
-tls_key = "./certs/server.key"
-
-[relay]
-max_connections = 1000
-max_circuits = 500
-circuit_timeout = 3600
-bandwidth_limit = 1048576
-
-[auth]
-jwt_secret = "your-jwt-secret"
-token_expiry = 86400
-```
-
-## Project Structure
-
-The DarkSwap project is organized into several components:
-
-### Core Components
-
-- **darkswap-lib**: Core library containing shared functionality used by other components.
-- **darkswap-p2p**: P2P networking library for WebRTC and circuit relay.
-- **darkswap-support**: Support library with utility functions and common types.
-- **darkswap-web-sys**: WebAssembly bindings for browser integration.
-
-### Web Interface
-
-- **web**: React-based web interface for DarkSwap.
-
-### SDK
-
-- **darkswap-sdk**: Software Development Kit for integrating with DarkSwap.
-
-### Daemon
-
-- **darkswap-daemon**: Background service for running DarkSwap nodes.
-
-### CLI
-
-- **darkswap-cli**: Command-line interface for interacting with DarkSwap.
-
-### Relay Server
-
-- **darkswap-relay**: Relay server for NAT traversal and circuit relay.
-
-## Build and Deployment
-
-### Building the Project
-
-The DarkSwap project includes a build script (`build.sh`) that simplifies the build process. You can use this script to build the entire project or specific components.
-
-#### Building Everything
-
-```bash
-./build.sh --all
-```
-
-#### Building Specific Components
-
-```bash
-# Build the SDK
-./build.sh --sdk
-
-# Build the daemon
-./build.sh --daemon
-
-# Build the CLI
-./build.sh --cli
+# Build the TypeScript library
+npm run build:ts
 
 # Build the web interface
-./build.sh --web
-
-# Build the relay server
-./build.sh --relay
+npm run build:web
 ```
 
-#### Building for Release
+### Run the Project
 
 ```bash
-./build.sh --all --release
+# Run the CLI
+cargo run --bin darkswap-cli
+
+# Run the daemon
+cargo run --bin darkswap-daemon
+
+# Run the relay server
+cargo run --bin darkswap-relay
+
+# Run the web interface
+npm run start:web
 ```
 
-### Running Tests
+## Core SDK
 
-The DarkSwap project includes comprehensive tests for all components. You can run these tests using the `run-tests.sh` script.
+The Core SDK is a Rust library that provides the core functionality for P2P networking, orderbook management, and trade execution.
 
-```bash
-# Run all tests
-./run-tests.sh
+### Key Components
 
-# Run specific tests
-./run-tests.sh --sdk
-./run-tests.sh --daemon
-./run-tests.sh --cli
-./run-tests.sh --web
-./run-tests.sh --relay
-```
+- **P2P Network**: Handles peer discovery, connection establishment, and message broadcasting.
+- **Orderbook**: Manages the orderbook, including order matching and order expiry.
+- **Trade Protocol**: Handles trade negotiation, PSBT creation, and trade execution.
+- **Wallet**: Provides wallet functionality for Bitcoin, runes, and alkanes.
 
-### Deployment
+### Usage
 
-The DarkSwap project includes deployment scripts for various environments. These scripts are located in the `deploy` directory.
+```rust
+use darkswap_sdk::{DarkSwap, Config, Network};
 
-#### Deploying to Staging
-
-```bash
-./deploy/staging.sh
-```
-
-#### Deploying to Production
-
-```bash
-./deploy/production.sh
-```
-
-#### Deploying the Relay Server
-
-```bash
-./deploy/relay.sh
-```
-
-### CI/CD Integration
-
-The DarkSwap project includes GitHub Actions workflows for continuous integration and deployment. These workflows are defined in the `.github/workflows` directory.
-
-#### CI Workflow
-
-The CI workflow runs on every push and pull request. It builds the project, runs tests, and checks code style.
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Build
-        run: ./build.sh --all
-      - name: Test
-        run: ./run-tests.sh
-```
-
-#### CD Workflow
-
-The CD workflow runs on every push to the main branch. It builds the project, runs tests, and deploys to staging.
-
-```yaml
-name: CD
-
-on:
-  push:
-    branches: [ main ]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Build
-        run: ./build.sh --all --release
-      - name: Test
-        run: ./run-tests.sh
-      - name: Deploy to Staging
-        run: ./deploy/staging.sh
-```
-
-## API Integration
-
-### Authentication
-
-The DarkSwap API uses JWT (JSON Web Token) for authentication. To authenticate with the API, you need to include the JWT token in the `Authorization` header of your requests.
-
-```http
-Authorization: Bearer <your_jwt_token>
-```
-
-To obtain a JWT token, use the `/auth/login` endpoint with your credentials:
-
-```http
-POST /auth/login
-Content-Type: application/json
-
-{
-  "username": "your_username",
-  "password": "your_password"
-}
-```
-
-The response will include a JWT token:
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_at": "2025-04-05T16:00:00Z"
-}
-```
-
-### Error Handling
-
-The DarkSwap API uses standard HTTP status codes to indicate the success or failure of a request. In addition, the response body will include an error code and message for more detailed information.
-
-```json
-{
-  "error": {
-    "code": "invalid_request",
-    "message": "Invalid request parameters",
-    "details": {
-      "field": "amount",
-      "reason": "must be greater than 0"
-    }
-  }
-}
-```
-
-When integrating with the API, make sure to handle errors appropriately. Here's an example of error handling in JavaScript:
-
-```javascript
-async function fetchData(url) {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error.message);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
-}
-```
-
-### Real-time Updates
-
-The DarkSwap API provides a WebSocket endpoint for real-time updates. To connect to the WebSocket, use the following URL:
-
-```
-wss://api.darkswap.io/v1/ws?token=<your_jwt_token>
-```
-
-Once connected, you can subscribe to events by sending a message:
-
-```json
-{
-  "type": "Subscribe",
-  "payload": {
-    "events": ["order_created", "order_cancelled", "trade_started"]
-  }
-}
-```
-
-You'll receive events as they occur:
-
-```json
-{
-  "type": "order_created",
-  "payload": {
-    "order": {
-      "id": "order123",
-      "base_asset": "BTC",
-      "quote_asset": "USD",
-      "side": "buy",
-      "amount": 1.5,
-      "price": 50000,
-      "total": 75000,
-      "timestamp": "2025-04-05T12:00:00Z",
-      "status": "open",
-      "maker": "user123"
-    }
-  }
-}
-```
-
-### Rate Limiting
-
-The DarkSwap API enforces rate limits to prevent abuse and ensure fair usage. Rate limits are applied per user and per IP address.
-
-The following headers are included in the response to provide information about the rate limits:
-
-- `X-RateLimit-Limit`: The maximum number of requests allowed in the current time window
-- `X-RateLimit-Remaining`: The number of requests remaining in the current time window
-- `X-RateLimit-Reset`: The time at which the current rate limit window resets, in UTC epoch seconds
-
-If the rate limit is exceeded, the API will return a `429 Too Many Requests` response.
-
-## WebRTC Integration
-
-### Connection Establishment
-
-DarkSwap uses WebRTC for peer-to-peer communication. To establish a WebRTC connection, you need to exchange signaling information (SDP offers/answers and ICE candidates) between peers.
-
-Here's an example of how to establish a WebRTC connection:
-
-```javascript
-// Create a new RTCPeerConnection
-const pc = new RTCPeerConnection({
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    {
-      urls: 'turn:turn.darkswap.io:3478',
-      username: 'username',
-      credential: 'password',
-    },
-  ],
-});
-
-// Create a data channel
-const dc = pc.createDataChannel('data');
-
-// Set up event handlers
-dc.onopen = () => {
-  console.log('Data channel open');
+// Create a new DarkSwap instance
+let config = Config {
+    network: Network::Testnet,
+    ..Default::default()
 };
 
-dc.onmessage = (event) => {
-  console.log('Received message:', event.data);
-};
+let darkswap = DarkSwap::new(config);
 
-// Create an offer
-const offer = await pc.createOffer();
-await pc.setLocalDescription(offer);
+// Start the P2P network
+darkswap.start_network().await?;
 
-// Send the offer to the other peer via signaling server
-sendOffer(pc.localDescription);
+// Create an order
+let order = darkswap.create_order(
+    "BTC",
+    "ETH",
+    "10.0",
+    "1.0",
+    "buy",
+).await?;
 
-// When you receive an answer from the other peer
-receiveAnswer((answer) => {
-  pc.setRemoteDescription(answer);
-});
+// Get the orderbook
+let orderbook = darkswap.get_orderbook("BTC", "ETH").await?;
 
-// When you receive ICE candidates from the other peer
-receiveIceCandidate((candidate) => {
-  pc.addIceCandidate(candidate);
-});
-
-// When local ICE candidates are generated
-pc.onicecandidate = (event) => {
-  if (event.candidate) {
-    sendIceCandidate(event.candidate);
-  }
-};
-```
-
-### Data Channels
-
-WebRTC data channels are used for sending and receiving data between peers. Here's an example of how to use data channels:
-
-```javascript
-// Send a message
-dc.send(JSON.stringify({ type: 'message', content: 'Hello, world!' }));
-
-// Receive a message
-dc.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Received message:', data);
-};
-```
-
-### NAT Traversal
-
-WebRTC uses ICE (Interactive Connectivity Establishment) for NAT traversal. ICE tries to find the best path for connecting peers, using STUN and TURN servers if necessary.
-
-STUN (Session Traversal Utilities for NAT) servers help peers discover their public IP addresses and port mappings, while TURN (Traversal Using Relays around NAT) servers act as relays when direct connections are not possible.
-
-DarkSwap provides STUN and TURN servers for NAT traversal:
-
-```javascript
-const pc = new RTCPeerConnection({
-  iceServers: [
-    { urls: 'stun:stun.darkswap.io:3478' },
-    {
-      urls: 'turn:turn.darkswap.io:3478',
-      username: 'username',
-      credential: 'password',
-    },
-  ],
-});
-```
-
-### Circuit Relay
-
-When direct WebRTC connections are not possible, DarkSwap uses circuit relay to establish connections between peers. Circuit relay works by relaying data through a relay server.
-
-Here's an example of how to use circuit relay:
-
-```javascript
-// Connect to the relay server
-const ws = new WebSocket('wss://relay.darkswap.io');
-
-// Authenticate with the relay server
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: 'auth',
-    payload: { token: 'your_jwt_token' },
-  }));
-};
-
-// Request a circuit to another peer
-ws.send(JSON.stringify({
-  type: 'circuit_request',
-  payload: { peer_id: 'peer123' },
-}));
-
-// When the circuit is established
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if (data.type === 'circuit_established') {
-    const circuitId = data.payload.circuit_id;
-    
-    // Send data through the circuit
-    ws.send(JSON.stringify({
-      type: 'circuit_data',
-      payload: {
-        circuit_id: circuitId,
-        data: 'Hello, world!',
-      },
-    }));
-  } else if (data.type === 'circuit_data') {
-    // Receive data through the circuit
-    console.log('Received data:', data.payload.data);
-  }
-};
+// Execute a trade
+let trade = darkswap.execute_trade(
+    order.id,
+    matching_order.id,
+).await?;
 ```
 
 ## WebAssembly Integration
 
-### Building for WebAssembly
+The WebAssembly bindings allow the Rust code to be used in web browsers.
 
-DarkSwap uses wasm-bindgen and wasm-pack to build WebAssembly modules. To build for WebAssembly, follow these steps:
+### Key Components
 
-1. Make sure you have wasm-pack installed:
+- **wasm-bindgen**: Provides JavaScript bindings for Rust code.
+- **js-sys**: Provides access to JavaScript standard library functions.
+- **web-sys**: Provides access to Web APIs.
 
-```bash
-cargo install wasm-pack
-```
-
-2. Build the WebAssembly module:
-
-```bash
-cd darkswap-web-sys
-wasm-pack build --target web
-```
-
-This will generate a `pkg` directory containing the WebAssembly module and JavaScript bindings.
-
-### JavaScript API
-
-The WebAssembly module provides a JavaScript API for interacting with the DarkSwap SDK. Here's an example of how to use the API:
+### Usage
 
 ```javascript
-import init, { DarkSwap } from 'darkswap-web-sys';
+import init, { DarkSwap } from 'darkswap-wasm';
 
 // Initialize the WebAssembly module
 await init();
 
 // Create a new DarkSwap instance
-const darkswap = new DarkSwap();
+const darkswap = new DarkSwap({
+    network: 'testnet',
+});
 
-// Connect to the network
-await darkswap.connect();
+// Start the P2P network
+await darkswap.startNetwork();
 
 // Create an order
-const order = await darkswap.createOrder({
-  baseAsset: 'BTC',
-  quoteAsset: 'USD',
-  side: 'buy',
-  amount: 1.0,
-  price: 50000,
+const order = await darkswap.createOrder(
+    'BTC',
+    'ETH',
+    '10.0',
+    '1.0',
+    'buy',
+);
+
+// Get the orderbook
+const orderbook = await darkswap.getOrderbook('BTC', 'ETH');
+
+// Execute a trade
+const trade = await darkswap.executeTrade(
+    order.id,
+    matchingOrder.id,
+);
+```
+
+## TypeScript Library
+
+The TypeScript library provides a high-level API for interacting with the DarkSwap SDK.
+
+### Key Components
+
+- **DarkSwapClient**: A client for interacting with the DarkSwap SDK.
+- **OrderbookManager**: Manages the orderbook, including order creation and matching.
+- **TradeManager**: Manages trades, including trade execution and status tracking.
+- **WalletManager**: Manages wallets, including balance retrieval and transaction creation.
+
+### Usage
+
+```typescript
+import { DarkSwapClient } from 'darkswap-ts';
+
+// Create a new DarkSwap client
+const client = new DarkSwapClient({
+    network: 'testnet',
 });
 
-// Take an order
-const trade = await darkswap.takeOrder(order.id, 1.0);
+// Start the client
+await client.start();
 
-// Get orders
-const orders = await darkswap.getOrders();
+// Create an order
+const order = await client.createOrder({
+    baseAsset: 'BTC',
+    quoteAsset: 'ETH',
+    price: '10.0',
+    amount: '1.0',
+    type: 'buy',
+});
 
-// Get trades
-const trades = await darkswap.getTrades();
+// Get the orderbook
+const orderbook = await client.getOrderbook('BTC', 'ETH');
 
-// Disconnect from the network
-await darkswap.disconnect();
+// Execute a trade
+const trade = await client.executeTrade(
+    order.id,
+    matchingOrder.id,
+);
 ```
 
-### Browser Integration
+## API Integration
 
-To use the WebAssembly module in a browser, you need to include it in your web application. Here's an example of how to integrate it with a React application:
+The DarkSwap daemon provides a REST API for interacting with the DarkSwap SDK.
 
-```jsx
-import React, { useEffect, useState } from 'react';
-import init, { DarkSwap } from 'darkswap-web-sys';
+### Key Endpoints
 
-function App() {
-  const [darkswap, setDarkswap] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+- **Authentication**: `/api/auth/*`
+- **Wallet**: `/api/wallet/*`
+- **Orders**: `/api/orders/*`
+- **Trades**: `/api/trades/*`
+- **Market**: `/api/market/*`
+- **P2P**: `/api/p2p/*`
 
-  useEffect(() => {
-    async function initDarkSwap() {
-      try {
-        await init();
-        const ds = new DarkSwap();
-        await ds.connect();
-        setDarkswap(ds);
-        
-        const orders = await ds.getOrders();
-        setOrders(orders);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+### Usage
 
-    initDarkSwap();
+```typescript
+import { ApiClient } from 'darkswap-ts';
 
-    return () => {
-      if (darkswap) {
-        darkswap.disconnect();
-      }
-    };
-  }, []);
+// Create a new API client
+const apiClient = new ApiClient({
+    baseUrl: 'https://api.darkswap.io',
+});
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+// Log in
+const loginResponse = await apiClient.post('/api/auth/login', {
+    email: 'user@example.com',
+    password: 'password',
+});
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+apiClient.setAuthToken(loginResponse.token);
 
-  return (
-    <div>
-      <h1>DarkSwap Orders</h1>
-      <ul>
-        {orders.map((order) => (
-          <li key={order.id}>
-            {order.side} {order.amount} {order.baseAsset} at {order.price} {order.quoteAsset}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+// Create an order
+const order = await apiClient.post('/api/orders', {
+    baseAsset: 'BTC',
+    quoteAsset: 'ETH',
+    price: '10.0',
+    amount: '1.0',
+    type: 'buy',
+});
 
-export default App;
-```
+// Get the orderbook
+const orderbook = await apiClient.get('/api/market/orderbook', {
+    pair: 'BTC/ETH',
+});
 
-## Custom Component Development
-
-### Component Architecture
-
-DarkSwap uses a component-based architecture for its web interface. Components are organized into the following categories:
-
-- **Context Providers**: Provide state and functionality to other components.
-- **UI Components**: Reusable UI elements.
-- **Page Components**: Top-level components that represent pages.
-- **Layout Components**: Components that define the layout of the application.
-
-When creating custom components, follow these guidelines:
-
-1. **Single Responsibility**: Each component should have a single responsibility.
-2. **Reusability**: Components should be reusable across the application.
-3. **Composition**: Use composition to build complex components from simpler ones.
-4. **Props**: Use props to pass data and callbacks to components.
-5. **State**: Use state for component-specific data that changes over time.
-
-### Context Integration
-
-DarkSwap provides several context providers that you can use in your custom components:
-
-- **ApiContext**: Provides API functionality.
-- **WebSocketContext**: Provides WebSocket functionality.
-- **ThemeContext**: Provides theme-related functionality.
-- **WalletContext**: Provides wallet-related functionality.
-- **NotificationContext**: Provides notification-related functionality.
-- **DarkSwapContext**: Provides core DarkSwap functionality.
-
-Here's an example of how to use these contexts in a custom component:
-
-```jsx
-import React from 'react';
-import { useApi } from '../contexts/ApiContext';
-import { useWebSocket } from '../contexts/WebSocketContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { useWallet } from '../contexts/WalletContext';
-import { useNotification } from '../contexts/NotificationContext';
-import { useDarkSwap } from '../contexts/DarkSwapContext';
-
-function CustomComponent() {
-  const { get, post } = useApi();
-  const { connected, send } = useWebSocket();
-  const { theme, isDark } = useTheme();
-  const { wallet, connect } = useWallet();
-  const { addNotification } = useNotification();
-  const { orders, createOrder } = useDarkSwap();
-
-  // Use the contexts to implement your component
-  // ...
-
-  return (
-    <div style={{ backgroundColor: theme.background, color: theme.text }}>
-      {/* Your component JSX */}
-    </div>
-  );
-}
-
-export default CustomComponent;
-```
-
-### Styling
-
-DarkSwap uses a combination of inline styles and CSS classes for styling components. The `ThemeContext` provides a theme object with color values that you can use to style your components.
-
-Here's an example of how to style a custom component:
-
-```jsx
-import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-
-function CustomComponent() {
-  const { theme } = useTheme();
-
-  return (
-    <div
-      className="rounded-lg p-4"
-      style={{ backgroundColor: theme.card, color: theme.text }}
-    >
-      <h2 className="text-lg font-semibold mb-2">Custom Component</h2>
-      <p style={{ color: theme.secondary }}>
-        This is a custom component with styling.
-      </p>
-      <button
-        className="px-4 py-2 rounded mt-4"
-        style={{ backgroundColor: theme.primary, color: '#FFFFFF' }}
-      >
-        Click Me
-      </button>
-    </div>
-  );
-}
-
-export default CustomComponent;
-```
-
-### Testing
-
-DarkSwap uses Jest and React Testing Library for testing components. Here's an example of how to test a custom component:
-
-```jsx
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import CustomComponent from './CustomComponent';
-import { ThemeProvider } from '../contexts/ThemeContext';
-
-// Mock the theme context
-jest.mock('../contexts/ThemeContext', () => ({
-  useTheme: () => ({
-    theme: {
-      background: '#FFFFFF',
-      text: '#000000',
-      primary: '#007BFF',
-      secondary: '#6C757D',
-      card: '#F8F9FA',
-    },
-    isDark: false,
-  }),
-  ThemeProvider: ({ children }) => <div>{children}</div>,
-}));
-
-describe('CustomComponent', () => {
-  test('renders correctly', () => {
-    render(
-      <ThemeProvider>
-        <CustomComponent />
-      </ThemeProvider>
-    );
-
-    expect(screen.getByText('Custom Component')).toBeInTheDocument();
-    expect(screen.getByText('This is a custom component with styling.')).toBeInTheDocument();
-    expect(screen.getByText('Click Me')).toBeInTheDocument();
-  });
-
-  test('button click works', () => {
-    const handleClick = jest.fn();
-    render(
-      <ThemeProvider>
-        <CustomComponent onClick={handleClick} />
-      </ThemeProvider>
-    );
-
-    fireEvent.click(screen.getByText('Click Me'));
-    expect(handleClick).toHaveBeenCalledTimes(1);
-  });
+// Execute a trade
+const trade = await apiClient.post(`/api/trades/${order.id}/execute`, {
+    matchingOrderId: matchingOrder.id,
 });
 ```
+
+## WebSocket Integration
+
+The DarkSwap daemon provides a WebSocket API for real-time updates.
+
+### Key Channels
+
+- **Ticker**: Real-time ticker updates for trading pairs.
+- **Orderbook**: Real-time orderbook updates for trading pairs.
+- **Trades**: Real-time trade updates for trading pairs.
+- **Orders**: Real-time order updates for the authenticated user.
+- **User Trades**: Real-time trade updates for the authenticated user.
+- **Balance**: Real-time balance updates for the authenticated user.
+- **P2P**: Real-time P2P network updates.
+
+### Usage
+
+```typescript
+import { WebSocketClient } from 'darkswap-ts';
+
+// Create a new WebSocket client
+const wsClient = new WebSocketClient({
+    url: 'wss://api.darkswap.io/ws',
+    autoConnect: true,
+    reconnect: true,
+});
+
+// Authenticate
+wsClient.authenticate('jwt-token');
+
+// Subscribe to channels
+wsClient.subscribe('ticker', { baseAsset: 'BTC', quoteAsset: 'ETH' });
+wsClient.subscribe('orderbook', { baseAsset: 'BTC', quoteAsset: 'ETH' });
+wsClient.subscribe('trades', { baseAsset: 'BTC', quoteAsset: 'ETH' });
+wsClient.subscribe('orders');
+wsClient.subscribe('user_trades');
+wsClient.subscribe('balance');
+wsClient.subscribe('p2p');
+
+// Listen for events
+wsClient.on('ticker_update', (data) => {
+    console.log('Ticker update:', data);
+});
+
+wsClient.on('orderbook_update', (data) => {
+    console.log('Orderbook update:', data);
+});
+
+wsClient.on('trade_created', (data) => {
+    console.log('Trade created:', data);
+});
+
+wsClient.on('order_created', (data) => {
+    console.log('Order created:', data);
+});
+
+wsClient.on('balance_update', (data) => {
+    console.log('Balance update:', data);
+});
+
+wsClient.on('peer_connected', (data) => {
+    console.log('Peer connected:', data);
+});
+```
+
+## P2P Network
+
+The DarkSwap P2P network uses WebRTC for browser-to-browser communication and circuit relay for NAT traversal.
+
+### Key Components
+
+- **WebRTC**: Provides direct browser-to-browser communication.
+- **Circuit Relay**: Helps peers connect to each other when they are behind NATs or firewalls.
+- **GossipSub**: Provides efficient message broadcasting for orderbook distribution.
+- **Kademlia DHT**: Provides peer discovery.
+
+### Usage
+
+```typescript
+import { P2PClient } from 'darkswap-ts';
+
+// Create a new P2P client
+const p2pClient = new P2PClient({
+    network: 'testnet',
+    relays: ['wss://relay.darkswap.io'],
+});
+
+// Start the client
+await p2pClient.start();
+
+// Connect to a peer
+await p2pClient.connect('peer-id');
+
+// Broadcast a message
+await p2pClient.broadcast('channel', 'message');
+
+// Listen for messages
+p2pClient.on('message', (channel, message) => {
+    console.log(`Received message on channel ${channel}:`, message);
+});
+```
+
+## Contributing Guidelines
+
+### Code Style
+
+- **Rust**: Follow the [Rust Style Guide](https://doc.rust-lang.org/1.0.0/style/README.html).
+- **TypeScript**: Follow the [TypeScript Style Guide](https://github.com/basarat/typescript-book/blob/master/docs/styleguide/styleguide.md).
+- **React**: Follow the [React Style Guide](https://reactjs.org/docs/code-style.html).
+
+### Pull Requests
+
+1. Fork the repository
+2. Create a new branch for your feature or bug fix
+3. Make your changes
+4. Run the tests to ensure they pass
+5. Submit a pull request
+
+### Issues
+
+- Use the issue tracker to report bugs or request features
+- Provide as much detail as possible, including steps to reproduce the issue
+- Use labels to categorize issues (bug, feature, enhancement, etc.)
 
 ## Testing
 
-### Unit Testing
-
-DarkSwap uses various testing frameworks for unit testing:
-
-- **Rust**: Uses the built-in testing framework with `cargo test`.
-- **JavaScript/TypeScript**: Uses Jest for testing.
-
-#### Rust Unit Tests
-
-Rust unit tests are defined in the same file as the code they test, using the `#[cfg(test)]` attribute. Here's an example:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add() {
-        assert_eq!(add(2, 2), 4);
-    }
-
-    #[test]
-    fn test_subtract() {
-        assert_eq!(subtract(4, 2), 2);
-    }
-}
-```
-
-To run Rust unit tests, use the `cargo test` command:
+### Unit Tests
 
 ```bash
+# Run Rust unit tests
 cargo test
+
+# Run TypeScript unit tests
+npm run test:ts
+
+# Run React unit tests
+npm run test:web
 ```
 
-#### JavaScript/TypeScript Unit Tests
-
-JavaScript/TypeScript unit tests are defined in separate files with the `.test.js` or `.test.tsx` extension. Here's an example:
-
-```javascript
-import { add, subtract } from './math';
-
-describe('Math functions', () => {
-  test('add works correctly', () => {
-    expect(add(2, 2)).toBe(4);
-  });
-
-  test('subtract works correctly', () => {
-    expect(subtract(4, 2)).toBe(2);
-  });
-});
-```
-
-To run JavaScript/TypeScript unit tests, use the `npm test` command:
+### Integration Tests
 
 ```bash
-cd web
-npm test
+# Run API client integration tests
+npm run test:integration:api
+
+# Run WebSocket client integration tests
+npm run test:integration:ws
 ```
 
-### Integration Testing
-
-Integration tests verify that different parts of the system work together correctly. DarkSwap uses various approaches for integration testing:
-
-- **Rust**: Uses integration tests in the `tests` directory.
-- **JavaScript/TypeScript**: Uses Jest with mock API responses.
-
-#### Rust Integration Tests
-
-Rust integration tests are defined in the `tests` directory. Here's an example:
-
-```rust
-// tests/integration_test.rs
-use darkswap_sdk::{DarkSwap, Order};
-
-#[test]
-fn test_create_order() {
-    let darkswap = DarkSwap::new();
-    darkswap.connect().unwrap();
-
-    let order = darkswap.create_order(Order {
-        base_asset: "BTC".to_string(),
-        quote_asset: "USD".to_string(),
-        side: "buy".to_string(),
-        amount: 1.0,
-        price: 50000.0,
-    }).unwrap();
-
-    assert_eq!(order.base_asset, "BTC");
-    assert_eq!(order.quote_asset, "USD");
-    assert_eq!(order.side, "buy");
-    assert_eq!(order.amount, 1.0);
-    assert_eq!(order.price, 50000.0);
-}
-```
-
-To run Rust integration tests, use the `cargo test --test integration_test` command:
+### End-to-End Tests
 
 ```bash
-cargo test --test integration_test
+# Run end-to-end tests
+npm run test:e2e
 ```
 
-#### JavaScript/TypeScript Integration Tests
+## Deployment
 
-JavaScript/TypeScript integration tests use Jest with mock API responses. Here's an example:
-
-```javascript
-import { DarkSwapApi } from './api';
-
-// Mock fetch
-global.fetch = jest.fn();
-
-describe('DarkSwapApi', () => {
-  beforeEach(() => {
-    fetch.mockClear();
-  });
-
-  test('getOrders returns orders', async () => {
-    const mockOrders = [
-      {
-        id: 'order123',
-        base_asset: 'BTC',
-        quote_asset: 'USD',
-        side: 'buy',
-        amount: 1.0,
-        price: 50000.0,
-      },
-    ];
-
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ orders: mockOrders }),
-    });
-
-    const api = new DarkSwapApi('https://api.darkswap.io');
-    const orders = await api.getOrders();
-
-    expect(fetch).toHaveBeenCalledWith('https://api.darkswap.io/orders', expect.any(Object));
-    expect(orders).toEqual(mockOrders);
-  });
-});
-```
-
-To run JavaScript/TypeScript integration tests, use the `npm test` command:
+### Building for Production
 
 ```bash
-cd web
-npm test
+# Build the Core SDK
+cargo build --release
+
+# Build the WebAssembly bindings
+wasm-pack build --target web --release
+
+# Build the TypeScript library
+npm run build:ts:prod
+
+# Build the web interface
+npm run build:web:prod
 ```
 
-### End-to-End Testing
+### Docker Deployment
 
-End-to-end tests verify that the entire system works correctly from the user's perspective. DarkSwap uses Playwright for end-to-end testing.
+```bash
+# Build the Docker image
+docker build -t darkswap .
 
-Here's an example of an end-to-end test:
+# Run the Docker container
+docker run -p 8080:8080 darkswap
+```
 
-```javascript
-// tests/e2e/trade.spec.js
-const { test, expect } = require('@playwright/test');
+### Continuous Integration and Deployment
 
-test('user can create and take an order', async ({ page }) => {
-  // Go to the app
-  await page.goto('http://localhost:3000');
+DarkSwap uses GitHub Actions for continuous integration and deployment. The workflow is defined in `.github/workflows/ci.yml` and `.github/workflows/cd.yml`.
 
+## API Reference
+
+For detailed API reference documentation, see the [API Documentation](api-documentation.md).
+
+## WebSocket Reference
+
+For detailed WebSocket reference documentation, see the [WebSocket Documentation](websocket-documentation.md).
+
+## Component Reference
+
+For detailed component reference documentation, see the [Component Documentation](component-documentation.md).
+
+## Support
+
+If you need help with DarkSwap development, you can:
+
+- Visit the [DarkSwap Documentation](https://docs.darkswap.io)
+- Join the [DarkSwap Discord](https://discord.gg/darkswap)
+- Contact the development team at [dev@darkswap.io](mailto:dev@darkswap.io)
