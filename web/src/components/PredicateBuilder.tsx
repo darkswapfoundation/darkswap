@@ -863,3 +863,229 @@ const PredicateBuilder: React.FC<PredicateBuilderProps> = ({ onSave, initialPred
             </FormControl>
             
             {constraintType === TimeConstraintType.Between && (
+              <FormControl isRequired isInvalid={!!errors.timestamp2}>
+                <FormLabel>End Timestamp</FormLabel>
+                <Input 
+                  type="datetime-local" 
+                  value={new Date(timestamp2 * 1000).toISOString().slice(0, 16)} 
+                  onChange={(e) => {
+                    const newTimestamp = Math.floor(new Date(e.target.value).getTime() / 1000);
+                    setTimestamp2(newTimestamp);
+                    if (newTimestamp > timestamp1) {
+                      setErrors({ ...errors, timestamp2: '' });
+                    }
+                  }} 
+                />
+                {errors.timestamp2 && <FormErrorMessage>{errors.timestamp2}</FormErrorMessage>}
+              </FormControl>
+            )}
+          </Stack>
+        );
+        
+      case PredicateType.MultiSignature:
+        return (
+          <Stack spacing={4}>
+            <FormControl isRequired isInvalid={!!errors.multiSigAlkaneId}>
+              <FormLabel>Alkane ID</FormLabel>
+              <Input 
+                value={multiSigAlkaneId} 
+                onChange={(e) => {
+                  setMultiSigAlkaneId(e.target.value);
+                  if (e.target.value.trim()) {
+                    setErrors({ ...errors, multiSigAlkaneId: '' });
+                  }
+                }} 
+                placeholder="Enter alkane ID" 
+              />
+              {errors.multiSigAlkaneId && <FormErrorMessage>{errors.multiSigAlkaneId}</FormErrorMessage>}
+            </FormControl>
+            
+            <FormControl isRequired isInvalid={!!errors.multiSigAmount}>
+              <FormLabel>Amount</FormLabel>
+              <Input 
+                type="number" 
+                value={multiSigAmount} 
+                onChange={(e) => {
+                  setMultiSigAmount(Number(e.target.value));
+                  if (Number(e.target.value) > 0) {
+                    setErrors({ ...errors, multiSigAmount: '' });
+                  }
+                }} 
+                placeholder="Enter amount" 
+              />
+              {errors.multiSigAmount && <FormErrorMessage>{errors.multiSigAmount}</FormErrorMessage>}
+            </FormControl>
+            
+            <FormControl isRequired>
+              <FormLabel>Public Keys</FormLabel>
+              {publicKeys.map((publicKey, index) => (
+                <Flex key={index} mb={2}>
+                  <Input 
+                    value={publicKey} 
+                    onChange={(e) => updatePublicKey(index, e.target.value)} 
+                    placeholder={`Enter public key ${index + 1}`} 
+                    isInvalid={!!(errors.publicKeys && errors.publicKeys[index])}
+                    mr={2}
+                  />
+                  <IconButton 
+                    aria-label="Remove public key" 
+                    icon={<DeleteIcon />} 
+                    onClick={() => removePublicKeyField(index)} 
+                    isDisabled={publicKeys.length === 1}
+                  />
+                </Flex>
+              ))}
+              {errors.publicKeys && errors.publicKeys.some(err => err !== '') && (
+                <FormErrorMessage>
+                  {errors.publicKeys.find(err => err !== '')}
+                </FormErrorMessage>
+              )}
+              <Button leftIcon={<AddIcon />} onClick={addPublicKeyField} mt={2}>
+                Add Public Key
+              </Button>
+            </FormControl>
+            
+            <FormControl isRequired isInvalid={!!errors.requiredSignatures}>
+              <FormLabel>Required Signatures</FormLabel>
+              <Input 
+                type="number" 
+                value={requiredSignatures} 
+                onChange={(e) => {
+                  setRequiredSignatures(Number(e.target.value));
+                  if (Number(e.target.value) > 0 && Number(e.target.value) <= publicKeys.filter(pk => pk.trim() !== '').length) {
+                    setErrors({ ...errors, requiredSignatures: '' });
+                  }
+                }} 
+                placeholder="Enter required signatures" 
+              />
+              {errors.requiredSignatures && <FormErrorMessage>{errors.requiredSignatures}</FormErrorMessage>}
+            </FormControl>
+          </Stack>
+        );
+        
+      case PredicateType.Composite:
+        return (
+          <Stack spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>Logical Operator</FormLabel>
+              <Select value={logicalOperator} onChange={handleLogicalOperatorChange}>
+                <option value={LogicalOperator.And}>AND</option>
+                <option value={LogicalOperator.Or}>OR</option>
+              </Select>
+            </FormControl>
+            
+            <FormControl isRequired isInvalid={!!errors.selectedPredicates}>
+              <FormLabel>Select Predicates</FormLabel>
+              {Object.values(predicates).length === 0 ? (
+                <Alert status="info">
+                  <AlertIcon />
+                  <AlertTitle>No predicates available</AlertTitle>
+                  <AlertDescription>Create some predicates first.</AlertDescription>
+                </Alert>
+              ) : (
+                <Stack spacing={2}>
+                  {Object.values(predicates).map((predicate) => (
+                    <Flex key={predicate.id} alignItems="center">
+                      <Checkbox 
+                        isChecked={selectedPredicates.includes(predicate.id)} 
+                        onChange={() => togglePredicateSelection(predicate.id)}
+                        mr={2}
+                      />
+                      <Box>
+                        <Text fontWeight="bold">{predicate.name}</Text>
+                        <Text fontSize="sm">{predicate.description}</Text>
+                      </Box>
+                    </Flex>
+                  ))}
+                </Stack>
+              )}
+              {errors.selectedPredicates && <FormErrorMessage>{errors.selectedPredicates}</FormErrorMessage>}
+            </FormControl>
+          </Stack>
+        );
+        
+      default:
+        return null;
+    }
+  };
+  
+  // Render the component
+  return (
+    <Box p={4} borderWidth="1px" borderRadius="lg">
+      <Heading size="md" mb={4}>Predicate Builder</Heading>
+      
+      <FormControl isRequired mb={4} isInvalid={!!errors.name}>
+        <FormLabel>Predicate Name</FormLabel>
+        <Input 
+          value={predicateName} 
+          onChange={(e) => {
+            setPredicateName(e.target.value);
+            if (e.target.value.trim()) {
+              setErrors({ ...errors, name: '' });
+            }
+          }} 
+          placeholder="Enter predicate name" 
+        />
+        {errors.name && <FormErrorMessage>{errors.name}</FormErrorMessage>}
+      </FormControl>
+      
+      <FormControl mb={4}>
+        <FormLabel>Description</FormLabel>
+        <Input 
+          value={predicateDescription} 
+          onChange={(e) => setPredicateDescription(e.target.value)} 
+          placeholder="Enter predicate description (optional)" 
+        />
+      </FormControl>
+      
+      <FormControl isRequired mb={4}>
+        <FormLabel>Predicate Type</FormLabel>
+        <Select value={predicateType} onChange={handlePredicateTypeChange}>
+          <option value={PredicateType.Equality}>Equality</option>
+          <option value={PredicateType.TimeLocked}>Time-Locked</option>
+          <option value={PredicateType.MultiSignature}>Multi-Signature</option>
+          <option value={PredicateType.Composite}>Composite</option>
+        </Select>
+      </FormControl>
+      
+      {renderPredicateForm()}
+      
+      <Flex mt={6} justifyContent="space-between">
+        <Button colorScheme="blue" onClick={createPredicate}>
+          Create Predicate
+        </Button>
+        <Button variant="outline" onClick={previewPredicate}>
+          Preview
+        </Button>
+      </Flex>
+      
+      <Modal isOpen={isPreviewOpen} onClose={onPreviewClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Predicate Preview</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {previewPredicate && (
+              <Box>
+                <Text fontWeight="bold">Name: {previewPredicate.name}</Text>
+                <Text>Description: {previewPredicate.description || 'No description'}</Text>
+                <Text>Type: {previewPredicate.type}</Text>
+                <Divider my={2} />
+                <Code p={2} borderRadius="md" whiteSpace="pre-wrap">
+                  {JSON.stringify(previewPredicate, null, 2)}
+                </Code>
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={onPreviewClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Box>
+  );
+};
+
+export default PredicateBuilder;

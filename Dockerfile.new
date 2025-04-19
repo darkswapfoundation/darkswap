@@ -30,11 +30,8 @@ RUN apt-get update && \
 # Copy the binary from the builder stage
 COPY --from=builder /app/target/release/darkswap-relay /app/darkswap-relay
 
-# Copy the configuration file
-COPY config.toml /app/config.toml
-
-# Expose the relay server port
-EXPOSE 8080
+# Expose the relay server ports
+EXPOSE 9002 9003 9090
 
 # Set the entrypoint
 ENTRYPOINT ["/app/darkswap-relay"]
