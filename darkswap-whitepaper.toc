@@ -1,0 +1,53 @@
+\contentsline {section}{Abstract}{4}{Doc-Start}%
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}Background and Problem Statement}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Centralized Exchange Risks}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Limitations of Existing DEX Solutions}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The Need for Bitcoin-Native DEX}{6}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Solution Overview}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Core Principles}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Key Components}{7}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Trading Flow}{7}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Technical Architecture}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}System Architecture}{8}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Component Details}{8}{subsection.4.2}%
+\contentsline {subsubsection}{\numberline {4.2.1}DarkSwap SDK}{8}{subsubsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2}DarkSwap P2P}{8}{subsubsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.3}DarkSwap CLI}{9}{subsubsection.4.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.4}DarkSwap Daemon}{9}{subsubsection.4.2.4}%
+\contentsline {subsubsection}{\numberline {4.2.5}Web Interface}{9}{subsubsection.4.2.5}%
+\contentsline {subsection}{\numberline {4.3}Technology Stack}{9}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Key Features and Components}{10}{section.5}%
+\contentsline {subsection}{\numberline {5.1}P2P Networking}{10}{subsection.5.1}%
+\contentsline {subsubsection}{\numberline {5.1.1}WebRTC Transport}{10}{subsubsection.5.1.1}%
+\contentsline {subsubsection}{\numberline {5.1.2}Circuit Relay}{10}{subsubsection.5.1.2}%
+\contentsline {subsubsection}{\numberline {5.1.3}Connection Pooling}{10}{subsubsection.5.1.3}%
+\contentsline {subsection}{\numberline {5.2}Security Features}{10}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Authentication and Authorization}{10}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}End-to-End Encryption}{11}{subsubsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.3}Wallet Integration}{11}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Order Book Management}{11}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Trade Execution}{11}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Monitoring and Metrics}{11}{subsection.5.6}%
+\contentsline {section}{\numberline {6}Security Model}{12}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Threat Model}{12}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Security Layers}{12}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Network Security}{12}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Authentication Security}{12}{subsubsection.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Wallet Security}{12}{subsubsection.6.2.3}%
+\contentsline {subsubsection}{\numberline {6.2.4}Trade Security}{12}{subsubsection.6.2.4}%
+\contentsline {subsection}{\numberline {6.3}Security Principles}{13}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Use Cases}{13}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Bitcoin Trading}{13}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Runes and Alkanes Trading}{13}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Privacy-Focused Trading}{13}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Cross-Platform Trading}{13}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Developer Integration}{14}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Roadmap}{14}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Phase 1: Foundation (Completed)}{14}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Phase 2: Enhancement (Completed)}{14}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Phase 3: Production Readiness (Current)}{14}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Phase 4: Public Launch (Planned)}{14}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Phase 5: Ecosystem Growth (Future)}{15}{subsection.8.5}%
+\contentsline {section}{\numberline {9}Conclusion}{15}{section.9}%
+\contentsline {section}{\numberline {10}References}{15}{section.10}%
