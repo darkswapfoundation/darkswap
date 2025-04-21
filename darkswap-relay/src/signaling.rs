@@ -330,36 +330,32 @@ impl SignalingServer {
                             // Apply authentication if enabled
                             if state.auth_enabled {
                                 if let Some(auth) = &state.auth_middleware {
-                                    // Check if the peer is authenticated
-                                    // In a real implementation, we would extract a token from the message
-                                    // and validate it. For now, we'll just allow all registrations.
-                                    // This is where you would add the authentication check.
-                                    
-                                    // Example of how to validate a token:
-                                    // if let Some(token) = extract_token_from_message(&msg) {
-                                    //     match auth.authenticate(token).await {
-                                    //         Ok(_) => {
-                                    //             // Authentication successful
-                                    //         }
-                                    //         Err(e) => {
-                                    //             // Authentication failed
-                                    //             warn!("Authentication failed: {}", e);
-                                    //             let error_msg = SignalingMessage::Error {
-                                    //                 message: format!("Authentication failed: {}", e),
-                                    //             };
-                                    //             let _ = tx.send(error_msg).await;
-                                    //             continue;
-                                    //         }
-                                    //     }
-                                    // } else {
-                                    //     // No token provided
-                                    //     warn!("No authentication token provided");
-                                    //     let error_msg = SignalingMessage::Error {
-                                    //         message: "Authentication required".to_string(),
-                                    //     };
-                                    //     let _ = tx.send(error_msg).await;
-                                    //     continue;
-                                    // }
+                                    // Extract token from the message
+                                    if let Some(token) = crate::auth::AuthManager::extract_token_from_message(&text) {
+                                        match auth.authenticate(&token).await {
+                                            Ok(_) => {
+                                                // Authentication successful
+                                                debug!("Authentication successful for peer {}", new_peer_id);
+                                            }
+                                            Err(e) => {
+                                                // Authentication failed
+                                                warn!("Authentication failed for peer {}: {}", new_peer_id, e);
+                                                let error_msg = SignalingMessage::Error {
+                                                    message: format!("Authentication failed: {}", e),
+                                                };
+                                                let _ = tx.send(error_msg).await;
+                                                continue;
+                                            }
+                                        }
+                                    } else {
+                                        // No token provided
+                                        warn!("No authentication token provided for peer {}", new_peer_id);
+                                        let error_msg = SignalingMessage::Error {
+                                            message: "Authentication required".to_string(),
+                                        };
+                                        let _ = tx.send(error_msg).await;
+                                        continue;
+                                    }
                                 }
                             }
                             

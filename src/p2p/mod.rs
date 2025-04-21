@@ -16,9 +16,11 @@ use crate::config::Config;
 use crate::types::Event;
 
 pub mod circuit_relay;
+pub mod relay;
 pub mod webrtc_transport;
 
 use webrtc_transport::{DarkSwapWebRtcTransport, WebRtcSignalingClient};
+use relay::RelayManager;
 
 /// P2P network event
 #[derive(Debug)]
@@ -43,6 +45,8 @@ pub struct P2PNetwork {
     webrtc_transport: Option<Arc<DarkSwapWebRtcTransport>>,
     /// WebRTC signaling client
     webrtc_signaling: Option<WebRtcSignalingClient>,
+    /// Relay manager
+    relay_manager: Option<Arc<RelayManager>>,
     /// Connected peers
     connected_peers: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
     /// Event sender
@@ -70,6 +74,7 @@ impl P2PNetwork {
             local_peer_id,
             webrtc_transport: None,
             webrtc_signaling: None,
+            relay_manager: None,
             connected_peers: Arc::new(Mutex::new(HashMap::new())),
             event_sender,
             listen_addresses: config.p2p.listen_addresses.clone(),
@@ -111,6 +116,18 @@ impl P2PNetwork {
             signaling.connect().await?;
         }
 
+        // Initialize relay manager
+        if let Some(signaling) = &self.webrtc_signaling {
+            let relay_manager = RelayManager::new(
+                self.local_peer_id,
+                Arc::new(signaling.clone()),
+                self.relay_servers.clone(),
+            ).await?;
+            
+            self.relay_manager = Some(Arc::new(relay_manager));
+            info!("Relay manager initialized");
+        }
+
         // Process events
         self.process_events().await?;
 
@@ -127,6 +144,7 @@ impl P2PNetwork {
         // Clear state
         self.webrtc_transport = None;
         self.webrtc_signaling = None;
+        self.relay_manager = None;
         self.connected_peers.lock().await.clear();
         self.topics.clear();
 
@@ -188,6 +206,38 @@ impl P2PNetwork {
     /// Get local peer ID
     pub fn local_peer_id(&self) -> PeerId {
         self.local_peer_id
+    }
+
+    /// Connect to a peer through a relay
+    pub async fn connect_via_relay(&self, peer_id: &PeerId) -> Result<()> {
+        if let Some(relay_manager) = &self.relay_manager {
+            relay_manager.connect_to_peer(peer_id).await?;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Relay manager not initialized"))
+        }
+    }
+
+    /// Get relay connection status
+    pub fn get_relay_status(&self, peer_id: &PeerId) -> Option<relay::RelayConnectionStatus> {
+        self.relay_manager.as_ref().map(|rm| rm.get_relay_status(peer_id))
+    }
+
+    /// Get all relay connections
+    pub fn get_relay_connections(&self) -> Vec<(PeerId, relay::RelayConnectionStatus)> {
+        self.relay_manager.as_ref().map_or(vec![], |rm| rm.get_relay_connections())
+    }
+
+    /// Get the number of connected relays
+    pub fn connected_relay_count(&self) -> usize {
+        self.relay_manager.as_ref().map_or(0, |rm| rm.connected_relay_count())
+    }
+
+    /// Add a relay
+    pub fn add_relay(&self, peer_id: PeerId, addresses: Vec<Multiaddr>) {
+        if let Some(relay_manager) = &self.relay_manager {
+            relay_manager.add_relay(peer_id, addresses);
+        }
     }
 
     /// Extract peer ID from multiaddr

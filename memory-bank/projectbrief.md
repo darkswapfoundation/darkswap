@@ -2,198 +2,60 @@
 
 ## Project Overview
 
-DarkSwap is a decentralized peer-to-peer trading platform for Bitcoin, runes, and alkanes. It enables users to trade assets directly with each other without the need for intermediaries. The platform is built on Bitcoin's technology stack and leverages the power of PSBTs (Partially Signed Bitcoin Transactions) for secure trading.
+DarkSwap is a decentralized exchange (DEX) platform focused on peer-to-peer trading of cryptocurrencies, with specific support for Bitcoin, runes, and alkanes. It enables users to trade directly with each other without relying on centralized intermediaries, using a peer-to-peer network architecture.
 
-## Core Requirements
+## Core Objectives
 
-1. **Decentralized P2P Trading**
-   - Enable direct peer-to-peer trading without intermediaries
-   - Implement a decentralized orderbook using P2P networking
-   - Support direct connections between traders
+1. **Decentralized Trading**: Enable direct peer-to-peer trading of cryptocurrencies without centralized intermediaries
+2. **Bitcoin Focus**: Provide first-class support for Bitcoin, runes, and alkanes
+3. **Privacy and Security**: Ensure secure, private transactions with end-to-end encryption
+4. **Cross-Platform Support**: Work across desktop and web platforms
+5. **User-Friendly Experience**: Offer an intuitive interface for both technical and non-technical users
 
-2. **Bitcoin, Runes, and Alkanes Support**
-   - Support trading of Bitcoin (BTC)
-   - Support trading of runes (fungible tokens on Bitcoin)
-   - Support trading of alkanes (protocol built on top of runes)
+## Key Components
 
-3. **Orderbook-Based Trading**
-   - Implement an orderbook for listing and matching orders
-   - Support limit orders with specified prices
-   - Support order cancellation and expiry
+1. **DarkSwap SDK**: Core functionality and APIs
+2. **DarkSwap CLI**: Command-line interface for interacting with the platform
+3. **DarkSwap Daemon**: Background service for handling ongoing operations
+4. **DarkSwap P2P**: Peer-to-peer networking infrastructure
+5. **Web Interface**: Browser-based user interface
 
-4. **Secure Trading**
-   - Use PSBTs for secure trade execution
-   - Implement comprehensive transaction validation
-   - Ensure atomicity of trades
+## Target Users
 
-5. **Cross-Platform Compatibility**
-   - Support desktop platforms (Linux, macOS, Windows)
-   - Support web browsers through WASM compilation
-   - Support mobile browsers (iOS, Android)
-
-## Architecture
-
-DarkSwap consists of several components:
-
-1. **darkswap-sdk**
-   - Core functionality for DarkSwap
-   - P2P networking using rust-libp2p
-   - Orderbook management
-   - Trade execution
-   - Bitcoin integration
-   - WASM bindings for browser integration
-
-2. **darkswap-cli**
-   - Command-line interface for interacting with DarkSwap
-   - Order creation and management
-   - Trade execution
-   - Wallet integration
-
-3. **darkswap-daemon**
-   - Background service for hosting an orderbook and facilitating trades
-   - REST API for interacting with the service
-   - Event system for monitoring system events
-
-4. **web**
-   - Web interface for DarkSwap
-   - React-based UI
-   - Integration with the SDK through WASM
-
-## Technical Stack
-
-1. **Backend**
-   - Rust for core functionality
-   - rust-libp2p for P2P networking
-   - rust-bitcoin for Bitcoin integration
-   - WASM for browser integration
-
-2. **Frontend**
-   - TypeScript for type safety
-   - React for UI components
-   - Tailwind CSS for styling
-   - Vite for build tooling
-
-## User Experience Goals
-
-1. **Simplicity**
-   - Intuitive user interface
-   - Clear workflow for creating and taking orders
-   - Comprehensive error messages
-
-2. **Performance**
-   - Fast order creation and matching
-   - Efficient P2P networking
-   - Responsive UI
-
-3. **Security**
-   - Secure trade execution
-   - Protection against common attacks
-   - Clear security model
-
-4. **Reliability**
-   - Robust error handling
-   - Graceful degradation in challenging network environments
-   - Comprehensive logging for debugging
-
-## Project Timeline
-
-1. **Phase 1: Core Implementation**
-   - Implement core SDK functionality
-   - Create CLI and daemon
-   - Set up project structure and documentation
-
-2. **Phase 2: Web Interface**
-   - Implement web interface
-   - Integrate with SDK through WASM
-   - Add responsive design
-
-3. **Phase 3: Testing and Refinement**
-   - Conduct thorough testing
-   - Fix bugs and issues
-   - Optimize performance
-
-4. **Phase 4: Documentation and Release**
-   - Create comprehensive documentation
-   - Prepare for release
-   - Create tutorials and examples
+1. **Cryptocurrency Traders**: Users looking to trade Bitcoin, runes, and alkanes
+2. **Privacy-Conscious Users**: Those who value privacy and security in their transactions
+3. **Developers**: Those building applications on top of the DarkSwap platform
 
 ## Success Criteria
 
-1. **Functionality**
-   - Users can create and take orders
-   - Orders are distributed through the P2P network
-   - Trades are executed securely
+1. **Security**: Zero security breaches or vulnerabilities
+2. **Performance**: Fast and reliable transaction processing
+3. **Usability**: Intuitive user experience with minimal friction
+4. **Adoption**: Growing user base and transaction volume
+5. **Reliability**: High uptime and system stability
 
-2. **Performance**
-   - Orders are distributed quickly
-   - Trades are executed efficiently
-   - UI is responsive
+## Project Constraints
 
-3. **Security**
-   - Trades are atomic and secure
-   - Transactions are properly validated
-   - Users have control over their funds
+1. **Regulatory Compliance**: Navigate the complex regulatory landscape for decentralized exchanges
+2. **Technical Complexity**: Balance advanced features with usability
+3. **Network Effects**: Overcome the challenge of building liquidity and user base
+4. **Cross-Platform Compatibility**: Ensure consistent experience across different platforms
 
-4. **Usability**
-   - Users can easily create and take orders
-   - Error messages are clear and helpful
-   - UI is intuitive and responsive
+## Timeline
 
-## Constraints
+The project is currently in active development, with a phased approach:
 
-1. **Technical Constraints**
-   - Must work with Bitcoin's transaction model
-   - Must support P2P networking in browsers
-   - Must be compatible with existing Bitcoin wallets
+1. **Phase 1**: Core infrastructure and basic functionality (Completed)
+2. **Phase 2**: Enhanced features and security improvements (Completed)
+3. **Phase 3**: Performance optimization and production readiness (Current)
+4. **Phase 4**: Public launch and ecosystem growth (Planned)
 
-2. **Security Constraints**
-   - Must ensure trade atomicity
-   - Must validate all transactions
-   - Must protect against common attacks
+## Project Scope
 
-3. **Usability Constraints**
-   - Must be usable by non-technical users
-   - Must provide clear error messages
-   - Must work on various platforms
+DarkSwap aims to provide a complete solution for decentralized trading of Bitcoin, runes, and alkanes, including:
 
-## Risks and Mitigations
-
-1. **P2P Networking Challenges**
-   - Risk: NAT traversal issues
-   - Mitigation: Implement circuit relay and STUN/TURN
-
-2. **Bitcoin Integration Challenges**
-   - Risk: Complex transaction validation
-   - Mitigation: Comprehensive testing and validation
-
-3. **Browser Compatibility Challenges**
-   - Risk: Limited browser APIs
-   - Mitigation: Use WebRTC and WASM
-
-## Stakeholders
-
-1. **Users**
-   - Traders looking to exchange Bitcoin, runes, and alkanes
-   - Developers building on top of DarkSwap
-
-2. **Development Team**
-   - Core developers
-   - Contributors
-
-3. **Community**
-   - Bitcoin community
-   - Runes and alkanes communities
-
-## References
-
-1. **PintSwap**
-   - Inspiration for DarkSwap
-   - Similar architecture for Ethereum-based assets
-
-2. **Bitcoin**
-   - Core technology for DarkSwap
-   - Transaction model and PSBTs
-
-3. **Runes and Alkanes**
-   - Protocols for fungible tokens on Bitcoin
-   - Integration targets for DarkSwap
+1. **Order Book Management**: Creating, matching, and executing orders
+2. **Wallet Integration**: Secure management of user funds
+3. **P2P Network**: Robust peer-to-peer communication
+4. **Security Features**: Authentication, authorization, and encryption
+5. **User Interfaces**: CLI and web-based interfaces

@@ -1,310 +1,206 @@
 # DarkSwap System Patterns
 
-This document describes the system architecture, key technical decisions, design patterns, and component relationships in the DarkSwap project.
+## Architectural Patterns
 
-## System Architecture
+### Modular Architecture
 
-DarkSwap follows a modular architecture with clear separation of concerns. The system is divided into several key components with shared code between Rust and TypeScript implementations:
+DarkSwap follows a modular architecture with clear separation of concerns:
 
-```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                                                           │
-│                             P2P Network                                   │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-                 ▲                    ▲                     ▲
-                 │                    │                     │
-                 │                    │                     │
-┌────────────────┴─────┐   ┌──────────┴───────┐   ┌─────────┴─────────┐
-│                      │   │                  │   │                   │
-│    darkswap-relay    │   │  darkswap-daemon │   │   darkswap-app    │
-│                      │   │                  │   │                   │
-└──────────────────────┘   └──────────────────┘   └───────────┬───────┘
-                                                              │
-                                                              │
-                                                              ▼
-┌───────────────────────────────────────────────┐   ┌─────────────────────┐
-│                                               │   │                     │
-│              darkswap-sdk (Rust)              │   │  darkswap-lib (TS)  │
-│                                               │   │                     │
-└───────────────┬───────────────────────────────┘   └──────────┬──────────┘
-                │                                              │
-                │                                              │
-                ▼                                              ▼
-┌───────────────────────────────────────────────┐   ┌─────────────────────┐
-│                                               │   │                     │
-│              darkswap-p2p (Rust)              │   │  darkswap-web-sys   │
-│                                               │   │      (WASM)         │
-└───────────────┬───────────────────────────────┘   └──────────┬──────────┘
-                │                                              │
-                │                                              │
-                ▼                                              ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                                                           │
-│                          darkswap-support                                 │
-│                      (Protobuf & Shared Code)                             │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-```
+1. **Core SDK (darkswap-sdk)**: Contains the fundamental business logic and domain models
+2. **CLI Interface (darkswap-cli)**: Provides command-line access to the system
+3. **Background Service (darkswap-daemon)**: Handles long-running processes and system integration
+4. **P2P Network Layer (darkswap-p2p)**: Manages peer-to-peer communication
+5. **Web Interface (web)**: Delivers the browser-based user experience
 
-### Core Components
+This modular approach allows for:
+- Independent development and testing of components
+- Flexibility in deployment configurations
+- Clear boundaries between system responsibilities
+- Easier maintenance and updates
 
-1. **darkswap-support**: Contains all the protobuf definitions and shared code that is not specific to wasm or x86_64 builds.
-2. **darkswap-p2p**: Core P2P networking library that can be used by both server and browser builds.
-3. **darkswap-sdk**: The core Rust library that provides all the functionality needed for P2P trading.
-4. **darkswap-web-sys**: WebAssembly bindings for the P2P protocol that can be used in browsers.
-5. **darkswap-lib**: TypeScript/JavaScript library that provides the same functionality as darkswap-sdk but for web environments.
-6. **darkswap-relay**: A server that provides DTLS/ICE connectivity and circuit relay v2 support for NAT traversal.
-7. **darkswap-daemon**: A background service that hosts an orderbook and facilitates trades.
-8. **darkswap-app**: A web-based user interface that uses darkswap-lib to interact with the P2P network.
-9. **darkswap-cli**: A command-line interface for interacting with the SDK.
+### Peer-to-Peer Architecture
 
-### Component Interactions
+The system uses a pure peer-to-peer architecture for trading:
 
-- **darkswap-support and darkswap-p2p**: These form the foundation of the P2P protocol, with darkswap-support providing protobuf definitions and shared code, and darkswap-p2p implementing the core P2P networking functionality.
-- **darkswap-sdk and darkswap-lib**: These provide parallel implementations of the trading architecture in Rust and TypeScript respectively, both using the same P2P protocol.
-- **darkswap-web-sys**: Provides WebAssembly bindings for the Rust P2P code, allowing darkswap-lib to use the browser's native WebRTC support to connect to the network.
-- **darkswap-relay**: Acts as a circuit relay for NAT traversal, allowing peers behind NATs to connect to each other.
-- **darkswap-daemon**: Uses darkswap-sdk to participate in the P2P network, manage the orderbook, and execute trades.
-- **darkswap-app**: Uses darkswap-lib to interact with the P2P network, manage orders, and execute trades.
-- **darkswap-cli**: Uses darkswap-sdk to perform operations such as creating orders, taking orders, and getting market data.
-
-## Key Technical Decisions
-
-### Rust for Core Components
-
-DarkSwap uses Rust for its core components (SDK, CLI, daemon) for several reasons:
-
-1. **Safety**: Rust's ownership model and type system prevent common bugs such as null pointer dereferences, buffer overflows, and data races.
-2. **Performance**: Rust provides performance comparable to C and C++ without sacrificing safety.
-3. **Cross-Platform**: Rust can target multiple platforms, including desktop and web (via WASM).
-4. **Ecosystem**: Rust has a growing ecosystem of libraries for Bitcoin, P2P networking, and cryptography.
-
-### libp2p for P2P Networking
-
-DarkSwap uses libp2p for P2P networking for several reasons:
-
-1. **Modularity**: libp2p is modular and allows for using only the components needed.
-2. **Cross-Platform**: libp2p works on desktop and web browsers.
-3. **Multiple Transport Protocols**: libp2p supports multiple transport protocols, including TCP, WebSockets, and WebRTC.
-4. **NAT Traversal**: libp2p includes mechanisms for NAT traversal, which is essential for P2P applications.
-
-### PSBTs for Trade Execution
-
-DarkSwap uses PSBTs (Partially Signed Bitcoin Transactions) for trade execution for several reasons:
-
-1. **Atomicity**: PSBTs enable atomic trades, where either both parties get what they want or neither does.
-2. **Security**: PSBTs allow for transaction validation before signing.
-3. **Compatibility**: PSBTs are a standard in the Bitcoin ecosystem and are supported by many wallets.
-4. **Flexibility**: PSBTs can represent complex transactions, including those involving runes and alkanes.
-
-### WASM for Browser Integration
-
-DarkSwap uses WASM for browser integration for several reasons:
-
-1. **Performance**: WASM provides near-native performance in browsers.
-2. **Language Agnostic**: WASM allows for using Rust in browsers.
-3. **Security**: WASM runs in a sandboxed environment, providing security benefits.
-4. **Portability**: WASM is supported by all major browsers.
-
-## Design Patterns
-
-DarkSwap uses several design patterns to ensure maintainability, testability, and extensibility:
-
-### Modular Design
-
-DarkSwap follows a modular design pattern, where each component has a clear responsibility and interfaces with other components through well-defined APIs. This approach offers several benefits:
-
-1. **Maintainability**: Changes to one component don't affect others.
-2. **Testability**: Components can be tested in isolation.
-3. **Reusability**: Components can be reused in different contexts.
-4. **Scalability**: Components can be scaled independently.
+1. **Direct Peer Communication**: Users connect and trade directly with each other
+2. **No Central Server**: No central authority for matching or executing trades
+3. **Distributed Order Book**: Order information is distributed across the network
+4. **Relay Nodes**: Special nodes help with NAT traversal but don't control the trading process
 
 ### Event-Driven Architecture
 
-DarkSwap uses an event-driven architecture for handling asynchronous operations and communication between components:
+Many components use event-driven patterns:
 
-1. **Decoupling**: Components communicate through events rather than direct calls.
-2. **Scalability**: Event processing can be parallelized.
-3. **Responsiveness**: Non-blocking operations improve user experience.
+1. **Event Publishers**: Components emit events when state changes
+2. **Event Subscribers**: Components react to events from other parts of the system
+3. **Event Loops**: Processing loops handle events asynchronously
+4. **Message Passing**: Communication between components via message passing
+
+## Design Patterns
 
 ### Repository Pattern
 
-For data management, DarkSwap uses the repository pattern to abstract the storage and retrieval of data:
+Used for data access abstraction:
 
-1. **Abstraction**: Hides the details of data storage.
-2. **Flexibility**: Allows changing the storage implementation without affecting other components.
-3. **Testability**: Enables easy mocking for tests.
-
-### Strategy Pattern
-
-DarkSwap uses the strategy pattern to allow different implementations of key algorithms:
-
-1. **Flexibility**: Different strategies can be selected at runtime.
-2. **Extensibility**: New strategies can be added without modifying existing code.
-3. **Configurability**: Strategies can be configured based on user preferences.
+1. **Wallet Repository**: Abstracts wallet storage and retrieval
+2. **Order Repository**: Manages order persistence and querying
+3. **Peer Repository**: Handles peer information storage
 
 ### Factory Pattern
 
-DarkSwap uses the factory pattern to create objects without specifying the exact class to create:
+Used for creating complex objects:
 
-1. **Encapsulation**: Hides the details of object creation.
-2. **Flexibility**: Allows changing the created objects without affecting the client code.
-3. **Centralization**: Centralizes object creation logic.
+1. **Wallet Factory**: Creates appropriate wallet implementations
+2. **Connection Factory**: Builds network connections with proper configuration
+3. **Order Factory**: Constructs order objects with validation
+
+### Strategy Pattern
+
+Used for interchangeable algorithms:
+
+1. **Authentication Strategies**: Different methods for peer authentication
+2. **Encryption Strategies**: Various encryption algorithms
+3. **Order Matching Strategies**: Different approaches to matching orders
 
 ### Observer Pattern
 
-DarkSwap uses the observer pattern to notify components of events:
+Used for event notification:
 
-1. **Decoupling**: Subjects and observers are loosely coupled.
-2. **Broadcast Communication**: One subject can notify multiple observers.
-3. **Event Handling**: Enables event-driven programming.
+1. **Network Events**: Notifications about peer connections/disconnections
+2. **Order Book Updates**: Notifications about order changes
+3. **Trade Events**: Notifications about trade progress
 
-## Component Relationships
+### Command Pattern
 
-### Architecture Components
+Used in the CLI and API interfaces:
 
-The DarkSwap architecture consists of several components that work together to provide a modular and flexible system. The architecture is designed to maximize code sharing between different platforms while providing a consistent API across Rust and TypeScript implementations.
+1. **User Commands**: Encapsulated as command objects
+2. **Command Execution**: Standardized execution flow
+3. **Command History**: Tracking of executed commands
 
-#### Component Diagram
+### Singleton Pattern
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│                            darkswap-support                             │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │  Protobuf Defs  │  │  Shared Types   │  │  Common Functionality   │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+Used for system-wide resources:
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│                             darkswap-p2p                                │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │  WebRTC Support │  │  Circuit Relay  │  │  P2P Protocol Handlers  │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+1. **Connection Pool**: Single instance managing all connections
+2. **Configuration Manager**: Central configuration access
+3. **Metrics Registry**: Centralized metrics collection
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│                             darkswap-sdk                                │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │     Network     │  │    Orderbook    │  │         Trade           │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │  Bitcoin Utils  │  │      Types      │  │         Config          │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+## Communication Patterns
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│                            darkswap-lib                                 │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │     Network     │  │    Orderbook    │  │         Trade           │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐  │
-│  │                 │  │                 │  │                         │  │
-│  │  Bitcoin Utils  │  │      Types      │  │         Config          │  │
-│  │                 │  │                 │  │                         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+### Circuit Relay Pattern
 
-1. **darkswap-support**:
-   - Protobuf Definitions: Shared protocol buffer definitions for P2P communication
-   - Shared Types: Common data structures used across all components
-   - Common Functionality: Shared utility functions and algorithms
+Used for NAT traversal:
 
-2. **darkswap-p2p**:
-   - WebRTC Support: Implementation of WebRTC transport for libp2p
-   - Circuit Relay: Implementation of circuit relay v2 protocol for NAT traversal
-   - P2P Protocol Handlers: Handlers for P2P protocol messages
+1. **Relay Discovery**: Finding suitable relay nodes
+2. **Relay Connection**: Establishing connections through relays
+3. **Relay Handshake**: Protocol for setting up relayed connections
+4. **Relay Scoring**: Ranking relays by performance and reliability
 
-3. **darkswap-sdk** (Rust implementation):
-   - Network Module: Handles P2P networking using libp2p
-   - Orderbook Module: Manages orders and matches trades
-   - Trade Module: Handles trade execution using PSBTs
-   - Bitcoin Utils Module: Provides utilities for working with Bitcoin
-   - Types Module: Defines common data structures
-   - Config Module: Handles configuration
+### Connection Pooling Pattern
 
-4. **darkswap-lib** (TypeScript implementation):
-   - Network Module: Handles P2P networking using darkswap-web-sys
-   - Orderbook Module: Manages orders and matches trades
-   - Trade Module: Handles trade execution using PSBTs
-   - Bitcoin Utils Module: Provides utilities for working with Bitcoin
-   - Types Module: Defines common data structures
-   - Config Module: Handles configuration
+Used for efficient connection management:
 
-### CLI Components
+1. **Connection Reuse**: Reusing existing connections instead of creating new ones
+2. **Connection Lifecycle**: Managing the creation, use, and cleanup of connections
+3. **Connection Limits**: Enforcing maximum connection counts
+4. **Connection Pruning**: Removing idle or expired connections
 
-The CLI consists of several commands that interact with the SDK:
+### Challenge-Response Pattern
 
-1. **Create Order Command**: Creates a new order.
-2. **Cancel Order Command**: Cancels an existing order.
-3. **Take Order Command**: Takes an existing order.
-4. **List Orders Command**: Lists orders for a trading pair.
-5. **Get Best Bid Ask Command**: Gets the best bid and ask for a trading pair.
-6. **Connect Wallet Command**: Connects a wallet.
-7. **Start Daemon Command**: Starts the daemon.
+Used for authentication:
 
-### Daemon Components
+1. **Challenge Generation**: Creating secure random challenges
+2. **Response Verification**: Validating responses to challenges
+3. **Token Issuance**: Providing authentication tokens after successful verification
 
-The daemon consists of several components that work together to provide a background service:
+## Concurrency Patterns
 
-1. **API Server**: Provides a REST API for interacting with the daemon.
-2. **Event System**: Notifies clients of events such as order creation, cancellation, and filling.
-3. **P2P Node**: Participates in the P2P network for orderbook distribution and trade execution.
-4. **Wallet Integration**: Connects to Bitcoin wallets for transaction signing.
+### Actor Model
 
-### Web Interface Components
+Used for concurrent processing:
 
-The web interface consists of several components that work together to provide a user-friendly interface:
+1. **Network Actors**: Handle network communication
+2. **Order Book Actors**: Process order book updates
+3. **Trade Actors**: Manage trade execution
+4. **Message Passing**: Communication between actors via messages
 
-1. **React Components**: Provide the UI elements.
-2. **State Management**: Manages the application state.
-3. **SDK Integration**: Integrates with the SDK through WASM.
-4. **Wallet Integration**: Connects to Bitcoin wallets for transaction signing.
+### Asynchronous Processing
 
-## Data Flow
+Used throughout the system:
 
-### Order Creation Flow
+1. **Async/Await**: Non-blocking operations with Rust's async/await
+2. **Future Composition**: Combining multiple asynchronous operations
+3. **Task Scheduling**: Managing concurrent tasks with tokio
 
-1. User creates an order through the CLI, daemon, or web interface.
-2. The SDK validates the order and assigns it a unique ID.
-3. The order is added to the local orderbook.
-4. The order is broadcast to the P2P network.
-5. Other nodes receive the order and add it to their local orderbooks.
+## Security Patterns
 
-### Trade Execution Flow
+### Defense in Depth
 
-1. User takes an order through the CLI, daemon, or web interface.
-2. The SDK creates a trade intent and sends it to the maker.
-3. The maker and taker create PSBTs representing their side of the trade.
-4. The PSBTs are exchanged and combined.
-5. Both parties sign the combined PSBT.
-6. The final transaction is broadcast to the Bitcoin network.
+Multiple layers of security:
 
-## Conclusion
+1. **Authentication**: Verifying peer identity
+2. **Authorization**: Controlling access to system functions
+3. **Encryption**: Protecting data confidentiality
+4. **Validation**: Checking inputs and transactions
+5. **Monitoring**: Detecting suspicious activity
 
-DarkSwap's architecture is designed to be modular, secure, and efficient. By leveraging modern design patterns and technologies, DarkSwap provides a robust platform for P2P trading of Bitcoin, runes, and alkanes. The clear separation of concerns and well-defined interfaces make it easy to extend and enhance the system as needed.
+### Principle of Least Privilege
+
+Limiting access rights:
+
+1. **Authorization Levels**: Different permission levels for different operations
+2. **Minimal Exposure**: Exposing only necessary functionality
+3. **Capability-Based Security**: Access based on held capabilities
+
+### Forward Secrecy
+
+Protecting past communications:
+
+1. **Ephemeral Keys**: Short-lived encryption keys
+2. **Key Rotation**: Regular rotation of encryption keys
+3. **Session Isolation**: Separate keys for different sessions
+
+## Data Patterns
+
+### Immutable Data
+
+Used for critical data:
+
+1. **Transaction Records**: Immutable transaction history
+2. **Order History**: Unchangeable record of orders
+3. **Event Logs**: Append-only event records
+
+### CQRS (Command Query Responsibility Segregation)
+
+Separation of read and write operations:
+
+1. **Commands**: Operations that change state
+2. **Queries**: Operations that read state
+3. **Separate Models**: Different models for reading and writing
+
+## Testing Patterns
+
+### Unit Testing
+
+Testing individual components:
+
+1. **Component Tests**: Testing isolated components
+2. **Mock Dependencies**: Using mock objects for dependencies
+3. **Behavior Verification**: Verifying component behavior
+
+### Integration Testing
+
+Testing component interactions:
+
+1. **Component Integration**: Testing how components work together
+2. **Subsystem Testing**: Testing larger subsystems
+3. **API Testing**: Testing public APIs
+
+### End-to-End Testing
+
+Testing complete workflows:
+
+1. **User Scenarios**: Testing complete user journeys
+2. **Network Simulation**: Simulating P2P network conditions
+3. **Performance Testing**: Measuring system performance

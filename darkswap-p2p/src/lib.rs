@@ -2,13 +2,19 @@
 //!
 //! This library provides P2P networking functionality for the DarkSwap platform.
 
+pub mod auth;
 pub mod behaviour;
 pub mod circuit_relay;
 pub mod config;
+pub mod connection_pool;
 pub mod discovery;
+pub mod encryption;
 pub mod message;
+pub mod metrics;
 pub mod network;
 pub mod protocol;
+pub mod relay_connection_pool;
+pub mod relay_discovery;
 pub mod transport;
 
 /// Re-export common types from darkswap-lib

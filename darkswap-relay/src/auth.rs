@@ -131,6 +131,64 @@ impl AuthManager {
         Ok(())
     }
     
+    /// Extract token from various sources
+    pub fn extract_token(request: &axum::http::Request<axum::body::Body>) -> Option<String> {
+        // Try to extract from Authorization header
+        if let Some(auth_header) = request.headers().get(axum::http::header::AUTHORIZATION) {
+            if let Ok(auth_str) = auth_header.to_str() {
+                if auth_str.starts_with("Bearer ") {
+                    return Some(auth_str[7..].to_string());
+                }
+            }
+        }
+        
+        // Try to extract from query parameters
+        if let Some(query) = request.uri().query() {
+            for pair in query.split('&') {
+                if let Some((key, value)) = pair.split_once('=') {
+                    if key == "token" {
+                        return Some(value.to_string());
+                    }
+                }
+            }
+        }
+        
+        // Try to extract from cookies
+        if let Some(cookie_header) = request.headers().get(axum::http::header::COOKIE) {
+            if let Ok(cookie_str) = cookie_header.to_str() {
+                for cookie in cookie_str.split(';') {
+                    if let Some((key, value)) = cookie.trim().split_once('=') {
+                        if key == "token" {
+                            return Some(value.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+    
+    /// Extract token from WebSocket message
+    pub fn extract_token_from_message(msg: &str) -> Option<String> {
+        // Try to parse the message as JSON
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(msg) {
+            // Check if the message has a token field
+            if let Some(token) = json.get("token").and_then(|t| t.as_str()) {
+                return Some(token.to_string());
+            }
+            
+            // Check if the message has an auth field with a token subfield
+            if let Some(auth) = json.get("auth") {
+                if let Some(token) = auth.get("token").and_then(|t| t.as_str()) {
+                    return Some(token.to_string());
+                }
+            }
+        }
+        
+        None
+    }
+    
     /// Check if a token has a specific role
     pub async fn has_role(&self, token: &str, role: &str) -> Result<bool> {
         let claims = self.validate_token(token).await?;

@@ -1,0 +1,82 @@
+groups:
+  - name: darkswap-p2p-alerts
+    rules:
+      # Alert when connection success rate drops below 80%
+      - alert: LowConnectionSuccessRate
+        expr: sum(rate(p2p_connection_successes[5m])) / sum(rate(p2p_connection_attempts[5m])) < 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low connection success rate"
+          description: "Connection success rate is below 80% for 5 minutes (current value: {{ $value | humanizePercentage }})"
+
+      # Alert when connection latency is too high
+      - alert: HighConnectionLatency
+        expr: histogram_quantile(0.9, sum(rate(p2p_connection_latency_ms_bucket[5m])) by (le)) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High connection latency"
+          description: "90th percentile connection latency is above 500ms for 5 minutes (current value: {{ $value }}ms)"
+
+      # Alert when there are no connected relays
+      - alert: NoConnectedRelays
+        expr: p2p_relay_connections == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No connected relays"
+          description: "There are no connected relays for 5 minutes"
+
+      # Alert when there are too few connected relays
+      - alert: LowRelayConnections
+        expr: p2p_relay_connections < 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low relay connections"
+          description: "There are fewer than 2 connected relays for 5 minutes (current value: {{ $value }})"
+
+      # Alert when there are too many connection failures
+      - alert: HighConnectionFailureRate
+        expr: sum(rate(p2p_connection_failures[5m])) / sum(rate(p2p_connection_attempts[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High connection failure rate"
+          description: "Connection failure rate is above 20% for 5 minutes (current value: {{ $value | humanizePercentage }})"
+
+      # Alert when there are too many active connections
+      - alert: TooManyActiveConnections
+        expr: p2p_connections_active > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many active connections"
+          description: "There are more than 100 active connections for 5 minutes (current value: {{ $value }})"
+
+      # Alert when there are too few idle connections
+      - alert: LowIdleConnections
+        expr: p2p_connections_idle < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low idle connections"
+          description: "There are fewer than 10 idle connections for 5 minutes (current value: {{ $value }})"
+
+      # Alert when relay score is too low
+      - alert: LowRelayScore
+        expr: p2p_relay_score < 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low relay score"
+          description: "Relay {{ $labels.peer_id }} has a score below 50 for 5 minutes (current value: {{ $value }})"
