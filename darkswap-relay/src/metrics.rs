@@ -10,9 +10,10 @@ use crate::{
     circuit_relay::CircuitRelayManager,
     Result,
 };
+use prometheus;
 use prometheus::{
     Counter, Gauge, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec,
-    Opts, Registry,
+    Opts, Registry, Encoder,
 };
 use std::sync::Arc;
 use tokio::time::Duration;

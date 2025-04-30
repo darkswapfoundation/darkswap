@@ -84,7 +84,7 @@ impl CircuitRelayManager {
         
         // Spawn a task to clean up expired relays
         let relays = self.relays.clone();
-        let peer_timeout = self.config.peer_timeout();
+        let peer_timeout = Duration::from_secs(self.config.security.peer_timeout);
         tokio::spawn(async move {
             loop {
                 // Sleep for a while
@@ -122,10 +122,9 @@ impl CircuitRelayManager {
                         Ok(relay_id) => {
                             // Send a relay response to the requester
                             let response = SignalingMessage::RelayResponse {
-                                from: to.clone(),
-                                to: from.clone(),
+                                relay_id: relay_id.clone(),
                                 accepted: true,
-                                relay_id: Some(relay_id),
+                                error: None,
                             };
                             
                             if let Err(e) = self.circuit_tx.send(response).await {

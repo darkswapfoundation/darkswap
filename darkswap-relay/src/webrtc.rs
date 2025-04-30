@@ -19,6 +19,7 @@ use std::{
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+use webrtc;
 use webrtc::{
     api::{
         interceptor_registry::register_default_interceptors,
@@ -537,13 +538,10 @@ impl WebRtcManager {
             .ok_or_else(|| Error::ConnectionNotFound(format!("Connection not found: {}", connection_id)))?;
         
         // Create the session description
-        let session_description = webrtc::peer_connection::sdp::session_description::RTCSessionDescription {
-            sdp_type: if is_offer {
-                webrtc::peer_connection::sdp::sdp_type::RTCSdpType::Offer
-            } else {
-                webrtc::peer_connection::sdp::sdp_type::RTCSdpType::Answer
-            },
-            sdp: sdp.to_string(),
+        let session_description = if is_offer {
+            webrtc::peer_connection::sdp::session_description::RTCSessionDescription::offer(sdp.to_string())?
+        } else {
+            webrtc::peer_connection::sdp::session_description::RTCSessionDescription::answer(sdp.to_string())?
         };
         
         // Set the remote description
@@ -614,7 +612,7 @@ impl WebRtcManager {
         
         // Create data channel options
         let mut options = webrtc::data_channel::data_channel_init::RTCDataChannelInit::default();
-        options.ordered = ordered;
+        options.ordered = Some(ordered);
         options.max_retransmits = max_retransmits;
         
         // Create the data channel

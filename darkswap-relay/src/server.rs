@@ -145,11 +145,20 @@ impl Server {
         }
         
         // Wait for any component to finish (which likely means an error occurred)
-        tokio::select! {
-            _ = handles[0].await => {},
-            _ = handles[1].await => {},
-            _ = handles[2].await => {},
-            _ = async { if let Some(handle) = &metrics_handle { handle.await.ok(); } } => {},
+        // Wait for all components to finish
+        let results = tokio::join!(
+            handles[0],
+            handles[1],
+            handles[2],
+            async { if let Some(handle) = metrics_handle { Some(handle.await) } else { None } },
+        );
+
+        // Check for errors
+        results.0.expect("WebRTC manager task failed");
+        results.1.expect("Circuit relay manager task failed");
+        results.2.expect("Signaling server task failed");
+        if let Some(metrics_result) = results.3 {
+            metrics_result.expect("Metrics server task failed");
         }
         
         info!("DarkSwap Relay Server stopped");

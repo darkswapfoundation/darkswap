@@ -203,10 +203,8 @@ pub fn peer_id_to_multiaddr(peer_id: &str, addr: SocketAddr) -> libp2p::multiadd
 /// Get the version information
 pub fn version_info() -> String {
     format!(
-        "DarkSwap Relay Server v{} ({}) built on {}",
-        crate::VERSION,
-        crate::GIT_HASH,
-        crate::BUILD_DATE
+        "DarkSwap Relay Server v{}",
+        crate::VERSION
     )
 }
 
