@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebAssembly Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WebAssembly Test Page</h1>
+    <div id="status" class="status">Loading WebAssembly utilities...</div>
+    <div id="features">
+      <h2>WebAssembly Features</h2>
+      <pre id="features-output"></pre>
+    </div>
+    <div id="tests">
+      <h2>WebAssembly Tests</h2>
+      <pre id="tests-output"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Import the WebAssembly loader
+    const script = document.createElement('script');
+    script.src = '/web/src/utils/WasmLoader.js';
+    script.onload = () => {
+      // Make the WebAssembly utilities available globally
+      window.wasmFeatures = wasmFeatures;
+      window.loadWasm = loadWasm;
+      window.compileWasm = compileWasm;
+      window.instantiateWasm = instantiateWasm;
+      window.createWasmMemory = createWasmMemory;
+      window.createWasmTable = createWasmTable;
+      
+      // Display WebAssembly features
+      const featuresOutput = document.getElementById('features-output');
+      featuresOutput.textContent = JSON.stringify(wasmFeatures, null, 2);
+      
+      // Run basic tests
+      runTests();
+    };
+    script.onerror = (error) => {
+      const status = document.getElementById('status');
+      status.textContent = 'Failed to load WebAssembly utilities';
+      status.className = 'status error';
+      console.error('Failed to load WebAssembly utilities:', error);
+    };
+    document.head.appendChild(script);
+    
+    async function runTests() {
+      const testsOutput = document.getElementById('tests-output');
+      const status = document.getElementById('status');
+      
+      try {
+        // Test simple WebAssembly module
+        testsOutput.textContent += 'Testing simple WebAssembly module...\n';
+        
+        // Create a simple WebAssembly module
+        const simpleWasmCode = new Uint8Array([
+          0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60,
+          0x02, 0x7f, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01,
+          0x03, 0x61, 0x64, 0x64, 0x00, 0x00, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x20,
+          0x00, 0x20, 0x01, 0x6a, 0x0b
+        ]);
+        
+        // Create a Blob URL for the WebAssembly module
+        const blob = new Blob([simpleWasmCode], { type: 'application/wasm' });
+        const url = URL.createObjectURL(blob);
+        
+        // Load the WebAssembly module
+        const { exports } = await loadWasm(url);
+        
+        // Test the add function
+        const result = exports.add(40, 2);
+        testsOutput.textContent += `Result of add(40, 2): ${result}\n`;
+        
+        if (result === 42) {
+          testsOutput.textContent += 'Test passed!\n\n';
+        } else {
+          testsOutput.textContent += 'Test failed!\n\n';
+        }
+        
+        // Update status
+        status.textContent = 'WebAssembly tests completed successfully';
+        status.className = 'status success';
+      } catch (error) {
+        testsOutput.textContent += `Error: ${error.message}\n`;
+        status.textContent = 'WebAssembly tests failed';
+        status.className = 'status error';
+        console.error('WebAssembly test error:', error);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    
+    - name: Build and push relay image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./darkswap-relay
+        push: true
+        tags: darkswap/relay:latest,darkswap/relay:${{ github.sha }}
+        cache-from: type=registry,ref=darkswap/relay:buildcache
+        cache-to: type=registry,ref=darkswap/relay:buildcache,mode=max
+    
+    - name: Build and push daemon image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./darkswap-daemon
+        push: true
+        tags: darkswap/api:latest,darkswap/api:${{ github.sha }}
+        cache-from: type=registry,ref=darkswap/api:buildcache
+        cache-to: type=registry,ref=darkswap/api:buildcache,mode=max
+    
+    - name: Build and push web image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./web
+        push: true
+        tags: darkswap/web:latest,darkswap/web:${{ github.sha }}
+        cache-from: type=registry,ref=darkswap/web:buildcache
+        cache-to: type=registry,ref=darkswap/web:buildcache,mode=max
+        build-args: |
+          API_URL=${{ secrets.API_URL }}
+          WS_URL=${{ secrets.WS_URL }}
+    
+    - name: Deploy to staging
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ${{ secrets.STAGING_USERNAME }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        script: |
+          cd /opt/darkswap
+          docker-compose pull
+          docker-compose up -d
+          docker system prune -af
+    
+    - name: Deploy to production
+      if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USERNAME }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          cd /opt/darkswap
+          docker-compose pull
+          docker-compose up -d
+          docker system prune -af
+    
+    - name: Notify on success
+      if: success()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: good
+        SLACK_TITLE: Deployment Successful
+        SLACK_MESSAGE: 'DarkSwap has been deployed successfully to ${{ github.event_name == "workflow_dispatch" && "production" || "staging" }}'
+        SLACK_FOOTER: 'GitHub Actions'
+    
+    - name: Notify on failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: danger
+        SLACK_TITLE: Deployment Failed
+        SLACK_MESSAGE: 'DarkSwap deployment to ${{ github.event_name == "workflow_dispatch" && "production" || "staging" }} failed'
+        SLACK_FOOTER: 'GitHub Actions'

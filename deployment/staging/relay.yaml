@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: darkswap-relay-config
+  namespace: darkswap-staging
+data:
+  config.toml: |
+    [server]
+    host = "0.0.0.0"
+    port = 8080
+    
+    [relay]
+    max_connections = 1000
+    connection_timeout = 60
+    
+    [logging]
+    level = "info"
+    file = "/var/log/darkswap/relay.log"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: darkswap-relay
+  namespace: darkswap-staging
+  labels:
+    app: darkswap-relay
+    environment: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: darkswap-relay
+  template:
+    metadata:
+      labels:
+        app: darkswap-relay
+        environment: staging
+    spec:
+      containers:
+      - name: darkswap-relay
+        image: darkswap/relay:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.toml
+          subPath: config.toml
+        - name: logs
+          mountPath: /var/log/darkswap
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: darkswap-relay-config
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: darkswap-relay
+  namespace: darkswap-staging
+  labels:
+    app: darkswap-relay
+    environment: staging
+spec:
+  selector:
+    app: darkswap-relay
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: darkswap-relay
+  namespace: darkswap-staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: darkswap-relay
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

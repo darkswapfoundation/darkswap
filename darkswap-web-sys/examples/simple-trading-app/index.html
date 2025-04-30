@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DarkSwap Simple Trading App</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .card {
+      background-color: #1e1e2f;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .card-header {
+      padding: 1rem;
+      border-bottom: 1px solid #2d2d44;
+    }
+    .card-body {
+      padding: 1rem;
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background-color: #6366f1;
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #4f46e5;
+    }
+    .btn-secondary {
+      background-color: #4b5563;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background-color: #374151;
+    }
+    .btn-success {
+      background-color: #10b981;
+      color: white;
+    }
+    .btn-success:hover {
+      background-color: #059669;
+    }
+    .btn-danger {
+      background-color: #ef4444;
+      color: white;
+    }
+    .btn-danger:hover {
+      background-color: #dc2626;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      background-color: #2d2d44;
+      border: 1px solid #4b5563;
+      color: white;
+    }
+    .form-select {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      background-color: #2d2d44;
+      border: 1px solid #4b5563;
+      color: white;
+    }
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #d1d5db;
+    }
+    .badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge-success {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+    .badge-danger {
+      background-color: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+    .badge-warning {
+      background-color: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+    }
+    .badge-info {
+      background-color: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold mb-2">DarkSwap Simple Trading App</h1>
+      <p class="text-gray-400">A simple example application using DarkSwap WebAssembly bindings</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Connection Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="text-xl font-semibold">Connection</h2>
+        </div>
+        <div class="card-body">
+          <div class="mb-4">
+            <div class="flex items-center mb-2">
+              <div id="connection-status" class="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+              <span id="connection-text">Disconnected</span>
+            </div>
+            <div class="flex items-center mb-2">
+              <div id="wallet-status" class="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
+              <span id="wallet-text">Wallet not connected</span>
+            </div>
+            <div id="peer-count" class="text-sm text-gray-400">Peers: 0</div>
+          </div>
+          <div class="space-y-2">
+            <button id="initialize-btn" class="btn btn-primary w-full">Initialize SDK</button>
+            <button id="connect-btn" class="btn btn-secondary w-full" disabled>Connect to Network</button>
+            <button id="connect-wallet-btn" class="btn btn-secondary w-full" disabled>Connect Wallet</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Creation Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="text-xl font-semibold">Create Order</h2>
+        </div>
+        <div class="card-body">
+          <form id="order-form">
+            <div class="mb-4">
+              <label class="form-label">Trading Pair</label>
+              <select id="trading-pair" class="form-select" disabled>
+                <option value="BTC/RUNE1">BTC/RUNE1</option>
+                <option value="BTC/RUNE2">BTC/RUNE2</option>
+                <option value="BTC/ALK1">BTC/ALK1</option>
+              </select>
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Side</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="buy-btn" class="btn btn-success" disabled>Buy</button>
+                <button type="button" id="sell-btn" class="btn btn-danger" disabled>Sell</button>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Price</label>
+              <input type="number" id="price-input" class="form-input" placeholder="0.00" disabled>
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Amount</label>
+              <input type="number" id="amount-input" class="form-input" placeholder="0.00" disabled>
+            </div>
+            <button type="submit" id="create-order-btn" class="btn btn-primary w-full" disabled>Create Order</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Orders Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="text-xl font-semibold">Orders</h2>
+        </div>
+        <div class="card-body">
+          <div class="mb-4">
+            <button id="refresh-orders-btn" class="btn btn-secondary w-full" disabled>Refresh Orders</button>
+          </div>
+          <div id="orders-container" class="space-y-2 max-h-80 overflow-y-auto">
+            <div class="text-gray-400 text-center py-4">No orders available</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications" class="fixed bottom-4 right-4 space-y-2 max-w-md"></div>
+  </div>
+
+  <script type="module">
+    // In a real application, you would import the DarkSwap SDK
+    // import darkswap from 'darkswap-web-sys';
+    
+    // For this example, we'll create a mock implementation
+    class MockDarkSwap {
+      constructor() {
+        this.initialized = false;
+        this.connected = false;
+        this.walletConnected = false;
+        this.peers = [];
+        this.orders = [];
+        this.eventListeners = {};
+      }
+      
+      async initialize() {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        this.initialized = true;
+        this.emit('initialized');
+        return true;
+      }
+      
+      async connect() {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        this.connected = true;
+        this.peers = [
+          { id: 'peer-1', address: '/ip4/192.168.1.1/tcp/9000', connected: true },
+          { id: 'peer-2', address: '/ip4/192.168.1.2/tcp/9000', connected: true },
+          { id: 'relay-1', address: '/ip4/relay-1.darkswap.io/tcp/9000', connected: true, isRelay: true },
+        ];
+        this.emit('network', { type: 'connected' });
+        return true;
+      }
+      
+      async disconnect() {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        this.connected = false;
+        this.peers = [];
+        this.emit('network', { type: 'disconnected' });
+        return true;
+      }
+      
+      isConnected() {
+        return this.connected;
+      }
+      
+      async getPeers() {
+        return this.peers;
+      }
+      
+      async connectWallet() {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        this.walletConnected = true;
+        this.emit('wallet', { type: 'wallet_connected' });
+        return true;
+      }
+      
+      async disconnectWallet() {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        this.walletConnected = false;
+        this.emit('wallet', { type: 'wallet_disconnected' });
+        return true;
+      }
+      
+      isWalletConnected() {
+        return this.walletConnected;
+      }
+      
+      async createOrder(order) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        const orderId = `order-${Date.now()}`;
+        const newOrder = {
+          id: orderId,
+          ...order,
+          createdAt: Date.now(),
+          status: 'active',
+        };
+        this.orders.push(newOrder);
+        this.emit('order', { type: 'order_created', orderId, order: newOrder });
+        return orderId;
+      }
+      
+      async getOrders() {
+        return this.orders;
+      }
+      
+      async cancelOrder(orderId) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const orderIndex = this.orders.findIndex(order => order.id === orderId);
+        if (orderIndex !== -1) {
+          this.orders[orderIndex].status = 'canceled';
+          this.emit('order', { type: 'order_canceled', orderId, order: this.orders[orderIndex] });
+          return true;
+        }
+        return false;
+      }
+      
+      on(event, callback) {
+        if (!this.eventListeners[event]) {
+          this.eventListeners[event] = [];
+        }
+        this.eventListeners[event].push(callback);
+        return this;
+      }
+      
+      off(event, callback) {
+        if (this.eventListeners[event]) {
+          this.eventListeners[event] = this.eventListeners[event].filter(cb => cb !== callback);
+        }
+        return this;
+      }
+      
+      emit(event, data) {
+        if (this.eventListeners[event]) {
+          this.eventListeners[event].forEach(callback => callback(data));
+        }
+        return true;
+      }
+    }
+    
+    // Create a mock instance
+    const darkswap = new MockDarkSwap();
+    
+    // DOM elements
+    const connectionStatus = document.getElementById('connection-status');
+    const connectionText = document.getElementById('connection-text');
+    const walletStatus = document.getElementById('wallet-status');
+    const walletText = document.getElementById('wallet-text');
+    const peerCount = document.getElementById('peer-count');
+    const initializeBtn = document.getElementById('initialize-btn');
+    const connectBtn = document.getElementById('connect-btn');
+    const connectWalletBtn = document.getElementById('connect-wallet-btn');
+    const tradingPair = document.getElementById('trading-pair');
+    const buyBtn = document.getElementById('buy-btn');
+    const sellBtn = document.getElementById('sell-btn');
+    const priceInput = document.getElementById('price-input');
+    const amountInput = document.getElementById('amount-input');
+    const createOrderBtn = document.getElementById('create-order-btn');
+    const refreshOrdersBtn = document.getElementById('refresh-orders-btn');
+    const ordersContainer = document.getElementById('orders-container');
+    const notificationsContainer = document.getElementById('notifications');
+    
+    // State
+    let orderSide = 'buy';
+    
+    // Initialize SDK
+    initializeBtn.addEventListener('click', async () => {
+      initializeBtn.disabled = true;
+      initializeBtn.textContent = 'Initializing...';
+      
+      try {
+        await darkswap.initialize();
+        connectBtn.disabled = false;
+        initializeBtn.textContent = 'Initialized';
+        showNotification('SDK initialized successfully', 'success');
+      } catch (error) {
+        initializeBtn.disabled = false;
+        initializeBtn.textContent = 'Initialize SDK';
+        showNotification(`Failed to initialize SDK: ${error.message}`, 'error');
+      }
+    });
+    
+    // Connect to network
+    connectBtn.addEventListener('click', async () => {
+      if (darkswap.isConnected()) {
+        // Disconnect
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Disconnecting...';
+        
+        try {
+          await darkswap.disconnect();
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Connect to Network';
+          connectionStatus.classList.remove('bg-green-500');
+          connectionStatus.classList.add('bg-red-500');
+          connectionText.textContent = 'Disconnected';
+          peerCount.textContent = 'Peers: 0';
+          showNotification('Disconnected from network', 'info');
+        } catch (error) {
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Disconnect';
+          showNotification(`Failed to disconnect: ${error.message}`, 'error');
+        }
+      } else {
+        // Connect
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
+        
+        try {
+          await darkswap.connect();
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Disconnect';
+          connectionStatus.classList.remove('bg-red-500');
+          connectionStatus.classList.add('bg-green-500');
+          connectionText.textContent = 'Connected';
+          
+          const peers = await darkswap.getPeers();
+          peerCount.textContent = `Peers: ${peers.length}`;
+          
+          connectWalletBtn.disabled = false;
+          showNotification('Connected to network', 'success');
+        } catch (error) {
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Connect to Network';
+          showNotification(`Failed to connect: ${error.message}`, 'error');
+        }
+      }
+    });
+    
+    // Connect wallet
+    connectWalletBtn.addEventListener('click', async () => {
+      if (darkswap.isWalletConnected()) {
+        // Disconnect wallet
+        connectWalletBtn.disabled = true;
+        connectWalletBtn.textContent = 'Disconnecting...';
+        
+        try {
+          await darkswap.disconnectWallet();
+          connectWalletBtn.disabled = false;
+          connectWalletBtn.textContent = 'Connect Wallet';
+          walletStatus.classList.remove('bg-green-500');
+          walletStatus.classList.add('bg-red-500');
+          walletText.textContent = 'Wallet not connected';
+          
+          // Disable trading UI
+          tradingPair.disabled = true;
+          buyBtn.disabled = true;
+          sellBtn.disabled = true;
+          priceInput.disabled = true;
+          amountInput.disabled = true;
+          createOrderBtn.disabled = true;
+          refreshOrdersBtn.disabled = true;
+          
+          showNotification('Wallet disconnected', 'info');
+        } catch (error) {
+          connectWalletBtn.disabled = false;
+          connectWalletBtn.textContent = 'Disconnect Wallet';
+          showNotification(`Failed to disconnect wallet: ${error.message}`, 'error');
+        }
+      } else {
+        // Connect wallet
+        connectWalletBtn.disabled = true;
+        connectWalletBtn.textContent = 'Connecting...';
+        
+        try {
+          await darkswap.connectWallet();
+          connectWalletBtn.disabled = false;
+          connectWalletBtn.textContent = 'Disconnect Wallet';
+          walletStatus.classList.remove('bg-red-500');
+          walletStatus.classList.add('bg-green-500');
+          walletText.textContent = 'Wallet connected';
+          
+          // Enable trading UI
+          tradingPair.disabled = false;
+          buyBtn.disabled = false;
+          sellBtn.disabled = false;
+          priceInput.disabled = false;
+          amountInput.disabled = false;
+          createOrderBtn.disabled = false;
+          refreshOrdersBtn.disabled = false;
+          
+          showNotification('Wallet connected', 'success');
+          
+          // Load initial orders
+          await refreshOrders();
+        } catch (error) {
+          connectWalletBtn.disabled = false;
+          connectWalletBtn.textContent = 'Connect Wallet';
+          showNotification(`Failed to connect wallet: ${error.message}`, 'error');
+        }
+      }
+    });
+    
+    // Buy/Sell buttons
+    buyBtn.addEventListener('click', () => {
+      orderSide = 'buy';
+      buyBtn.classList.remove('btn-secondary');
+      buyBtn.classList.add('btn-success');
+      sellBtn.classList.remove('btn-danger');
+      sellBtn.classList.add('btn-secondary');
+    });
+    
+    sellBtn.addEventListener('click', () => {
+      orderSide = 'sell';
+      sellBtn.classList.remove('btn-secondary');
+      sellBtn.classList.add('btn-danger');
+      buyBtn.classList.remove('btn-success');
+      buyBtn.classList.add('btn-secondary');
+    });
+    
+    // Create order
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const [baseAsset, quoteAsset] = tradingPair.value.split('/');
+      const price = priceInput.value;
+      const amount = amountInput.value;
+      
+      if (!price || !amount) {
+        showNotification('Please enter price and amount', 'error');
+        return;
+      }
+      
+      createOrderBtn.disabled = true;
+      createOrderBtn.textContent = 'Creating...';
+      
+      try {
+        const order = {
+          baseAsset,
+          quoteAsset,
+          side: orderSide,
+          type: 'limit',
+          price,
+          amount,
+        };
+        
+        const orderId = await darkswap.createOrder(order);
+        createOrderBtn.disabled = false;
+        createOrderBtn.textContent = 'Create Order';
+        
+        // Reset form
+        priceInput.value = '';
+        amountInput.value = '';
+        
+        showNotification(`Order created with ID: ${orderId}`, 'success');
+        
+        // Refresh orders
+        await refreshOrders();
+      } catch (error) {
+        createOrderBtn.disabled = false;
+        createOrderBtn.textContent = 'Create Order';
+        showNotification(`Failed to create order: ${error.message}`, 'error');
+      }
+    });
+    
+    // Refresh orders
+    refreshOrdersBtn.addEventListener('click', refreshOrders);
+    
+    async function refreshOrders() {
+      refreshOrdersBtn.disabled = true;
+      refreshOrdersBtn.textContent = 'Refreshing...';
+      
+      try {
+        const orders = await darkswap.getOrders();
+        refreshOrdersBtn.disabled = false;
+        refreshOrdersBtn.textContent = 'Refresh Orders';
+        
+        // Update orders container
+        if (orders.length === 0) {
+          ordersContainer.innerHTML = '<div class="text-gray-400 text-center py-4">No orders available</div>';
+        } else {
+          ordersContainer.innerHTML = '';
+          orders.forEach(order => {
+            const orderElement = document.createElement('div');
+            orderElement.className = 'p-3 bg-gray-800 rounded-lg';
+            
+            const statusClass = order.status === 'active' ? 'badge-success' : 'badge-info';
+            
+            orderElement.innerHTML = `
+              <div class="flex justify-between items-center mb-1">
+                <div class="font-medium">${order.baseAsset}/${order.quoteAsset}</div>
+                <div class="badge ${statusClass}">${order.status}</div>
+              </div>
+              <div class="flex justify-between text-sm">
+                <div class="${order.side === 'buy' ? 'text-green-500' : 'text-red-500'}">${order.side.toUpperCase()}</div>
+                <div>${order.amount} @ ${order.price}</div>
+              </div>
+              <div class="flex justify-between text-xs text-gray-400 mt-1">
+                <div>ID: ${order.id.substring(0, 8)}...</div>
+                <div>${new Date(order.createdAt).toLocaleTimeString()}</div>
+              </div>
+              ${order.status === 'active' ? `
+                <button class="cancel-order-btn btn btn-danger w-full mt-2 text-sm py-1" data-order-id="${order.id}">Cancel</button>
+              ` : ''}
+            `;
+            
+            ordersContainer.appendChild(orderElement);
+          });
+          
+          // Add event listeners to cancel buttons
+          document.querySelectorAll('.cancel-order-btn').forEach(button => {
+            button.addEventListener('click', async () => {
+              const orderId = button.getAttribute('data-order-id');
+              button.disabled = true;
+              button.textContent = 'Canceling...';
+              
+              try {
+                await darkswap.cancelOrder(orderId);
+                showNotification(`Order ${orderId.substring(0, 8)}... canceled`, 'info');
+                await refreshOrders();
+              } catch (error) {
+                button.disabled = false;
+                button.textContent = 'Cancel';
+                showNotification(`Failed to cancel order: ${error.message}`, 'error');
+              }
+            });
+          });
+        }
+      } catch (error) {
+        refreshOrdersBtn.disabled = false;
+        refreshOrdersBtn.textContent = 'Refresh Orders';
+        showNotification(`Failed to refresh orders: ${error.message}`, 'error');
+      }
+    }
+    
+    // Show notification
+    function showNotification(message, type) {
+      const notification = document.createElement('div');
+      notification.className = `p-3 rounded-lg shadow-lg ${getNotificationClass(type)}`;
+      notification.textContent = message;
+      
+      notificationsContainer.appendChild(notification);
+      
+      // Remove notification after 5 seconds
+      setTimeout(() => {
+        notification.classList.add('opacity-0');
+        setTimeout(() => {
+          notification.remove();
+        }, 300);
+      }, 5000);
+    }
+    
+    function getNotificationClass(type) {
+      switch (type) {
+        case 'success':
+          return 'bg-green-800 text-green-100';
+        case 'error':
+          return 'bg-red-800 text-red-100';
+        case 'warning':
+          return 'bg-yellow-800 text-yellow-100';
+        case 'info':
+        default:
+          return 'bg-blue-800 text-blue-100';
+      }
+    }
+    
+    // Event listeners
+    darkswap.on('network', (event) => {
+      console.log('Network event:', event);
+    });
+    
+    darkswap.on('order', (event) => {
+      console.log('Order event:', event);
+    });
+    
+    darkswap.on('wallet', (event) => {
+      console.log('Wallet event:', event);
+    });
+  </script>
+</body>
+</html>

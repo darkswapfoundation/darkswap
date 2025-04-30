@@ -1,0 +1,102 @@
+groups:
+  - name: darkswap_node_alerts
+    rules:
+      # CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for 5 minutes."
+
+      # Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 80% for 5 minutes."
+
+      # Disk Usage
+      - alert: HighDiskUsage
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"}) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 80% for 5 minutes."
+
+      # Disk Will Fill In 4 Hours
+      - alert: DiskWillFillIn4Hours
+        expr: predict_linear(node_filesystem_free_bytes{mountpoint="/"}[1h], 4 * 3600) < 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk will fill in 4 hours on {{ $labels.instance }}"
+          description: "Disk will fill in 4 hours at current write rate."
+
+      # High Load Average
+      - alert: HighLoadAverage
+        expr: node_load1 > (count by (instance) (node_cpu_seconds_total{mode="idle"}) * 0.8)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High load average on {{ $labels.instance }}"
+          description: "Load average is above 80% of CPU cores for 5 minutes."
+
+      # Swap Usage
+      - alert: HighSwapUsage
+        expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High swap usage on {{ $labels.instance }}"
+          description: "Swap usage is above 80% for 5 minutes."
+
+      # Network Traffic
+      - alert: HighNetworkTraffic
+        expr: sum by (instance) (rate(node_network_receive_bytes_total[5m])) + sum by (instance) (rate(node_network_transmit_bytes_total[5m])) > 100 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network traffic on {{ $labels.instance }}"
+          description: "Network traffic is above 100 MB/s for 5 minutes."
+
+      # Context Switches
+      - alert: HighContextSwitches
+        expr: rate(node_context_switches_total[5m]) > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High context switches on {{ $labels.instance }}"
+          description: "Context switches are above 10000 per second for 5 minutes."
+
+      # File Descriptors
+      - alert: HighFileDescriptors
+        expr: node_filefd_allocated / node_filefd_maximum * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High file descriptors on {{ $labels.instance }}"
+          description: "File descriptors are above 80% for 5 minutes."
+
+      # System Uptime
+      - alert: SystemRestarted
+        expr: node_time_seconds - node_boot_time_seconds < 300
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "System restarted on {{ $labels.instance }}"
+          description: "System was restarted less than 5 minutes ago."

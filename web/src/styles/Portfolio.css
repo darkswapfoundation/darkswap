@@ -1,0 +1,217 @@
+/* Portfolio.css - Styles for the Portfolio component */
+
+.portfolio {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-light {
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.portfolio-dark {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.portfolio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid;
+}
+
+.portfolio-light .portfolio-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.portfolio-dark .portfolio-header {
+  border-bottom-color: #2d2d3d;
+}
+
+.portfolio-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.portfolio-total {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.portfolio-total-value {
+  font-weight: 600;
+  color: #3861fb;
+}
+
+.portfolio-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.portfolio-header-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.portfolio-balances {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.portfolio-balance-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  padding: 12px 16px;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid;
+}
+
+.portfolio-light .portfolio-balance-row {
+  border-bottom-color: #f0f0f0;
+}
+
+.portfolio-dark .portfolio-balance-row {
+  border-bottom-color: #252535;
+}
+
+.portfolio-light .portfolio-balance-row:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.portfolio-dark .portfolio-balance-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-asset {
+  display: flex;
+  flex-direction: column;
+}
+
+.portfolio-asset-symbol {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.portfolio-asset-name {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.portfolio-balance {
+  display: flex;
+  flex-direction: column;
+}
+
+.portfolio-balance-total {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.portfolio-balance-available {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.portfolio-value {
+  font-weight: 500;
+  text-align: right;
+}
+
+.portfolio-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.portfolio-loading, .portfolio-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  flex: 1;
+}
+
+.portfolio-loading .spinner {
+  margin-bottom: 16px;
+}
+
+.portfolio-error {
+  color: #ff3232;
+}
+
+.portfolio-error button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3861fb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.portfolio-error button:hover {
+  background-color: #2a4cd8;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .portfolio-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .portfolio-header-row {
+    padding: 8px 12px;
+  }
+  
+  .portfolio-balance-row {
+    padding: 12px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .portfolio-asset {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .portfolio-asset-name {
+    margin-top: 0;
+  }
+  
+  .portfolio-balance {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .portfolio-value {
+    text-align: left;
+  }
+}

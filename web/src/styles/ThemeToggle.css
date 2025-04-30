@@ -1,0 +1,85 @@
+/* ThemeToggle.css - Styles for the ThemeToggle component */
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+  color: inherit;
+}
+
+.theme-toggle-button.light {
+  color: #f7931a;
+}
+
+.theme-toggle-button.dark {
+  color: #f7931a;
+}
+
+.theme-toggle-button:hover {
+  transform: rotate(15deg);
+}
+
+.theme-toggle-small .theme-toggle-button {
+  width: 24px;
+  height: 24px;
+}
+
+.theme-toggle-medium .theme-toggle-button {
+  width: 32px;
+  height: 32px;
+}
+
+.theme-toggle-large .theme-toggle-button {
+  width: 40px;
+  height: 40px;
+}
+
+.theme-toggle-small .theme-toggle-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.theme-toggle-medium .theme-toggle-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-toggle-large .theme-toggle-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.theme-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.theme-toggle-small .theme-toggle-label {
+  font-size: 12px;
+}
+
+.theme-toggle-large .theme-toggle-label {
+  font-size: 16px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .theme-toggle {
+    gap: 4px;
+  }
+  
+  .theme-toggle-label {
+    display: none;
+  }
+}

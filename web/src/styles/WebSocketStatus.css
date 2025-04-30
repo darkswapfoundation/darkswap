@@ -1,0 +1,80 @@
+/* WebSocketStatus.css - Styles for the WebSocketStatus component */
+
+.websocket-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.websocket-status-indicator {
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.websocket-status-small .websocket-status-indicator {
+  width: 8px;
+  height: 8px;
+}
+
+.websocket-status-medium .websocket-status-indicator {
+  width: 10px;
+  height: 10px;
+}
+
+.websocket-status-large .websocket-status-indicator {
+  width: 12px;
+  height: 12px;
+}
+
+.websocket-status-indicator.connected {
+  background-color: #00c864;
+  box-shadow: 0 0 6px rgba(0, 200, 100, 0.5);
+}
+
+.websocket-status-indicator.connecting {
+  background-color: #f7931a;
+  box-shadow: 0 0 6px rgba(247, 147, 26, 0.5);
+  animation: pulse 1.5s infinite;
+}
+
+.websocket-status-indicator.disconnected {
+  background-color: #ff3232;
+  box-shadow: 0 0 6px rgba(255, 50, 50, 0.5);
+}
+
+.websocket-status-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.websocket-status-small .websocket-status-label {
+  font-size: 10px;
+}
+
+.websocket-status-medium .websocket-status-label {
+  font-size: 12px;
+}
+
+.websocket-status-large .websocket-status-label {
+  font-size: 14px;
+}
+
+.websocket-status-light .websocket-status-label {
+  color: #333333;
+}
+
+.websocket-status-dark .websocket-status-label {
+  color: #e0e0e0;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}

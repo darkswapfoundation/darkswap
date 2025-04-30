@@ -1,0 +1,445 @@
+/* Home page styles */
+
+.home-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Hero section */
+.hero {
+  padding: 60px 0;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.hero-subtitle {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.hero-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* Features section */
+.features {
+  padding: 40px 0;
+  margin-bottom: 40px;
+}
+
+.features h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-primary);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.feature-card {
+  background-color: var(--color-background-secondary);
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.feature-card p {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Demo section */
+.demo-section {
+  padding: 40px;
+  margin: 40px 0;
+  background-color: var(--color-background-secondary);
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.demo-section h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.demo-section p {
+  max-width: 700px;
+  margin: 0 auto 2rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.demo-buttons {
+  display: flex;
+  justify-content: center;
+}
+
+/* WebRTC demo section */
+.webrtc-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/webrtc-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.webrtc-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.webrtc-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Lazy loading demo section */
+.lazy-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/lazy-loading-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.lazy-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.lazy-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Streaming demo section */
+.streaming-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/streaming-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.streaming-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.streaming-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Web Worker demo section */
+.web-worker-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/web-worker-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.web-worker-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.web-worker-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Code Split demo section */
+.code-split-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/code-split-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.code-split-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.code-split-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* SIMD demo section */
+.simd-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/simd-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.simd-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.simd-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Shared Memory demo section */
+.shared-memory-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/shared-memory-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.shared-memory-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.shared-memory-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Dynamic Chunk Size demo section */
+.dynamic-chunk-size-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/dynamic-chunk-size-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.dynamic-chunk-size-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.dynamic-chunk-size-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Combined Optimizations demo section */
+.combined-optimizations-demo-section {
+  background-color: var(--color-background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)), 
+                    url('/images/combined-optimizations-background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--color-text-primary);
+}
+
+.combined-optimizations-demo-section h2 {
+  color: var(--color-primary);
+}
+
+.combined-optimizations-demo-section p {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Tools section */
+.tools-section {
+  padding: 40px 0;
+  margin-bottom: 40px;
+}
+
+.tools-section h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-primary);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+}
+
+.tool-card {
+  background-color: var(--color-background-secondary);
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tool-card:hover {
+  transform: translateY(-5px);
+}
+
+.tool-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.tool-card h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.tool-card p {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.tool-card .btn {
+  margin-top: auto;
+}
+
+/* Getting started section */
+.getting-started {
+  padding: 40px 0;
+  margin-bottom: 40px;
+}
+
+.getting-started h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-primary);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.step {
+  position: relative;
+  background-color: var(--color-background-secondary);
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0 auto 1rem;
+}
+
+.step h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.step p {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Button styles */
+.btn {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.2rem;
+  }
+  
+  .hero-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .feature-grid,
+  .steps,
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+}

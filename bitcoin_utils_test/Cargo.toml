@@ -1,0 +1,9 @@
+[package]
+name = "bitcoin_utils_test"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+bitcoin = "0.30.2"

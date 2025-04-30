@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarkSwap Wallet Example (JavaScript)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, button, select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: monospace;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DarkSwap Wallet Example (JavaScript)</h1>
+        
+        <div class="card">
+            <h2>Wallet Status</h2>
+            <p>Address: <span id="wallet-address">Not connected</span></p>
+            <p>BTC Balance: <span id="btc-balance">0</span> satoshis</p>
+            <button id="create-wallet-btn">Create Wallet</button>
+        </div>
+        
+        <div class="card">
+            <h2>Asset Balances</h2>
+            <div class="form-group">
+                <label for="asset-type">Asset Type:</label>
+                <select id="asset-type">
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="rune">Rune</option>
+                    <option value="alkane">Alkane</option>
+                </select>
+            </div>
+            <div class="form-group" id="asset-id-group" style="display: none;">
+                <label for="asset-id">Asset ID:</label>
+                <input type="text" id="asset-id" placeholder="0x123">
+            </div>
+            <button id="check-balance-btn">Check Balance</button>
+            <p>Asset Balance: <span id="asset-balance">0</span></p>
+        </div>
+        
+        <div class="card">
+            <h2>Create Order PSBT</h2>
+            <div class="form-group">
+                <label for="order-id">Order ID:</label>
+                <input type="text" id="order-id" value="order-123">
+            </div>
+            <div class="form-group">
+                <label for="base-asset-type">Base Asset Type:</label>
+                <select id="base-asset-type">
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="rune">Rune</option>
+                    <option value="alkane">Alkane</option>
+                </select>
+            </div>
+            <div class="form-group" id="base-asset-id-group" style="display: none;">
+                <label for="base-asset-id">Base Asset ID:</label>
+                <input type="text" id="base-asset-id" placeholder="0x123">
+            </div>
+            <div class="form-group">
+                <label for="quote-asset-type">Quote Asset Type:</label>
+                <select id="quote-asset-type">
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="rune">Rune</option>
+                    <option value="alkane">Alkane</option>
+                </select>
+            </div>
+            <div class="form-group" id="quote-asset-id-group" style="display: none;">
+                <label for="quote-asset-id">Quote Asset ID:</label>
+                <input type="text" id="quote-asset-id" placeholder="0x123">
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount (in satoshis):</label>
+                <input type="number" id="amount" value="1000000">
+            </div>
+            <div class="form-group">
+                <label for="price">Price (in satoshis):</label>
+                <input type="number" id="price" value="20000000">
+            </div>
+            <button id="create-order-psbt-btn">Create Order PSBT</button>
+            <p>PSBT: <span id="psbt-result"></span></p>
+        </div>
+        
+        <div class="card">
+            <h2>Log</h2>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock implementation of the wallet functionality
+        class Asset {
+            constructor(assetType, id = null) {
+                this.assetType = assetType;
+                this.id = id;
+            }
+
+            static bitcoin() {
+                return new Asset('bitcoin');
+            }
+
+            static rune(id) {
+                return new Asset('rune', id);
+            }
+
+            static alkane(id) {
+                return new Asset('alkane', id);
+            }
+        }
+
+        class WalletConfig {
+            constructor() {
+                this.network = 'testnet';
+                this.privateKey = null;
+                this.mnemonic = null;
+                this.derivationPath = null;
+            }
+
+            setNetwork(network) {
+                this.network = network;
+            }
+
+            getNetwork() {
+                return this.network;
+            }
+
+            setPrivateKey(privateKey) {
+                this.privateKey = privateKey;
+            }
+
+            getPrivateKey() {
+                return this.privateKey;
+            }
+
+            setMnemonic(mnemonic) {
+                this.mnemonic = mnemonic;
+            }
+
+            getMnemonic() {
+                return this.mnemonic;
+            }
+
+            setDerivationPath(derivationPath) {
+                this.derivationPath = derivationPath;
+            }
+
+            getDerivationPath() {
+                return this.derivationPath;
+            }
+        }
+
+        class Wallet {
+            constructor(config) {
+                console.log('Creating new wallet (mock)...');
+                this.balances = {
+                    'BTC': 100_000_000, // 1 BTC
+                    'RUNE:0x123': 1000, // 1000 RUNE:0x123
+                    'ALKANE:0x456': 500, // 500 ALKANE:0x456
+                };
+                console.log('Wallet created successfully (mock)');
+            }
+
+            getAddress() {
+                return 'bc1qmock000000000000000000000000000000000000';
+            }
+
+            getBalance() {
+                return this.balances['BTC'] || 0;
+            }
+
+            getAssetBalance(asset) {
+                let key;
+                switch (asset.assetType) {
+                    case 'bitcoin':
+                        key = 'BTC';
+                        break;
+                    case 'rune':
+                        if (!asset.id) return 0;
+                        key = `RUNE:${asset.id}`;
+                        break;
+                    case 'alkane':
+                        if (!asset.id) return 0;
+                        key = `ALKANE:${asset.id}`;
+                        break;
+                    default:
+                        return 0;
+                }
+                return this.balances[key] || 0;
+            }
+
+            createOrderPsbt(orderId, baseAsset, quoteAsset, amount, price) {
+                // Check if we have enough balance
+                let baseKey;
+                switch (baseAsset.assetType) {
+                    case 'bitcoin':
+                        baseKey = 'BTC';
+                        break;
+                    case 'rune':
+                        if (!baseAsset.id) throw new Error('Rune asset must have an ID');
+                        baseKey = `RUNE:${baseAsset.id}`;
+                        break;
+                    case 'alkane':
+                        if (!baseAsset.id) throw new Error('Alkane asset must have an ID');
+                        baseKey = `ALKANE:${baseAsset.id}`;
+                        break;
+                    default:
+                        throw new Error('Invalid asset type');
+                }
+                
+                const baseBalance = this.balances[baseKey] || 0;
+                
+                if (baseBalance < amount) {
+                    throw new Error('Insufficient funds');
+                }
+                
+                // In a real implementation, we would create a PSBT
+                // For now, just return a dummy PSBT
+                return 'dummy_psbt_base64_string';
+            }
+
+            signPsbt(psbtBase64) {
+                // In a real implementation, we would sign the PSBT
+                // For now, just return the same PSBT
+                return psbtBase64;
+            }
+
+            finalizeAndBroadcastPsbt(psbtBase64) {
+                // In a real implementation, we would finalize and broadcast the PSBT
+                // For now, just return a dummy txid
+                return '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+            }
+
+            verifyPsbt(psbtBase64) {
+                // In a real implementation, we would verify the PSBT
+                // For now, just return true
+                return true;
+            }
+        }
+
+        // UI functionality
+        let wallet = null;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function createWallet() {
+            try {
+                // Create wallet configuration
+                const config = new WalletConfig();
+                config.setNetwork('testnet');
+                
+                // Create wallet
+                wallet = new Wallet(config);
+                log('Wallet created successfully');
+                
+                // Get wallet address
+                const address = wallet.getAddress();
+                document.getElementById('wallet-address').textContent = address;
+                log(`Wallet address: ${address}`);
+                
+                // Get BTC balance
+                const balance = wallet.getBalance();
+                document.getElementById('btc-balance').textContent = balance;
+                log(`BTC balance: ${balance} satoshis`);
+            } catch (error) {
+                log(`Error creating wallet: ${error}`);
+            }
+        }
+
+        function checkAssetBalance() {
+            if (!wallet) {
+                log('Please create a wallet first');
+                return;
+            }
+            
+            try {
+                const assetType = document.getElementById('asset-type').value;
+                let asset;
+                
+                if (assetType === 'bitcoin') {
+                    asset = Asset.bitcoin();
+                } else if (assetType === 'rune') {
+                    const assetId = document.getElementById('asset-id').value;
+                    if (!assetId) {
+                        log('Please enter an asset ID for Rune');
+                        return;
+                    }
+                    asset = Asset.rune(assetId);
+                } else if (assetType === 'alkane') {
+                    const assetId = document.getElementById('asset-id').value;
+                    if (!assetId) {
+                        log('Please enter an asset ID for Alkane');
+                        return;
+                    }
+                    asset = Asset.alkane(assetId);
+                }
+                
+                const balance = wallet.getAssetBalance(asset);
+                document.getElementById('asset-balance').textContent = balance;
+                log(`${assetType} balance: ${balance}`);
+            } catch (error) {
+                log(`Error checking asset balance: ${error}`);
+            }
+        }
+
+        function createOrderPsbt() {
+            if (!wallet) {
+                log('Please create a wallet first');
+                return;
+            }
+            
+            try {
+                const orderId = document.getElementById('order-id').value;
+                const baseAssetType = document.getElementById('base-asset-type').value;
+                const quoteAssetType = document.getElementById('quote-asset-type').value;
+                const amount = parseInt(document.getElementById('amount').value);
+                const price = parseInt(document.getElementById('price').value);
+                
+                let baseAsset, quoteAsset;
+                
+                // Create base asset
+                if (baseAssetType === 'bitcoin') {
+                    baseAsset = Asset.bitcoin();
+                } else if (baseAssetType === 'rune') {
+                    const baseAssetId = document.getElementById('base-asset-id').value;
+                    if (!baseAssetId) {
+                        log('Please enter a base asset ID for Rune');
+                        return;
+                    }
+                    baseAsset = Asset.rune(baseAssetId);
+                } else if (baseAssetType === 'alkane') {
+                    const baseAssetId = document.getElementById('base-asset-id').value;
+                    if (!baseAssetId) {
+                        log('Please enter a base asset ID for Alkane');
+                        return;
+                    }
+                    baseAsset = Asset.alkane(baseAssetId);
+                }
+                
+                // Create quote asset
+                if (quoteAssetType === 'bitcoin') {
+                    quoteAsset = Asset.bitcoin();
+                } else if (quoteAssetType === 'rune') {
+                    const quoteAssetId = document.getElementById('quote-asset-id').value;
+                    if (!quoteAssetId) {
+                        log('Please enter a quote asset ID for Rune');
+                        return;
+                    }
+                    quoteAsset = Asset.rune(quoteAssetId);
+                } else if (quoteAssetType === 'alkane') {
+                    const quoteAssetId = document.getElementById('quote-asset-id').value;
+                    if (!quoteAssetId) {
+                        log('Please enter a quote asset ID for Alkane');
+                        return;
+                    }
+                    quoteAsset = Asset.alkane(quoteAssetId);
+                }
+                
+                // Create order PSBT
+                const psbt = wallet.createOrderPsbt(orderId, baseAsset, quoteAsset, amount, price);
+                document.getElementById('psbt-result').textContent = psbt;
+                log(`Created order PSBT: ${psbt}`);
+            } catch (error) {
+                log(`Error creating order PSBT: ${error}`);
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('create-wallet-btn').addEventListener('click', createWallet);
+        document.getElementById('check-balance-btn').addEventListener('click', checkAssetBalance);
+        document.getElementById('create-order-psbt-btn').addEventListener('click', createOrderPsbt);
+        
+        // Show/hide asset ID field based on asset type
+        document.getElementById('asset-type').addEventListener('change', function() {
+            const assetType = this.value;
+            const assetIdGroup = document.getElementById('asset-id-group');
+            
+            if (assetType === 'bitcoin') {
+                assetIdGroup.style.display = 'none';
+            } else {
+                assetIdGroup.style.display = 'block';
+            }
+        });
+        
+        // Show/hide base asset ID field based on asset type
+        document.getElementById('base-asset-type').addEventListener('change', function() {
+            const assetType = this.value;
+            const assetIdGroup = document.getElementById('base-asset-id-group');
+            
+            if (assetType === 'bitcoin') {
+                assetIdGroup.style.display = 'none';
+            } else {
+                assetIdGroup.style.display = 'block';
+            }
+        });
+        
+        // Show/hide quote asset ID field based on asset type
+        document.getElementById('quote-asset-type').addEventListener('change', function() {
+            const assetType = this.value;
+            const assetIdGroup = document.getElementById('quote-asset-id-group');
+            
+            if (assetType === 'bitcoin') {
+                assetIdGroup.style.display = 'none';
+            } else {
+                assetIdGroup.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

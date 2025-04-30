@@ -1,0 +1,84 @@
+name: Mobile App CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'darkswap-bridge/mobile/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'darkswap-bridge/mobile/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darkswap-bridge/mobile
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: darkswap-bridge/mobile/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Upload test coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage
+        path: darkswap-bridge/mobile/coverage
+
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darkswap-bridge/mobile
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: darkswap-bridge/mobile/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linting
+      run: npm run lint
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darkswap-bridge/mobile
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: darkswap-bridge/mobile/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: TypeScript Check
+      run: npx tsc --noEmit

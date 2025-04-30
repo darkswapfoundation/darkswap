@@ -1,0 +1,53 @@
+{
+  "api": {
+    "listen_address": "127.0.0.1:3000",
+    "enable_cors": true,
+    "cors_allowed_origins": ["*"],
+    "enable_https": false,
+    "ssl_cert_path": "",
+    "ssl_key_path": ""
+  },
+  "p2p": {
+    "listen_addresses": ["/ip4/0.0.0.0/tcp/9000"],
+    "bootstrap_peers": [],
+    "relay_servers": [],
+    "node_id": null,
+    "enable_webrtc": true,
+    "enable_circuit_relay": true,
+    "enable_dht": true,
+    "enable_gossipsub": true
+  },
+  "bitcoin": {
+    "network": "testnet",
+    "rpc_url": null,
+    "rpc_username": null,
+    "rpc_password": null,
+    "wallet_type": "simple",
+    "wallet_path": null
+  },
+  "log": {
+    "level": "info",
+    "log_to_file": false,
+    "log_file_path": null,
+    "log_request_body": false,
+    "log_response_body": false,
+    "max_body_size": 1024,
+    "exclude_paths": ["/health"],
+    "include_paths": []
+  },
+  "rate_limit": {
+    "limit": 100,
+    "window": 60,
+    "sliding_window": true,
+    "exclude_paths": ["/health"],
+    "include_paths": [],
+    "authenticated_limit": 1000
+  },
+  "auth": {
+    "secret_key": "change_this_to_a_secure_random_string",
+    "token_expiration": 86400,
+    "exclude_paths": ["/health", "/auth/login"],
+    "include_paths": []
+  },
+  "data_dir": "./data"
+}

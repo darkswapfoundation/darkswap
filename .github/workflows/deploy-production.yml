@@ -1,0 +1,296 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (required)'
+        required: true
+      confirm:
+        description: 'Type "yes" to confirm production deployment'
+        required: true
+
+jobs:
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check confirmation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "yes" ]; then
+            echo "Deployment not confirmed. Please type 'yes' to confirm."
+            exit 1
+          fi
+      
+      - name: Check version format
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format. Please use semantic versioning (e.g., 1.0.0)."
+            exit 1
+          fi
+  
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: coverage/
+  
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build SDK
+        run: |
+          cd darkswap-sdk
+          ./build.sh --release
+      
+      - name: Build Web App
+        run: |
+          cd web
+          REACT_APP_ENV=production REACT_APP_VERSION=${{ github.event.inputs.version || github.ref_name }} npm run build
+      
+      - name: Optimize WebAssembly
+        run: ./darkswap-bridge/optimize-wasm.sh
+      
+      - name: Upload web build
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-build
+          path: web/build/
+      
+      - name: Upload backend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build
+          path: |
+            target/release/darkswap-daemon
+            target/release/darkswap-cli
+            target/wasm32-unknown-unknown/release/*.wasm
+  
+  deploy-web:
+    name: Deploy Web App
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download web build
+        uses: actions/download-artifact@v3
+        with:
+          name: web-build
+          path: web/build
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Deploy to S3
+        run: aws s3 sync web/build/ s3://darkswap-web --delete
+      
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+  
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download backend build
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-build
+          path: deploy
+      
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PRODUCTION_SERVER }} >> ~/.ssh/known_hosts
+      
+      - name: Create version file
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "$VERSION" > deploy/VERSION
+      
+      - name: Copy config
+        run: cp config/production.js deploy/config.js
+      
+      - name: Create deployment package
+        run: tar -czf deploy.tar.gz -C deploy .
+      
+      - name: Upload to server
+        run: scp deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_SERVER }}:/tmp/
+      
+      - name: Deploy on server
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_SERVER }} << 'EOF'
+            set -e
+            echo "Creating backup..."
+            BACKUP_DIR="/var/www/darkswap-production-backup-$(date +%Y%m%d-%H%M%S)"
+            sudo cp -r /var/www/darkswap-production $BACKUP_DIR
+            
+            echo "Stopping services..."
+            sudo systemctl stop darkswap-daemon.service || true
+            
+            echo "Extracting deployment package..."
+            sudo mkdir -p /var/www/darkswap-production
+            sudo tar -xzf /tmp/deploy.tar.gz -C /var/www/darkswap-production
+            
+            echo "Setting permissions..."
+            sudo chown -R darkswap:darkswap /var/www/darkswap-production
+            sudo chmod +x /var/www/darkswap-production/darkswap-daemon
+            sudo chmod +x /var/www/darkswap-production/darkswap-cli
+            
+            echo "Starting services..."
+            sudo systemctl start darkswap-daemon.service
+            
+            echo "Cleaning up..."
+            rm /tmp/deploy.tar.gz
+          EOF
+  
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-web, deploy-backend]
+    environment: production
+    
+    steps:
+      - name: Check web app
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://darkswap.io)
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Web app returned HTTP status $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Web app is up and running!"
+      
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PRODUCTION_SERVER }} >> ~/.ssh/known_hosts
+      
+      - name: Check backend services
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.PRODUCTION_SERVER }} << 'EOF'
+            set -e
+            if systemctl is-active --quiet darkswap-daemon.service; then
+              echo "Daemon is running"
+              DEPLOYED_VERSION=$(cat /var/www/darkswap-production/VERSION)
+              echo "Deployed version: $DEPLOYED_VERSION"
+            else
+              echo "Daemon is not running"
+              exit 1
+            fi
+          EOF
+  
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: verify
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: DarkSwap ${{ env.VERSION }}
+          tag_name: v${{ env.VERSION }}
+          body: |
+            # DarkSwap ${{ env.VERSION }}
+            
+            Production release of DarkSwap version ${{ env.VERSION }}.
+            
+            ## Deployment Information
+            
+            - Deployed on: ${{ github.event.repository.updated_at }}
+            - Deployed by: ${{ github.actor }}
+            - Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+      
+      - name: Send notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: deployments
+          SLACK_COLOR: good
+          SLACK_TITLE: Production Deployment Successful
+          SLACK_MESSAGE: "DarkSwap v${{ env.VERSION }} has been successfully deployed to production environment"
+          SLACK_FOOTER: "GitHub Actions"

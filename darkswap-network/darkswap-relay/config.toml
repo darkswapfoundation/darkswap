@@ -1,0 +1,177 @@
+# DarkSwap Relay Server Configuration
+
+# Server settings
+[server]
+# The address to bind to
+host = "0.0.0.0"
+# The port to listen on
+port = 9090
+# Maximum number of concurrent connections
+max_connections = 1000
+# Connection timeout in seconds
+connection_timeout = 60
+# Keep-alive interval in seconds
+keep_alive_interval = 30
+# Maximum message size in bytes
+max_message_size = 1048576  # 1 MB
+
+# WebRTC settings
+[webrtc]
+# STUN server URLs
+stun_servers = [
+    "stun:stun.l.google.com:19302",
+    "stun:stun1.l.google.com:19302",
+    "stun:stun2.l.google.com:19302",
+    "stun:stun3.l.google.com:19302",
+    "stun:stun4.l.google.com:19302"
+]
+# TURN server URLs (optional)
+turn_servers = []
+# ICE candidate gathering timeout in seconds
+ice_gathering_timeout = 10
+# ICE connection timeout in seconds
+ice_connection_timeout = 30
+
+# Circuit relay settings
+[circuit_relay]
+# Enable circuit relay functionality
+enabled = true
+# Maximum number of hops
+max_hops = 2
+# Maximum circuit lifetime in seconds
+max_circuit_lifetime = 3600  # 1 hour
+# Maximum number of circuits per peer
+max_circuits_per_peer = 10
+# Circuit establishment timeout in seconds
+circuit_establishment_timeout = 30
+
+# Security settings
+[security]
+# Enable TLS
+tls_enabled = true
+# TLS certificate file
+tls_cert_file = "/app/certs/cert.pem"
+# TLS key file
+tls_key_file = "/app/certs/key.pem"
+# Enable peer authentication
+peer_authentication_enabled = true
+# Maximum number of authentication attempts
+max_auth_attempts = 3
+# Authentication timeout in seconds
+auth_timeout = 10
+# Enable rate limiting
+rate_limiting_enabled = true
+# Maximum number of requests per minute per IP
+max_requests_per_minute = 100
+# Maximum number of connections per IP
+max_connections_per_ip = 10
+
+# Logging settings
+[logging]
+# Log level (trace, debug, info, warn, error)
+level = "info"
+# Log file (optional)
+file = "/app/logs/relay.log"
+# Enable console logging
+console = true
+# Enable JSON formatting
+json = false
+# Enable log rotation
+rotation_enabled = true
+# Maximum log file size in bytes
+max_file_size = 10485760  # 10 MB
+# Maximum number of log files
+max_files = 5
+
+# Metrics settings
+[metrics]
+# Enable metrics collection
+enabled = true
+# Metrics endpoint
+endpoint = "/metrics"
+# Metrics collection interval in seconds
+interval = 60
+
+# Discovery settings
+[discovery]
+# Enable peer discovery
+enabled = true
+# Discovery interval in seconds
+interval = 300
+# Maximum number of peers to discover
+max_peers = 100
+# Peer exchange interval in seconds
+peer_exchange_interval = 600
+# Enable mDNS discovery
+mdns_enabled = true
+# Enable DHT discovery
+dht_enabled = true
+# DHT bootstrap nodes
+dht_bootstrap_nodes = [
+    "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+    "/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+    "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+    "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt"
+]
+
+# GossipSub settings
+[gossipsub]
+# Enable GossipSub
+enabled = true
+# Heartbeat interval in seconds
+heartbeat_interval = 1
+# Message cache size
+message_cache_size = 100
+# Message ID function (sha256, blake2b, murmur3)
+message_id_fn = "sha256"
+# GossipSub history length
+history_length = 5
+# GossipSub history gossip
+history_gossip = 3
+# GossipSub D parameter (degree)
+d = 6
+# GossipSub D_low parameter
+d_low = 4
+# GossipSub D_high parameter
+d_high = 12
+# GossipSub D_score parameter
+d_score = 4
+# GossipSub D_out parameter
+d_out = 2
+# GossipSub gossip factor
+gossip_factor = 0.25
+# GossipSub gossip retransmission
+gossip_retransmission = 3
+# GossipSub prune backoff
+prune_backoff = 60
+# GossipSub prune peers
+prune_peers = 16
+# GossipSub graft flood threshold
+graft_flood_threshold = 10
+# GossipSub mesh outbound quota
+mesh_outbound_quota = 2
+# GossipSub mesh inbound quota
+mesh_inbound_quota = 4
+# GossipSub mesh n_low
+mesh_n_low = 4
+# GossipSub mesh n_high
+mesh_n_high = 12
+# GossipSub opportunistic graft interval in seconds
+opportunistic_graft_interval = 60
+# GossipSub opportunistic graft peers
+opportunistic_graft_peers = 2
+
+# Admin settings
+[admin]
+# Enable admin API
+enabled = true
+# Admin API host
+host = "127.0.0.1"
+# Admin API port
+port = 9091
+# Admin API username
+username = "admin"
+# Admin API password (hashed)
+password_hash = "$2a$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# Admin API token expiration in seconds
+token_expiration = 3600  # 1 hour

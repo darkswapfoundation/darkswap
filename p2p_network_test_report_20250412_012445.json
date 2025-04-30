@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-04-12T05:24:45Z",
+  "system": {
+    "os": "Linux DESKTOP-QLUU01V 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux",
+    "darkswapVersion": "darkswap-cli 0.1.0",
+    "network": "unknown"
+  },
+  "p2pMetrics": {},
+  "testResults": {
+  }
+}

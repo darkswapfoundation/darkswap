@@ -1,0 +1,173 @@
+/* Trade.css - Styles for the Trade page */
+
+.trade-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.trade-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trade-page-light .trade-page-header {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+}
+
+.trade-page-dark .trade-page-header {
+  background-color: #1e1e2e;
+  border: 1px solid #2d2d3d;
+}
+
+.trade-page-market-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.trade-page-market-info h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.trade-page-price {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+}
+
+.trade-page-price.up {
+  color: #00c864;
+}
+
+.trade-page-price.down {
+  color: #ff3232;
+}
+
+.trade-page-price.neutral {
+  color: inherit;
+}
+
+.trade-page-last-price {
+  font-weight: 600;
+}
+
+.trade-page-price-change {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.trade-page-connection-status {
+  display: flex;
+  align-items: center;
+}
+
+.trade-page-content {
+  display: flex;
+  gap: 16px;
+}
+
+.trade-page-left {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trade-page-chart {
+  width: 100%;
+  height: 400px;
+}
+
+.trade-page-orderbook-history {
+  display: flex;
+  gap: 16px;
+  height: 400px;
+}
+
+.trade-page-orderbook {
+  flex: 1;
+}
+
+.trade-page-history {
+  flex: 1;
+}
+
+.trade-page-right {
+  flex: 1;
+}
+
+.trade-page-offline-warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.trade-page-light .trade-page-offline-warning {
+  background-color: rgba(247, 147, 26, 0.1);
+  border: 1px solid rgba(247, 147, 26, 0.2);
+  color: #f7931a;
+}
+
+.trade-page-dark .trade-page-offline-warning {
+  background-color: rgba(247, 147, 26, 0.1);
+  border: 1px solid rgba(247, 147, 26, 0.2);
+  color: #f7931a;
+}
+
+.trade-page-offline-icon {
+  font-size: 1.5rem;
+}
+
+.trade-page-offline-message {
+  display: flex;
+  flex-direction: column;
+}
+
+.trade-page-offline-message strong {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Responsive styles */
+@media (max-width: 1200px) {
+  .trade-page-content {
+    flex-direction: column;
+  }
+  
+  .trade-page-right {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .trade-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .trade-page-connection-status {
+    align-self: flex-end;
+  }
+  
+  .trade-page-orderbook-history {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .trade-page-orderbook,
+  .trade-page-history {
+    height: 300px;
+  }
+}

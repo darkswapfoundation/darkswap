@@ -1,0 +1,143 @@
+/* PriceChart.css - Styles for the PriceChart component */
+
+.price-chart {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.price-chart-light {
+  background-color: #ffffff;
+  color: #333333;
+  border: 1px solid #e0e0e0;
+}
+
+.price-chart-dark {
+  background-color: #1e1e2e;
+  color: #e0e0e0;
+  border: 1px solid #2d2d3d;
+}
+
+.price-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid;
+}
+
+.price-chart-light .price-chart-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.price-chart-dark .price-chart-header {
+  border-bottom-color: #2d2d3d;
+}
+
+.price-chart-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.price-chart-timeframes {
+  display: flex;
+  gap: 4px;
+}
+
+.price-chart-timeframe-button {
+  padding: 4px 8px;
+  border: 1px solid;
+  border-radius: 4px;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.price-chart-light .price-chart-timeframe-button {
+  border-color: #e0e0e0;
+  color: #666666;
+}
+
+.price-chart-dark .price-chart-timeframe-button {
+  border-color: #2d2d3d;
+  color: #a0a0a0;
+}
+
+.price-chart-timeframe-button:hover {
+  background-color: rgba(56, 97, 251, 0.1);
+  border-color: #3861fb;
+  color: #3861fb;
+}
+
+.price-chart-timeframe-button.active {
+  background-color: #3861fb;
+  border-color: #3861fb;
+  color: white;
+}
+
+.price-chart-canvas-container {
+  flex: 1;
+  padding: 16px;
+  min-height: 300px;
+}
+
+.price-chart-loading,
+.price-chart-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  min-height: 300px;
+}
+
+.price-chart-loading .spinner {
+  margin-bottom: 16px;
+}
+
+.price-chart-error {
+  color: #ff3232;
+}
+
+.price-chart-error button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3861fb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.price-chart-error button:hover {
+  background-color: #2a4cd8;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .price-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .price-chart-timeframes {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  
+  .price-chart-timeframe-button {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+}

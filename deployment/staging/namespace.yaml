@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: darkswap-staging
+  labels:
+    name: darkswap-staging
+    environment: staging

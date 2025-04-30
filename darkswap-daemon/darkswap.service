@@ -1,0 +1,19 @@
+[Unit]
+Description=DarkSwap Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=darkswap
+Group=darkswap
+WorkingDirectory=/opt/darkswap
+ExecStart=/opt/darkswap/bin/darkswap-daemon
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=darkswap-daemon
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

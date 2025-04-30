@@ -1,0 +1,257 @@
+/* Header styles */
+
+.header {
+  background-color: var(--color-background);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Logo */
+.header-logo {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.header-logo img {
+  height: 30px;
+  margin-right: 10px;
+}
+
+/* Navigation */
+.header-nav {
+  flex: 1;
+  margin: 0 20px;
+}
+
+.header-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-nav-item {
+  margin: 0 10px;
+  position: relative;
+}
+
+.header-nav-item a {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.header-nav-item a:hover {
+  background-color: var(--color-background-hover);
+}
+
+.header-nav-item a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.dropdown-toggle::after {
+  content: '';
+  display: inline-block;
+  margin-left: 8px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--color-text-primary);
+}
+
+.dropdown-toggle:hover {
+  background-color: var(--color-background-hover);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--color-background);
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 8px 0;
+  min-width: 200px;
+  display: none;
+  z-index: 10;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 8px 16px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.dropdown-menu a:hover {
+  background-color: var(--color-background-hover);
+}
+
+.dropdown-menu a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-wallet-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Mobile menu toggle */
+.header-menu-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 30px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 10;
+}
+
+.header-menu-toggle span {
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-text-primary);
+  transition: all 0.3s ease;
+}
+
+.header-menu-toggle.open span:nth-child(1) {
+  transform: translateY(9px) rotate(45deg);
+}
+
+.header-menu-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.header-menu-toggle.open span:nth-child(3) {
+  transform: translateY(-9px) rotate(-45deg);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .header-container {
+    height: 60px;
+  }
+  
+  .header-menu-toggle {
+    display: flex;
+  }
+  
+  .header-nav {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-background);
+    padding: 20px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    margin: 0;
+    z-index: 5;
+  }
+  
+  .header-nav.open {
+    transform: translateX(0);
+  }
+  
+  .header-nav-list {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-nav-item {
+    margin: 10px 0;
+    width: 100%;
+  }
+  
+  .header-nav-item a {
+    display: block;
+    padding: 12px 0;
+  }
+  
+  .dropdown-toggle {
+    width: 100%;
+    justify-content: space-between;
+    padding: 12px 0;
+  }
+  
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    padding: 0 0 0 20px;
+    min-width: auto;
+    display: block;
+  }
+  
+  .dropdown-menu a {
+    padding: 8px 0;
+  }
+  
+  .header-actions {
+    gap: 5px;
+  }
+  
+  .header-wallet-buttons {
+    display: none;
+  }
+}

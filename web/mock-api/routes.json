@@ -1,0 +1,13 @@
+{
+  "/api/peer/id": "/peer/id",
+  "/api/peer/connected": "/peer/connected",
+  "/api/wallet/balance/bitcoin": "/wallet/balance/bitcoin",
+  "/api/wallet/balance/rune/:id": "/wallet/balance/rune/:id",
+  "/api/wallet/balance/alkane/:id": "/wallet/balance/alkane/:id",
+  "/api/wallet/balances": "/wallet/balances",
+  "/api/trade/offer": "/trade/offer",
+  "/api/trade/offer/:id/accept": "/trade/offer/:id/accept",
+  "/api/trade/offer/:id/cancel": "/trade/offer/:id/cancel",
+  "/api/trade/offers": "/trade/offers",
+  "/api/trade/history": "/trade/history"
+}

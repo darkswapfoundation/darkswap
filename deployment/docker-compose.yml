@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # DarkSwap Web Application
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    image: darkswap/web:latest
+    container_name: darkswap-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../security/certs:/app/certs:ro
+      - web_logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=80
+      - USE_HTTPS=true
+      - CERT_DIR=/app/certs
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - relay
+    networks:
+      - darkswap-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # DarkSwap Relay Server
+  relay:
+    build:
+      context: ../darkswap-relay
+      dockerfile: Dockerfile
+    image: darkswap/relay:latest
+    container_name: darkswap-relay
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - ../security/certs:/app/certs:ro
+      - relay_logs:/app/logs
+      - relay_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - SECURE_PORT=8443
+      - USE_HTTPS=true
+      - CERT_DIR=/app/certs
+      - JWT_SECRET=${JWT_SECRET}
+      - TOKEN_EXPIRY=${JWT_EXPIRY}
+      - MAX_CONNECTIONS=${RELAY_MAX_CONNECTIONS}
+      - MAX_CIRCUITS=${RELAY_MAX_CIRCUITS}
+      - CIRCUIT_TIMEOUT=${RELAY_CIRCUIT_TIMEOUT}
+      - BANDWIDTH_LIMIT=${RELAY_BANDWIDTH_LIMIT}
+      - LOG_LEVEL=${LOG_LEVEL}
+    networks:
+      - darkswap-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: darkswap-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - darkswap-network
+    depends_on:
+      - web
+      - relay
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: darkswap-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - darkswap-network
+    depends_on:
+      - prometheus
+
+  # Nginx for SSL termination and load balancing
+  nginx:
+    image: nginx:latest
+    container_name: darkswap-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../security/certs:/etc/nginx/certs:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - darkswap-network
+    depends_on:
+      - web
+      - relay
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  darkswap-network:
+    driver: bridge
+
+volumes:
+  web_logs:
+  relay_logs:
+  relay_data:
+  prometheus_data:
+  grafana_data:
+  nginx_logs:

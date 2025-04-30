@@ -1,0 +1,34 @@
+[Unit]
+Description=DarkSwap Relay Server
+After=network.target
+Documentation=https://github.com/darkswap/darkswap-relay
+
+[Service]
+Type=simple
+User=darkswap
+Group=darkswap
+WorkingDirectory=/opt/darkswap-relay
+ExecStart=/opt/darkswap-relay/target/release/darkswap-relay --config /opt/darkswap-relay/config.toml
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=darkswap-relay
+Environment=RUST_LOG=info
+
+# Security hardening
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

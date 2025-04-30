@@ -1,0 +1,92 @@
+groups:
+  - name: darkswap_app_alerts
+    rules:
+      # API Request Rate
+      - alert: HighApiRequestRate
+        expr: sum(rate(api_requests_total[5m])) by (instance) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API request rate on {{ $labels.instance }}"
+          description: "API request rate is above 1000 requests per second for 5 minutes."
+
+      # API Error Rate
+      - alert: HighApiErrorRate
+        expr: sum(rate(api_requests_total{status=~"5.."}[5m])) by (instance) / sum(rate(api_requests_total[5m])) by (instance) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API error rate on {{ $labels.instance }}"
+          description: "API error rate is above 5% for 5 minutes."
+
+      # API Latency
+      - alert: HighApiLatency
+        expr: histogram_quantile(0.95, sum(rate(api_request_duration_milliseconds_bucket[5m])) by (le, instance)) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency on {{ $labels.instance }}"
+          description: "95th percentile API latency is above 500ms for 5 minutes."
+
+      # WebSocket Connections
+      - alert: HighWebSocketConnections
+        expr: websocket_connections_total > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket connections"
+          description: "WebSocket connections are above 5000 for 5 minutes."
+
+      # P2P Peers
+      - alert: LowP2PPeers
+        expr: p2p_peers_total < 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low P2P peers"
+          description: "P2P peers are below 10 for 15 minutes."
+
+      # Order Rate
+      - alert: LowOrderRate
+        expr: rate(orders_total[1h]) < 1
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Low order rate"
+          description: "Order rate is below 1 order per hour for 1 hour."
+
+      # Trade Rate
+      - alert: LowTradeRate
+        expr: rate(trades_total[1h]) < 0.5
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "Low trade rate"
+          description: "Trade rate is below 0.5 trades per hour for 1 hour."
+
+      # Wallet Transaction Errors
+      - alert: HighWalletTransactionErrors
+        expr: sum(rate(wallet_transactions_total{status="failed"}[5m])) / sum(rate(wallet_transactions_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High wallet transaction errors"
+          description: "Wallet transaction error rate is above 5% for 5 minutes."
+
+      # Service Health
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute."

@@ -1,0 +1,34 @@
+/* ThemeToggle.css - Styles for the ThemeToggle component */
+
+.theme-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.25rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.theme-toggle:hover {
+  background-color: var(--hover);
+  transform: rotate(15deg);
+}
+
+.theme-toggle:active {
+  transform: scale(0.9);
+}
+
+.theme-toggle.light {
+  color: var(--dark-text);
+}
+
+.theme-toggle.dark {
+  color: var(--light-warning);
+}

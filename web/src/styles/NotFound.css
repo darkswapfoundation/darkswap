@@ -1,0 +1,95 @@
+/* NotFound.css - Styles for the NotFound page */
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 60vh;
+  padding: 32px;
+  gap: 32px;
+}
+
+.not-found-content {
+  max-width: 500px;
+}
+
+.not-found h1 {
+  font-size: 6rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  background: linear-gradient(45deg, #3861fb, #f7931a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.not-found h2 {
+  font-size: 2rem;
+  margin-bottom: 16px;
+}
+
+.not-found p {
+  font-size: 1.125rem;
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+.not-found-button {
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: #3861fb;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.not-found-button:hover {
+  background-color: #2a4cd8;
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.not-found-illustration {
+  width: 120px;
+  height: 120px;
+  opacity: 0.2;
+}
+
+.not-found-light .not-found-illustration {
+  color: #333333;
+}
+
+.not-found-dark .not-found-illustration {
+  color: #e0e0e0;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .not-found {
+    padding: 24px;
+    gap: 24px;
+  }
+  
+  .not-found h1 {
+    font-size: 4rem;
+  }
+  
+  .not-found h2 {
+    font-size: 1.5rem;
+  }
+  
+  .not-found p {
+    font-size: 1rem;
+  }
+  
+  .not-found-illustration {
+    width: 80px;
+    height: 80px;
+  }
+}

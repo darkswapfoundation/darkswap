@@ -1,0 +1,166 @@
+# DarkSwap Daemon Configuration
+
+# Server settings
+[server]
+# The address to bind to
+host = "0.0.0.0"
+# The port to listen on
+port = 8000
+# Maximum number of concurrent connections
+max_connections = 1000
+# Connection timeout in seconds
+connection_timeout = 60
+# Keep-alive interval in seconds
+keep_alive_interval = 30
+# Maximum request size in bytes
+max_request_size = 1048576  # 1 MB
+# CORS allowed origins (comma-separated)
+cors_allowed_origins = "*"
+# CORS allowed methods (comma-separated)
+cors_allowed_methods = "GET, POST, PUT, DELETE, OPTIONS"
+# CORS allowed headers (comma-separated)
+cors_allowed_headers = "Content-Type, Authorization"
+# CORS max age in seconds
+cors_max_age = 86400  # 24 hours
+
+# Database settings
+[database]
+# Database URL
+url = "postgres://postgres:postgres@db:5432/darkswap"
+# Maximum number of connections in the pool
+max_connections = 10
+# Connection timeout in seconds
+connection_timeout = 30
+# Idle timeout in seconds
+idle_timeout = 600  # 10 minutes
+# Maximum lifetime of a connection in seconds
+max_lifetime = 1800  # 30 minutes
+
+# WebSocket settings
+[websocket]
+# The address to bind to
+host = "0.0.0.0"
+# The port to listen on (same as server port)
+port = 8000
+# Maximum message size in bytes
+max_message_size = 1048576  # 1 MB
+# Ping interval in seconds
+ping_interval = 30
+# Pong timeout in seconds
+pong_timeout = 10
+# Maximum number of concurrent connections
+max_connections = 1000
+
+# P2P settings
+[p2p]
+# Relay server URL
+relay_url = "ws://relay:9090"
+# Local peer ID (optional, will be generated if not provided)
+peer_id = ""
+# Maximum number of peers to connect to
+max_peers = 100
+# Connection timeout in seconds
+connection_timeout = 30
+# Keep-alive interval in seconds
+keep_alive_interval = 30
+# Reconnect interval in seconds
+reconnect_interval = 5
+# Maximum number of reconnect attempts
+max_reconnect_attempts = 10
+# Enable peer discovery
+discovery_enabled = true
+# Discovery interval in seconds
+discovery_interval = 300
+# Enable GossipSub
+gossipsub_enabled = true
+
+# Wallet settings
+[wallet]
+# Wallet type (built-in, bdk)
+type = "bdk"
+# Wallet network (mainnet, testnet, regtest)
+network = "testnet"
+# Wallet data directory
+data_dir = "/app/data/wallet"
+# Wallet backup directory
+backup_dir = "/app/data/backup"
+# Wallet backup interval in seconds
+backup_interval = 3600  # 1 hour
+# Wallet scan interval in seconds
+scan_interval = 300  # 5 minutes
+# Wallet sync interval in seconds
+sync_interval = 60  # 1 minute
+# Bitcoin RPC URL (optional)
+bitcoin_rpc_url = ""
+# Bitcoin RPC username (optional)
+bitcoin_rpc_username = ""
+# Bitcoin RPC password (optional)
+bitcoin_rpc_password = ""
+# Electrum server URL (optional)
+electrum_url = "ssl://electrum.blockstream.info:60002"
+
+# Trade settings
+[trade]
+# Trade offer expiry in seconds
+offer_expiry = 3600  # 1 hour
+# Trade execution timeout in seconds
+execution_timeout = 300  # 5 minutes
+# Trade confirmation timeout in seconds
+confirmation_timeout = 600  # 10 minutes
+# Trade fee percentage
+fee_percentage = 0.1  # 0.1%
+# Minimum trade amount in satoshis
+min_trade_amount = 10000  # 0.0001 BTC
+# Maximum trade amount in satoshis
+max_trade_amount = 1000000000  # 10 BTC
+# Enable trade history
+history_enabled = true
+# Trade history retention in days
+history_retention = 30  # 30 days
+
+# Security settings
+[security]
+# Enable TLS
+tls_enabled = false
+# TLS certificate file
+tls_cert_file = "/app/certs/cert.pem"
+# TLS key file
+tls_key_file = "/app/certs/key.pem"
+# Enable authentication
+auth_enabled = false
+# Authentication token expiry in seconds
+auth_token_expiry = 86400  # 24 hours
+# Authentication token secret
+auth_token_secret = "your-secret-key"
+# Enable rate limiting
+rate_limiting_enabled = true
+# Maximum number of requests per minute per IP
+max_requests_per_minute = 100
+# Maximum number of connections per IP
+max_connections_per_ip = 10
+
+# Logging settings
+[logging]
+# Log level (trace, debug, info, warn, error)
+level = "info"
+# Log file (optional)
+file = "/app/logs/daemon.log"
+# Enable console logging
+console = true
+# Enable JSON formatting
+json = false
+# Enable log rotation
+rotation_enabled = true
+# Maximum log file size in bytes
+max_file_size = 10485760  # 10 MB
+# Maximum number of log files
+max_files = 5
+
+# Metrics settings
+[metrics]
+# Enable metrics collection
+enabled = true
+# Metrics endpoint
+endpoint = "/metrics"
+# Metrics collection interval in seconds
+interval = 60

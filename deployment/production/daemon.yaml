@@ -1,0 +1,173 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: darkswap-daemon-config
+  namespace: darkswap-production
+data:
+  config.toml: |
+    [server]
+    host = "0.0.0.0"
+    port = 3000
+    
+    [api]
+    rate_limit = 200
+    timeout = 30
+    
+    [websocket]
+    max_connections = 5000
+    message_size_limit = 1048576
+    
+    [p2p]
+    relay_servers = ["wss://relay1.darkswap.io", "wss://relay2.darkswap.io", "wss://relay3.darkswap.io"]
+    
+    [logging]
+    level = "info"
+    file = "/var/log/darkswap/daemon.log"
+    
+    [security]
+    jwt_secret = "${JWT_SECRET}"
+    token_expiry = 86400
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: darkswap-daemon-secrets
+  namespace: darkswap-production
+type: Opaque
+data:
+  jwt-secret: ${JWT_SECRET_BASE64}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: darkswap-daemon
+  namespace: darkswap-production
+  labels:
+    app: darkswap-daemon
+    environment: production
+spec:
+  serviceName: "darkswap-daemon"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: darkswap-daemon
+  template:
+    metadata:
+      labels:
+        app: darkswap-daemon
+        environment: production
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: darkswap-daemon
+        image: darkswap/daemon:${VERSION}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: darkswap-daemon-secrets
+              key: jwt-secret
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.toml
+          subPath: config.toml
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /var/log/darkswap
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: darkswap-daemon-config
+      - name: logs
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "premium-ssd"
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: darkswap-daemon
+  namespace: darkswap-production
+  labels:
+    app: darkswap-daemon
+    environment: production
+spec:
+  selector:
+    app: darkswap-daemon
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: darkswap-daemon
+  namespace: darkswap-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: darkswap-daemon
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: darkswap-daemon-pdb
+  namespace: darkswap-production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: darkswap-daemon
