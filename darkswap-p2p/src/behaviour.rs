@@ -4,20 +4,30 @@ use crate::config::Config;
 use crate::message::Message;
 use crate::protocol::{create_request_response, DarkSwapCodec, DarkSwapProtocol};
 use libp2p::{
-    gossipsub::{self, Gossipsub, GossipsubConfig, IdentTopic, MessageAuthenticity},
-    identify::{self, Identify, IdentifyConfig},
-    kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent},
-    ping::{self, Ping, PingConfig},
-    request_response::{self, RequestResponse},
     swarm::NetworkBehaviour,
     Multiaddr, PeerId,
 };
+use libp2p::gossipsub::{Behaviour as Gossipsub, Config as GossipsubConfig, IdentTopic, MessageAuthenticity};
+use libp2p::identify::{Behaviour as Identify, Config as IdentifyConfig};
+use libp2p::kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent};
+use libp2p::ping::{Behaviour as Ping, Config as PingConfig};
+use libp2p::request_response::{Behaviour as RequestResponse, Event as RequestResponseEvent, ProtocolSupport, Codec as RequestResponseCodec, ResponseChannel}; // Corrected import of Event, ProtocolSupport, Codec, and ResponseChannel
 use std::collections::HashSet;
 use std::time::Duration;
 
+/// Placeholder struct for Circuit Relay logic (not a NetworkBehaviour)
+pub struct CircuitRelay;
+
+impl CircuitRelay {
+    pub fn new() -> Self {
+        CircuitRelay
+    }
+    // Add methods for circuit relay logic here later
+}
+
 /// Network behaviour for the DarkSwap P2P network.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "DarkSwapEvent")]
+#[behaviour(to_swarm = "DarkSwapEvent")]
 pub struct DarkSwapBehaviour {
     /// Ping protocol for keeping connections alive.
     ping: Ping,
@@ -29,6 +39,8 @@ pub struct DarkSwapBehaviour {
     gossipsub: Gossipsub,
     /// Request-response protocol for direct messaging.
     request_response: RequestResponse<DarkSwapCodec>,
+    /// Circuit Relay logic.
+    circuit_relay: CircuitRelay, // Added placeholder for circuit relay
 }
 
 /// Events emitted by the DarkSwap network behaviour.
@@ -41,9 +53,10 @@ pub enum DarkSwapEvent {
     /// Kademlia event.
     Kademlia(KademliaEvent),
     /// Gossipsub event.
-    Gossipsub(gossipsub::GossipsubEvent),
+    Gossipsub(gossipsub::Event),
     /// Request-response event.
-    RequestResponse(request_response::RequestResponseEvent<Message, Message>),
+    RequestResponse(request_response::Event<Message, Message>),
+    // Add Circuit Relay events here later
 }
 
 impl From<ping::Event> for DarkSwapEvent {
@@ -64,14 +77,14 @@ impl From<KademliaEvent> for DarkSwapEvent {
     }
 }
 
-impl From<gossipsub::GossipsubEvent> for DarkSwapEvent {
-    fn from(event: gossipsub::GossipsubEvent) -> Self {
+impl From<gossipsub::Event> for DarkSwapEvent {
+    fn from(event: gossipsub::Event) -> Self {
         Self::Gossipsub(event)
     }
 }
 
-impl From<request_response::RequestResponseEvent<Message, Message>> for DarkSwapEvent {
-    fn from(event: request_response::RequestResponseEvent<Message, Message>) -> Self {
+impl From<request_response::Event<Message, Message>> for DarkSwapEvent {
+    fn from(event: request_response::Event<Message, Message>) -> Self {
         Self::RequestResponse(event)
     }
 }
@@ -93,7 +106,7 @@ impl DarkSwapBehaviour {
                 let mut key_bytes = [0u8; 32];
                 if bytes.len() >= 36 {
                     key_bytes.copy_from_slice(&bytes[4..36]);
-                    libp2p::identity::PublicKey::Ed25519(libp2p::identity::ed25519::PublicKey::decode(&key_bytes).unwrap())
+                    libp2p::identity::PublicKey::from(libp2p::identity::ed25519::PublicKey::try_from_bytes(&key_bytes).unwrap())
                 } else {
                     // Fallback to generating a new keypair
                     let keypair = libp2p::identity::Keypair::generate_ed25519();
@@ -128,12 +141,16 @@ impl DarkSwapBehaviour {
         // Create a request-response protocol
         let request_response = create_request_response(local_peer_id);
 
+        // Create Circuit Relay placeholder
+        let circuit_relay = CircuitRelay::new();
+
         Ok(Self {
             ping,
             identify,
             kademlia,
             gossipsub,
             request_response,
+            circuit_relay, // Include the placeholder
         })
     }
 
@@ -155,7 +172,7 @@ impl DarkSwapBehaviour {
     }
 
     /// Send a response to a request.
-    pub fn send_response(&mut self, channel: request_response::ResponseChannel<Message>, response: Message) -> Result<(), request_response::OutboundFailure> {
+    pub fn send_response(&mut self, channel: ResponseChannel<Message>, response: Message) -> Result<(), request_response::OutboundFailure> {
         self.request_response.send_response(channel, response);
         Ok(())
     }

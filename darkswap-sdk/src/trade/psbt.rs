@@ -2,14 +2,12 @@
 //!
 //! This module provides functionality for handling PSBTs (Partially Signed Bitcoin Transactions).
 
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use bitcoin::{
-    psbt::Psbt,
-    Address, Network, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid,
+    psbt::Psbt, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Txid,
     Sequence, Witness,
 };
 
@@ -179,7 +177,7 @@ impl PsbtHandler {
 }
 
 /// Helper function to convert a hex string to bytes
-fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
+fn _hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     for i in 0..(hex.len() / 2) {
         let res = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16);
@@ -192,7 +190,7 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
 }
 
 /// Helper function to convert bytes to a hex string
-fn bytes_to_hex(bytes: &[u8]) -> String {
+fn _bytes_to_hex(bytes: &[u8]) -> String {
     let mut hex = String::new();
     for byte in bytes {
         hex.push_str(&format!("{:02x}", byte));

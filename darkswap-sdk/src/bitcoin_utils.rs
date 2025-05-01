@@ -2,7 +2,7 @@
 //!
 //! This module provides utilities for working with Bitcoin.
 
-use bitcoin::{Address, Network, OutPoint, Transaction, TxOut};
+use bitcoin::{Address, OutPoint, Transaction, TxOut};
 use crate::error::Result;
 
 /// Bitcoin wallet interface
@@ -82,7 +82,7 @@ impl FromStr for AddressWrapper {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let address = bitcoin::Address::from_str(s)?;
         // Convert to NetworkChecked address
-        let network = bitcoin::Network::Bitcoin; // Default to Bitcoin network
+        let _network = bitcoin::Network::Bitcoin; // Default to Bitcoin network
         // Create a new address with the same data but with NetworkChecked type
         // This is a workaround for the type system - in a real implementation, we would handle this better
         let checked_address = unsafe {

@@ -8,13 +8,10 @@ use crate::{
     error::Error,
     webrtc::WebRtcManager,
     circuit::CircuitRelayManager,
-    auth::{AuthManager, AuthMiddleware},
+    darkswap_p2p::auth::{AuthManager, AuthMiddleware},
     rate_limit::{RateLimitManager, RateLimitMiddleware},
     Result,
 };
-use axum;
-use warp;
-use jsonwebtoken;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},

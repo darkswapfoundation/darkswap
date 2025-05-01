@@ -117,7 +117,7 @@ struct KeyPair {
 
 impl KeyPair {
     /// Generate a new key pair for X25519
-    fn generate_x25519(rng: &SystemRandom, is_ephemeral: bool) -> Result<Self, Error> {
+    fn generate_x25519(rng: &SystemRandom, is_ephemeral: bool) -> Result<Self> {
         let private_key = agreement::EphemeralPrivateKey::generate(&agreement::X25519, rng)
             .map_err(|_| Error::EncryptionError("Failed to generate private key".to_string()))?;
         
@@ -155,7 +155,7 @@ pub struct EncryptionManager {
 
 impl EncryptionManager {
     /// Create a new encryption manager
-    pub fn new(config: EncryptionConfig) -> Result<Self, Error> {
+    pub fn new(config: EncryptionConfig) -> Result<Self> {
         let rng = SystemRandom::new();
         
         // Generate long-term key pair
@@ -179,7 +179,7 @@ impl EncryptionManager {
     }
     
     /// Generate an ephemeral key pair for a peer
-    pub fn generate_ephemeral_key_pair(&self, peer_id: &PeerId) -> Result<Vec<u8>, Error> {
+    pub fn generate_ephemeral_key_pair(&self, peer_id: &PeerId) -> Result<Vec<u8>> {
         if !self.config.use_ephemeral_keys {
             return Ok(self.long_term_key_pair.public_key.clone());
         }
@@ -197,7 +197,7 @@ impl EncryptionManager {
     }
     
     /// Perform key exchange with a peer
-    pub fn perform_key_exchange(&self, peer_id: &PeerId, peer_public_key: &[u8]) -> Result<(), Error> {
+    pub fn perform_key_exchange(&self, peer_id: &PeerId, peer_public_key: &[u8]) -> Result<()> {
         // Get the appropriate private key
         let private_key = if self.config.use_ephemeral_keys {
             let ephemeral_key_pairs = self.ephemeral_key_pairs.lock().unwrap();
@@ -255,7 +255,7 @@ impl EncryptionManager {
     }
     
     /// Encrypt a message for a peer
-    pub fn encrypt(&self, peer_id: &PeerId, plaintext: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn encrypt(&self, peer_id: &PeerId, plaintext: &[u8]) -> Result<Vec<u8>> {
         // Get the session key
         let session_keys = self.session_keys.lock().unwrap();
         let session_key = session_keys.get(peer_id)
@@ -308,7 +308,7 @@ impl EncryptionManager {
     }
     
     /// Decrypt a message from a peer
-    pub fn decrypt(&self, peer_id: &PeerId, ciphertext: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn decrypt(&self, peer_id: &PeerId, ciphertext: &[u8]) -> Result<Vec<u8>> {
         if ciphertext.len() < 12 {
             return Err(Error::EncryptionError("Ciphertext too short".to_string()));
         }
@@ -360,7 +360,7 @@ impl EncryptionManager {
     }
     
     /// Rotate keys
-    pub fn rotate_keys(&self) -> Result<(), Error> {
+    pub fn rotate_keys(&self) -> Result<()> {
         let mut last_key_rotation = self.last_key_rotation.lock().unwrap();
         if last_key_rotation.elapsed() < self.config.key_rotation_interval {
             return Ok(());

@@ -4,7 +4,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Result;
 use bitcoin::{psbt::Psbt, Transaction, Txid};
 
 use crate::error::Error;
@@ -18,7 +17,7 @@ pub mod alkane;
 /// Trade manager
 pub struct TradeManager {
     /// Wallet
-    wallet: Arc<dyn Wallet + Send + Sync>,
+    _wallet: Arc<dyn Wallet + Send + Sync>,
     /// PSBT handler
     psbt_handler: psbt::PsbtHandler,
 }
@@ -27,7 +26,7 @@ impl TradeManager {
     /// Create a new trade manager
     pub fn new(wallet: Arc<dyn Wallet + Send + Sync>) -> Self {
         Self {
-            wallet: wallet.clone(),
+            _wallet: wallet.clone(),
             psbt_handler: psbt::PsbtHandler::new(wallet),
         }
     }

@@ -27,15 +27,10 @@ use webrtc::{
         setting_engine::SettingEngine,
         APIBuilder,
     },
-    data_channel::{
-        data_channel::DataChannel,
-        RTCDataChannel,
-    },
-    ice::{
-        ice_server::RTCIceServer,
-        network_type::NetworkType,
-    },
-    ice_transport::ice_connection_state::RTCIceConnectionState,
+    data_channel::{Data, RTCDataChannel},
+    ice::ice_server::RTCIceServer,
+    ice::network_type::NetworkType,
+    ice_transport::{ice_candidate::RTCIceCandidateInit, ice_connection_state::RTCIceConnectionState},
     interceptor::registry::Registry,
     peer_connection::{
         configuration::RTCConfiguration,
@@ -44,6 +39,7 @@ use webrtc::{
     },
     sctp::transport::SCTPTransportState,
 };
+use webrtc::data_channel::DataChannel;
 
 /// Connection ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -585,7 +581,7 @@ impl WebRtcManager {
             .ok_or_else(|| Error::ConnectionNotFound(format!("Connection not found: {}", connection_id)))?;
         
         // Create the ICE candidate
-        let ice_candidate = webrtc::ice::candidate::RTCIceCandidateInit {
+        let ice_candidate = RTCIceCandidateInit {
             candidate: candidate.to_string(),
             sdp_mid: sdp_mid.map(|s| s.to_string()),
             sdp_mline_index,
@@ -667,7 +663,7 @@ impl WebRtcManager {
         let peer_id_clone = peer_id.clone();
         let channel_clone = channel.clone();
         
-        data_channel.on_message(Box::new(move |msg: webrtc::data::Data| {
+        data_channel.on_message(Box::new(move |msg: Data| {
             let event_sender = event_sender_clone.clone();
             let peer_id = peer_id_clone.clone();
             let channel = channel_clone.clone();
@@ -708,7 +704,7 @@ impl WebRtcManager {
             .ok_or_else(|| Error::DataChannel(format!("Data channel not found: {}", label)))?;
         
         // Send the data
-        data_channel.send(&webrtc::data::Data::Binary(data.to_vec())).await
+        data_channel.send(&Data::Binary(data.to_vec())).await
             .map_err(|e| Error::DataChannel(e.to_string()))?;
         
         // Update the connection activity

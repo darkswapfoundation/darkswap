@@ -4,7 +4,7 @@
 
 use crate::Result;
 use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };

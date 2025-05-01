@@ -8,18 +8,20 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use bitcoin::psbt::PartiallySignedTransaction as Psbt;
-use bitcoin::{Address, Network, PrivateKey, PublicKey, Script, Transaction, TxOut};
+use bitcoin::{Address, Network, PrivateKey, PublicKey, Transaction, TxOut};
 use rand::{rngs::OsRng, RngCore};
 use tokio::sync::Mutex;
 
 use crate::config::BitcoinNetwork;
 use crate::types::{Asset, OrderId, TradeId};
 use crate::wallet::{Utxo, Wallet, WalletError, WalletInterface};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 
 /// Simple wallet implementation
 pub struct SimpleWallet {
     /// Private key
-    private_key: PrivateKey,
+    _private_key: PrivateKey,
     /// Public key
     public_key: PublicKey,
     /// Bitcoin network
@@ -64,7 +66,7 @@ impl SimpleWallet {
         balances.insert("ALKANE:0x456".to_string(), 500); // 500 ALKANE:0x456
 
         Ok(Self {
-            private_key,
+            _private_key: private_key,
             public_key,
             network: bitcoin_network,
             balances: Arc::new(Mutex::new(balances)),
@@ -102,7 +104,7 @@ impl SimpleWallet {
 
         // Serialize the PSBT to base64
         let psbt_bytes = psbt.serialize();
-        let psbt_base64 = base64::encode(&psbt_bytes);
+        let psbt_base64 = STANDARD.encode(&psbt_bytes);
 
         Ok(psbt_base64)
     }

@@ -5,12 +5,10 @@
 
 use crate::{
     config::Config,
-    error::Error,
     signaling::SignalingServer,
-    circuit_relay::{CircuitRelayManager, CircuitRelayEvent},
-    webrtc::{WebRtcManager, WebRtcTransportEvent},
+    darkswap_p2p::circuit_relay::{CircuitRelayManager, CircuitRelayEvent},
+    webrtc::WebRtcManager,
     metrics::MetricsServer,
-    utils,
     Result,
 };
 use std::sync::Arc;

@@ -2,8 +2,7 @@
 //!
 //! This module provides the implementation of the Runestone structure and related functionality.
 
-use bitcoin::{Script, Transaction};
-use crate::error::Result;
+use bitcoin::Transaction;
 
 /// Edict structure
 #[derive(Debug, Clone, PartialEq, Eq)]

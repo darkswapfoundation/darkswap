@@ -4,7 +4,7 @@
 //! This module provides the implementation of the Alkane structure and related functionality.
 
 use bitcoin::{
-    Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Txid, Witness,
+    Address, Network, OutPoint, Transaction, TxIn, TxOut, Witness,
 };
 use bitcoin::locktime::absolute::LockTime;
 use crate::error::{Error, Result};
@@ -12,6 +12,8 @@ use crate::runes::{Rune, RuneProtocol};
 use crate::bitcoin_utils::BitcoinWallet;
 use crate::types::AlkaneId;
 use std::collections::HashMap;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 
 /// Alkane structure
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,7 +162,7 @@ impl Alkane {
             return integer_part.to_string();
         }
 
-        let mut fractional_str = fractional_part.to_string();
+        let fractional_str = fractional_part.to_string();
         let padding = self.decimals as usize - fractional_str.len();
         
         let mut result = integer_part.to_string();
@@ -329,7 +331,7 @@ impl AlkaneProtocol {
         let rune_balances = self.rune_protocol.get_balances(address);
         for rune_balance in rune_balances {
             let alkane_id = AlkaneId(format!("ALKANE:{}", rune_balance.rune.id));
-            if let Some(alkane) = self.alkanes.get(&alkane_id.0) {
+            if let Some(_alkane) = self.alkanes.get(&alkane_id.0) {
                 // Check if we already have this balance
                 if !alkane_balances.iter().any(|b| b.alkane_id == alkane_id) {
                     alkane_balances.push(AlkaneBalance {
@@ -643,7 +645,7 @@ impl AlkaneProtocol {
         }
         
         if let Some(icon_data) = icon {
-            let icon_base64 = base64::encode(&icon_data);
+            let icon_base64 = STANDARD.encode(&icon_data);
             alkane_metadata.insert("icon".to_string(), icon_base64);
         }
         
@@ -794,7 +796,7 @@ impl AlkaneProtocol {
                                         let description = metadata.get("description").cloned();
                                         
                                         let icon = metadata.get("icon").and_then(|icon_base64| {
-                                            base64::decode(icon_base64).ok()
+                                            STANDARD.decode(icon_base64).ok()
                                         });
                                         
                                         let mut alkane_metadata = HashMap::new();
@@ -915,7 +917,7 @@ impl AlkaneProtocol {
                             
                             // Check that the icon matches
                             if let Some(icon_data) = &icon {
-                                let icon_base64 = base64::encode(icon_data);
+                                let icon_base64 = STANDARD.encode(icon_data);
                                 if tx_metadata.get("icon") != Some(&icon_base64) {
                                     return Err(Error::InvalidIcon);
                                 }
@@ -962,7 +964,7 @@ impl ThreadSafeAlkaneProtocol {
     /// Register an alkane
     pub fn register_alkane(&self, alkane: Alkane) -> Result<()> {
         let mut protocol = self.inner.lock().map_err(|_| Error::LockError)?;
-        protocol.register_alkane(alkane);
+        let _ = protocol.register_alkane(alkane);
         Ok(())
     }
 

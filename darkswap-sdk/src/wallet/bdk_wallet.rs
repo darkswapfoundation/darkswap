@@ -24,6 +24,7 @@ use bdk::{
     wallet::{
         AddressIndex,
     },
+    bitcoin::Address, // Import Address from bdk::bitcoin
 };
 
 #[cfg(feature = "bdk-wallet")]
@@ -36,7 +37,7 @@ use std::{
 #[cfg(feature = "bdk-wallet")]
 pub struct BdkWallet {
     /// Inner wallet
-    inner: Arc<Mutex<bdk::Wallet<ElectrumBlockchain, MemoryDatabase>>>,
+    inner: Arc<Mutex<bdk::Wallet<MemoryDatabase>>>, // Removed ElectrumBlockchain generic
     /// Network
     network: bdk::bitcoin::Network,
 }
@@ -116,7 +117,7 @@ impl BdkWallet {
         };
 
         // Generate a new mnemonic
-        let mnemonic = Mnemonic::generate(WordCount::Words12)
+        let mnemonic = Mnemonic::generate(WordCount::Words12) // Use WordCount enum
             .map_err(|e| Error::WalletError(e.to_string()))?;
         let mnemonic_str = mnemonic.to_string();
 

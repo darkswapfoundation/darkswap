@@ -14,7 +14,6 @@ use futures::StreamExt;
 use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
-    time::timeout,
 };
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -307,7 +306,7 @@ impl CircuitRelayManager {
                     Err(Error::ConnectionNotFound(format!("Source channel for relay {}", relay_id)))
                 }
             } else {
-                Err(Error::PeerNotFound(from_peer_id.to_string()))
+                Err(Error::ConnectionNotFound(from_peer_id.to_string()))
             }
         } else {
             Err(Error::ConnectionNotFound(relay_id.to_string()))

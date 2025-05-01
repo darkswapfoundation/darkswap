@@ -2,13 +2,10 @@
 //!
 //! This module provides network functionality for DarkSwap.
 
-use std::sync::Arc;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::types::{OrderId, TradeId};
 
 /// Network error
 #[derive(Debug, Error)]
@@ -51,7 +48,7 @@ pub trait NetworkInterface: Send + Sync {
 /// WebSocket client
 pub struct WebSocketClient {
     /// URL
-    url: String,
+    _url: String,
     /// Connected
     connected: bool,
 }
@@ -64,7 +61,7 @@ impl WebSocketClient {
         _server_to_client_rx: tokio::sync::mpsc::Receiver<String>,
     ) -> Self {
         Self {
-            url: url.to_string(),
+            _url: url.to_string(),
             connected: false,
         }
     }
@@ -127,7 +124,7 @@ impl WebSocketClient {
         _max_reconnect_attempts: u32,
     ) -> Self {
         Self {
-            url: url.to_string(),
+            _url: url.to_string(),
             connected: false,
         }
     }
@@ -136,9 +133,9 @@ impl WebSocketClient {
 /// API client
 pub struct ApiClient {
     /// URL
-    url: String,
+    _url: String,
     /// HTTP client
-    http_client: Box<dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>> + Send + Sync>,
+    _http_client: Box<dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>> + Send + Sync>,
 }
 
 impl ApiClient {
@@ -148,8 +145,8 @@ impl ApiClient {
         http_client: Box<dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>> + Send + Sync>,
     ) -> Result<Self> {
         Ok(Self {
-            url: url.to_string(),
-            http_client,
+            _url: url.to_string(),
+            _http_client: http_client,
         })
     }
 

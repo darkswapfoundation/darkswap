@@ -10,7 +10,6 @@ use anyhow::Result;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
-use uuid::Uuid;
 
 use crate::error::Error;
 use crate::types::{Asset, Event, OrderId};
@@ -216,7 +215,7 @@ pub struct Orderbook {
     /// Sell orders by price
     sell_orders: Arc<RwLock<BTreeMap<(Asset, Asset, Decimal), Vec<OrderId>>>>,
     /// Wallet
-    wallet: Arc<dyn WalletInterface + Send + Sync>,
+    _wallet: Arc<dyn WalletInterface + Send + Sync>,
     /// Event sender
     event_sender: mpsc::Sender<Event>,
     /// Cleanup interval
@@ -234,7 +233,7 @@ impl Orderbook {
             orders: Arc::new(RwLock::new(HashMap::new())),
             buy_orders: Arc::new(RwLock::new(BTreeMap::new())),
             sell_orders: Arc::new(RwLock::new(BTreeMap::new())),
-            wallet,
+            _wallet: wallet,
             event_sender,
             cleanup_interval,
         }

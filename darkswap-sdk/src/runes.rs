@@ -3,11 +3,11 @@
 //! This module provides the implementation of the Rune structure and related functionality.
 
 use bitcoin::{
-    Address, Network, OutPoint, Script, Transaction, TxIn, TxOut, Witness,
+    Address, Network, OutPoint, Transaction, TxIn, TxOut, Witness,
 };
 use bitcoin::locktime::absolute::LockTime;
 use crate::error::{Error, Result};
-use crate::runestone::{Edict, Etching, Runestone, Terms};
+use crate::runestone::{Edict, Etching, Runestone};
 use crate::bitcoin_utils::BitcoinWallet;
 use std::collections::HashMap;
 
@@ -98,7 +98,7 @@ impl Rune {
             return integer_part.to_string();
         }
 
-        let mut fractional_str = fractional_part.to_string();
+        let fractional_str = fractional_part.to_string();
         let padding = self.decimals as usize - fractional_str.len();
         
         let mut result = integer_part.to_string();
@@ -310,7 +310,7 @@ impl RuneProtocol {
         fee_rate: f32,
     ) -> Result<Transaction> {
         // Get the rune
-        let rune = self.get_rune(rune_id).ok_or(Error::RuneNotFound)?;
+        let _rune = self.get_rune(rune_id).ok_or(Error::RuneNotFound)?;
         
         // Check if the wallet has enough balance
         let wallet_address = wallet.get_address(0)?;

@@ -1,0 +1,10 @@
+/home/ghostinthegrey/darkswap/darkswap-core/target/debug/deps/libsecp256k1_sys-b483f6f435e54a93.rmeta: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/recovery.rs
+
+/home/ghostinthegrey/darkswap/darkswap-core/target/debug/deps/libsecp256k1_sys-b483f6f435e54a93.rlib: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/recovery.rs
+
+/home/ghostinthegrey/darkswap/darkswap-core/target/debug/deps/secp256k1_sys-b483f6f435e54a93.d: /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/lib.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/macros.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/types.rs /home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/recovery.rs
+
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/lib.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/macros.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/types.rs:
+/home/ghostinthegrey/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.6.1/src/recovery.rs:

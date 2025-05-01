@@ -1,7 +1,7 @@
 //! Discovery mechanisms for the P2P network.
 
 use libp2p::{
-    kad::{store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent},
+    kad::{store::MemoryStore, Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent},
     swarm::NetworkBehaviour,
     PeerId,
 };

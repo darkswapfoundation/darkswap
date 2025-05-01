@@ -3,7 +3,6 @@
 //! This module provides functionality for authenticating and authorizing
 //! peers in the P2P network, with a focus on relay nodes.
 
-use crate::error::Error;
 use libp2p::PeerId;
 use ring::hmac::{self, Key, Tag};
 use ring::rand::{SecureRandom, SystemRandom};

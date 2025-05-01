@@ -11,7 +11,6 @@ use bitcoin::psbt::{Psbt};
 use bitcoin::psbt::raw::ProprietaryKey;
 
 use crate::error::Error;
-use crate::types::Asset;
 use crate::wallet::Wallet;
 
 /// Alkane handler
@@ -19,13 +18,13 @@ pub struct AlkaneHandler {
     /// Wallet
     wallet: Arc<dyn Wallet + Send + Sync>,
     /// Network
-    network: Network,
+    _network: Network,
 }
 
 impl AlkaneHandler {
     /// Create a new alkane handler
     pub fn new(wallet: Arc<dyn Wallet + Send + Sync>, network: Network) -> Self {
-        Self { wallet, network }
+        Self { wallet, _network: network }
     }
 
     /// Get alkane balance

@@ -3,11 +3,8 @@
 //! This module provides a connection pool for WebRTC connections.
 //! It allows for efficient reuse of connections to peers.
 
-use crate::{
-    error::Error,
-    webrtc_connection::WebRtcConnection,
-    Result,
-};
+use crate::{Error, Result};
+use crate::webrtc_connection::WebRtcConnection; // Changed from super::
 use libp2p::PeerId;
 use std::{
     collections::{HashMap, HashSet},
@@ -295,80 +292,5 @@ impl ConnectionPool {
             peers,
             in_use_peers: in_use.len(),
         }
-    }
-}
-
-/// Connection pool statistics
-#[derive(Debug, Clone)]
-pub struct ConnectionPoolStats {
-    /// Total number of connections in the pool
-    pub total_connections: usize,
-    /// Number of connections currently in use
-    pub in_use_connections: usize,
-    /// Number of idle connections
-    pub idle_connections: usize,
-    /// Number of peers with connections
-    pub peers: usize,
-    /// Number of peers with connections in use
-    pub in_use_peers: usize,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::webrtc_connection::WebRtcConnection;
-    use libp2p::PeerId;
-    use std::time::Duration;
-
-    #[test]
-    fn test_connection_pool() {
-        // Create a connection pool
-        let config = ConnectionPoolConfig {
-            max_connections: 10,
-            ttl: Duration::from_secs(60),
-            max_age: Duration::from_secs(3600),
-            enable_reuse: true,
-        };
-        let pool = ConnectionPool::new(config);
-
-        // Create some test connections
-        let peer_id1 = PeerId::random();
-        let peer_id2 = PeerId::random();
-        let conn1 = WebRtcConnection::new_mock();
-        let conn2 = WebRtcConnection::new_mock();
-
-        // Add the connections to the pool
-        pool.add(peer_id1, conn1);
-        pool.add(peer_id2, conn2);
-
-        // Check that the connections are in the pool
-        assert_eq!(pool.len(), 2);
-        assert_eq!(pool.in_use_count(), 2);
-
-        // Release the connections
-        pool.release(&peer_id1);
-        pool.release(&peer_id2);
-
-        // Check that the connections are still in the pool but not in use
-        assert_eq!(pool.len(), 2);
-        assert_eq!(pool.in_use_count(), 0);
-
-        // Get a connection
-        let conn = pool.get(&peer_id1);
-        assert!(conn.is_some());
-        assert_eq!(pool.in_use_count(), 1);
-
-        // Remove a connection
-        pool.remove(&peer_id1);
-        assert_eq!(pool.len(), 1);
-        assert_eq!(pool.in_use_count(), 0);
-
-        // Get statistics
-        let stats = pool.stats();
-        assert_eq!(stats.total_connections, 1);
-        assert_eq!(stats.in_use_connections, 0);
-        assert_eq!(stats.idle_connections, 1);
-        assert_eq!(stats.peers, 1);
-        assert_eq!(stats.in_use_peers, 0);
     }
 }

@@ -24,7 +24,7 @@ pub fn format_price(price: f64) -> String {
 
 /// Format a timestamp as a human-readable string.
 pub fn format_timestamp(timestamp: u64) -> String {
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{TimeZone, Utc};
     let datetime = Utc.timestamp_opt(timestamp as i64, 0).unwrap();
     datetime.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }

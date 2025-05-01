@@ -9,8 +9,8 @@ use futures_util::FutureExt;
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
     types::{Asset, AlkaneId},
-    orderbook::{Order, OrderSide, OrderStatus},
-    DarkSwap, types::Event, types::OrderId, types::TradeId,
+    orderbook::{OrderSide, OrderStatus},
+    DarkSwap, types::Event, types::OrderId,
 };
 use rust_decimal::Decimal;
 use std::path::PathBuf;
@@ -206,7 +206,7 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
 
     println!("{}", "Starting DarkSwap daemon...".green().bold());
     println!("  Listen address: {}", listen_addr.cyan());
-    println!("  Network: {:?}", config.darkswap.bitcoin_network.cyan());
+    println!("  Network: {}", format!("{:?}", config.darkswap.bitcoin_network).cyan());
 
     // Show a spinner while starting
     let spinner = ProgressBar::new_spinner();
@@ -234,9 +234,14 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
     println!("\n{}", "Daemon Information:".bold());
     println!("  Status:       {}", "Running".green());
     println!("  Listen Addr:  {}", listen_addr);
+    // Print daemon info
+    println!("\n{}", "Daemon Information:".bold());
+    println!("  Status:       {}", "Running".green());
+    println!("  Listen Addr:  {}", listen_addr);
     let network = darkswap.network.read().await;
     println!("  Peer ID:      {}", network.local_peer_id().to_string().cyan());
     println!("  Press Ctrl+C to stop the daemon");
+    drop(network); // Drop the immutable borrow
 
     // Create a channel for shutdown signal
     let (shutdown_sender, mut shutdown_receiver) = mpsc::channel::<()>(1);
@@ -250,7 +255,7 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
     });
 
     // Create a table for events
-    use prettytable::{format, Table, row, cell};
+    use prettytable::{format, Table, row};
     let mut event_table = Table::new();
     event_table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
     event_table.add_row(row![
@@ -266,7 +271,7 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
     loop {
         tokio::select! {
             event = darkswap.next_event() => {
-                if let Some(event) = event {
+                if let Ok(Some(event)) = event {
                     // Get current time
                     let now = chrono::Local::now().format("%H:%M:%S").to_string();
                     
@@ -572,7 +577,7 @@ async fn list_orders(
     status_str: &str,
 ) -> Result<()> {
     use colored::*;
-    use prettytable::{format, Table, row, cell};
+    use prettytable::{format, Table, row};
 
     // Create DarkSwap instance
     let mut darkswap = DarkSwap::new(config)?;
@@ -642,8 +647,8 @@ async fn list_orders(
         
         let status_str = match order.status {
             OrderStatus::Open => "OPEN".green(),
-            OrderStatus::Matched => "MATCHED".blue(),
-            OrderStatus::Completed => "COMPLETED".green(),
+            OrderStatus::Filled => "FILLED".blue(),
+            OrderStatus::PartiallyFilled => "PARTIALLY FILLED".blue(),
             OrderStatus::Cancelled => "CANCELLED".yellow(),
             OrderStatus::Expired => "EXPIRED".red(),
         };
@@ -681,7 +686,7 @@ async fn list_orders(
 /// Get market data
 async fn get_market_data(config: Config, base_asset_str: &str, quote_asset_str: &str) -> Result<()> {
     use colored::*;
-    use prettytable::{format, Table, row, cell};
+    use prettytable::{format, Table, row};
 
     // Parse parameters
     let base_asset = parse_asset(base_asset_str)?;
@@ -757,9 +762,6 @@ async fn connect_wallet(
 ) -> Result<()> {
     use colored::*;
     use dialoguer::{Input, Password, Select};
-    use std::fs::File;
-    use std::io::Write;
-    use std::path::Path;
 
     println!("{}", "Connecting wallet...".green().bold());
 

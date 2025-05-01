@@ -36,6 +36,9 @@ serde-wasm-bindgen = "0.5"
 console_error_panic_hook = "0.1.7"
 getrandom = { version = "0.2", features = ["js"] }
 darkswap-sdk = { path = "../darkswap-sdk" }
+darkswap-support = { path = "../darkswap-support" }
+hex = "0.4"
+base64 = "0.21"
 bitcoin = "0.30.0"
 log = "0.4"
 wasm-logger = "0.2"

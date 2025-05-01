@@ -3,11 +3,14 @@
 use darkswap_lib::Error;
 use libp2p::{
     core::ConnectedPoint,
-    swarm::NetworkBehaviour,
+    swarm::{NetworkBehaviour, ConnectionDenied, ConnectionId, FromSwarm, THandlerInEvent, THandlerOutEvent, ToSwarm, PollParameters}, // Reverted imports
     Multiaddr, PeerId,
+    core::Endpoint,
 };
 use std::collections::VecDeque;
 use std::task::{Context, Poll};
+use void::Void;
+use tracing::{debug, error, info, warn};
 
 /// Circuit relay behaviour for the P2P network.
 pub struct CircuitRelayBehaviour {
@@ -57,7 +60,7 @@ impl CircuitRelayBehaviour {
         // For this example, we'll just emit an event.
         self.events.push_back(CircuitRelayEvent::RelayClosed { relay_peer_id });
     }
-    
+
     /// Poll for events
     pub fn poll(&mut self) -> Option<CircuitRelayEvent> {
         self.events.pop_front()
@@ -67,8 +70,8 @@ impl CircuitRelayBehaviour {
 // Implement NetworkBehaviour manually
 #[allow(unused_variables)]
 impl NetworkBehaviour for CircuitRelayBehaviour {
-    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler;
-    type OutEvent = CircuitRelayEvent;
+    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler; // Reverted to dummy
+    type ToSwarm = CircuitRelayEvent;
 
     fn new_handler(&mut self) -> Self::ConnectionHandler {
         libp2p::swarm::dummy::ConnectionHandler
@@ -78,41 +81,46 @@ impl NetworkBehaviour for CircuitRelayBehaviour {
         Vec::new()
     }
 
-    fn inject_connection_established(
+    fn handle_established_inbound_connection(
         &mut self,
-        _peer_id: &PeerId,
-        _connection_id: &libp2p::core::connection::ConnectionId,
-        _endpoint: &ConnectedPoint,
-        _failed_addresses: Option<&Vec<Multiaddr>>,
-        _other_established: usize,
-    ) {
+        _connection_id: ConnectionId,
+        _peer: PeerId,
+        _local_addr: &Multiaddr,
+        _remote_addr: &Multiaddr,
+    ) -> Result<Self::ConnectionHandler, ConnectionDenied> {
+        Ok(self.new_handler())
     }
 
-    fn inject_connection_closed(
+    fn handle_established_outbound_connection(
         &mut self,
-        _peer_id: &PeerId,
-        _connection_id: &libp2p::core::connection::ConnectionId,
-        _endpoint: &ConnectedPoint,
-        _handler: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
-        _remaining_established: usize,
-    ) {
+        _connection_id: ConnectionId,
+        _peer: PeerId,
+        _addr: &Multiaddr,
+        _role_override: Endpoint,
+    ) -> Result<Self::ConnectionHandler, ConnectionDenied> {
+        Ok(self.new_handler())
     }
 
-    fn inject_event(
+    fn on_swarm_event(&mut self, _event: FromSwarm<Self::ConnectionHandler>) {
+        // Handle swarm events if needed
+    }
+
+    fn on_connection_handler_event(
         &mut self,
         _peer_id: PeerId,
-        _connection_id: libp2p::core::connection::ConnectionId,
-        _event: void::Void,
+        _connection_id: ConnectionId,
+        _event: THandlerOutEvent<Self::ConnectionHandler>, // Reverted signature
     ) {
+        // Handle connection handler events if needed
     }
 
-    fn poll<TBehaviourIn>(
+    fn poll(
         &mut self,
         _cx: &mut Context<'_>,
-        _params: &mut impl libp2p::swarm::PollParameters,
-    ) -> Poll<libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+        _params: &mut impl PollParameters,
+    ) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self::ConnectionHandler>>> { // Reverted signature
         if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(libp2p::swarm::NetworkBehaviourAction::GenerateEvent(event));
+            return Poll::Ready(ToSwarm::GenerateEvent(event));
         }
 
         Poll::Pending

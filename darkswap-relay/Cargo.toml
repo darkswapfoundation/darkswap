@@ -10,7 +10,7 @@ license = "MIT"
 # Core dependencies
 darkswap-lib = { path = "../darkswap-lib" }
 darkswap-support = { path = "../darkswap-support" }
-# darkswap-p2p = { path = "../darkswap-p2p" } # Temporarily exclude darkswap-p2p
+darkswap-p2p = { path = "../darkswap-p2p" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] } # Align with workspace version

@@ -11,7 +11,6 @@ use bitcoin::psbt::{Psbt};
 use bitcoin::psbt::raw::ProprietaryKey;
 
 use crate::error::Error;
-use crate::types::Asset;
 use crate::wallet::Wallet;
 
 /// Rune handler
@@ -19,13 +18,13 @@ pub struct RuneHandler {
     /// Wallet
     wallet: Arc<dyn Wallet + Send + Sync>,
     /// Network
-    network: Network,
+    _network: Network,
 }
 
 impl RuneHandler {
     /// Create a new rune handler
     pub fn new(wallet: Arc<dyn Wallet + Send + Sync>, network: Network) -> Self {
-        Self { wallet, network }
+        Self { wallet, _network: network }
     }
 
     /// Get rune balance

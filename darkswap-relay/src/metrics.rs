@@ -12,7 +12,7 @@ use crate::{
 };
 use prometheus;
 use prometheus::{
-    Counter, Gauge, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, IntGaugeVec,
+    IntCounter, IntCounterVec, IntGauge,
     Opts, Registry, Encoder,
 };
 use std::sync::Arc;

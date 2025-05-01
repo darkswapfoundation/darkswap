@@ -9,7 +9,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use libp2p::multiaddr::{Multiaddr, Protocol};
 use libp2p::PeerId;
-use log::info;
 use tokio::sync::{mpsc, RwLock};
 
 use crate::types::Event;
@@ -40,9 +39,9 @@ pub struct P2PNetwork {
     /// Connected peers
     connected_peers: Arc<RwLock<HashMap<PeerId, Multiaddr>>>,
     /// Event sender
-    event_sender: mpsc::Sender<Event>,
+    _event_sender: mpsc::Sender<Event>,
     /// Event receiver
-    event_receiver: Arc<RwLock<mpsc::Receiver<Event>>>,
+    _event_receiver: Arc<RwLock<mpsc::Receiver<Event>>>,
 }
 
 impl Default for P2PNetwork {
@@ -57,8 +56,8 @@ impl Default for P2PNetwork {
         Self {
             local_peer_id,
             connected_peers: Arc::new(RwLock::new(HashMap::new())),
-            event_sender,
-            event_receiver: Arc::new(RwLock::new(event_receiver)),
+            _event_sender: event_sender,
+            _event_receiver: Arc::new(RwLock::new(event_receiver)),
         }
     }
 }
@@ -76,8 +75,8 @@ impl P2PNetwork {
         Ok(Self {
             local_peer_id,
             connected_peers: Arc::new(RwLock::new(HashMap::new())),
-            event_sender,
-            event_receiver: Arc::new(RwLock::new(event_receiver)),
+            _event_sender: event_sender,
+            _event_receiver: Arc::new(RwLock::new(event_receiver)),
         })
     }
 
@@ -136,7 +135,7 @@ impl P2PNetwork {
     }
 
     /// Extract the peer ID from a multiaddr
-    fn extract_peer_id(addr: &Multiaddr) -> Option<PeerId> {
+    fn _extract_peer_id(addr: &Multiaddr) -> Option<PeerId> {
         addr.iter().find_map(|proto| match proto {
             Protocol::P2p(hash) => {
                 // Convert the multihash to a PeerId

@@ -31,7 +31,7 @@ pub struct CircuitRelay {
     /// Connected peers
     connected_peers: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
     /// Event sender
-    event_sender: tokio::sync::mpsc::Sender<crate::types::Event>,
+    _event_sender: tokio::sync::mpsc::Sender<crate::types::Event>,
 }
 
 impl CircuitRelay {
@@ -44,7 +44,7 @@ impl CircuitRelay {
         Ok(Self {
             local_peer_id,
             connected_peers: Arc::new(Mutex::new(HashMap::new())),
-            event_sender,
+            _event_sender: event_sender,
         })
     }
 
@@ -115,7 +115,7 @@ impl CircuitRelay {
 /// Circuit relay manager
 pub struct CircuitRelayManager {
     /// Relay addresses
-    relay_addresses: Vec<Multiaddr>,
+    _relay_addresses: Vec<Multiaddr>,
     /// Connected relays
     connected_relays: Arc<Mutex<HashMap<PeerId, Multiaddr>>>,
     /// Reserved relay slots
@@ -129,7 +129,7 @@ impl CircuitRelayManager {
         relay_addresses: Vec<Multiaddr>,
     ) -> Result<Self> {
         Ok(Self {
-            relay_addresses,
+            _relay_addresses: relay_addresses,
             connected_relays: Arc::new(Mutex::new(HashMap::new())),
             reserved_slots: Arc::new(Mutex::new(HashMap::new())),
         })

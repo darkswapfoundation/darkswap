@@ -8,136 +8,126 @@
 \maketitle
 
 \section{Introduction}
-This is the introduction to the DarkSwap whitepaper.
+The burgeoning digital asset landscape necessitates trading platforms that uphold the core tenets of decentralization: security, privacy, and censorship resistance. Conventional centralized exchanges, despite their current dominance in liquidity and accessibility, are fundamentally antithetical to these principles. Their centralized control points represent attractive targets for malicious actors and regulatory pressures, introducing significant counterparty risk and eroding user autonomy. The inherent opacity of such platforms further contradicts the transparency that blockchain technology promises.
+
+While various decentralized trading approaches have been explored, they often grapple with complexities that hinder widespread adoption, including challenges in achieving sufficient liquidity and providing a seamless user experience. This whitepaper introduces DarkSwap, a groundbreaking decentralized peer-to-peer trading platform meticulously engineered for the trustless exchange of Bitcoin, Runes, and Alkanes directly between participants. DarkSwap distinguishes itself by employing a sophisticated modular architecture and advanced P2P networking protocols to effectively eliminate counterparty risk, bolster censorship resistance, and return complete control of assets to the users throughout the trading process. This document provides a comprehensive exposition of DarkSwap's technical architecture, communication protocols, salient features, robust security framework, performance considerations, and strategic future development roadmap, positioning DarkSwap as a leading-edge, secure, and highly efficient decentralized trading solution within the Bitcoin ecosystem.
 
 \section{Architecture}
-DarkSwap is designed as a decentralized peer-to-peer trading platform. Its architecture is modular, consisting of several key components that interact to facilitate trustless trading of Bitcoin, runes, and alkanes.
+The architectural design of DarkSwap is predicated on principles of decentralization, modularity, and robustness, specifically tailored to enable trustless peer-to-peer trading of Bitcoin, Runes, and Alkanes. The system is logically partitioned into several interconnected components, each assigned distinct responsibilities within the overall trading ecosystem and network topology.
+
+At the core of the platform resides the DarkSwap SDK (\texttt{darkswap-sdk}), implemented as a Rust library. The selection of Rust is motivated by its strong emphasis on memory safety, performance, and concurrency, which are critical for building reliable and efficient decentralized applications. The SDK encapsulates the fundamental logic underpinning the DarkSwap protocol, including sophisticated modules for distributed orderbook management, secure trade execution, and seamless integration with various wallet implementations.
+
+Building upon the solid foundation of the SDK are the user-facing interfaces and background services. The DarkSwap CLI (\texttt{darkswap-cli}) provides a powerful and flexible command-line interface, allowing technical users to interact directly with the DarkSwap network and execute trading operations. For continuous participation in the decentralized network and automated trading strategies, the DarkSwap Daemon (\texttt{darkswap-daemon}) operates as a persistent background service. The web interface (\texttt{web}), constructed using modern web technologies like TypeScript and React, offers an intuitive graphical user interface, communicating with the core SDK functionalities through WebAssembly bindings. This approach leverages the performance benefits of the Rust-based SDK while providing broad accessibility through standard web browsers. Supporting libraries such as \texttt{darkswap-lib}, \texttt{darkswap-support}, \texttt{darkswap-web-sys}, and \texttt{darkswap-wasm} provide common utilities, shared functionalities, and facilitate the WebAssembly integration.
+
+The decentralized network communication layer is powered by the versatile \texttt{libp2p} framework. \texttt{libp2p} was chosen for its modularity, extensibility, and native support for various transport protocols, making it ideal for constructing a resilient and adaptable P2P network. WebRTC is specifically employed to enable direct peer-to-peer connections for browser-based clients, optimizing data transfer efficiency. To overcome the challenges posed by Network Address Translation (NAT) and ensure connectivity for peers behind firewalls, DarkSwap incorporates a Circuit Relay mechanism, facilitated by a dedicated DarkSwap Relay Server (\texttt{darkswap-relay}). This server assists peers in discovering each other and establishing relayed connections when direct connections are not possible.
+
+The distributed orderbook is a key architectural element, managing buy and sell orders across the decentralized network. Orders are propagated among peers, each maintaining and updating their local copy of the orderbook. This distributed approach enhances transparency and resilience compared to centralized orderbook systems. The secure trading protocol, built upon Partially Signed Bitcoin Transactions (PSBTs), is integral to the architecture, ensuring atomic and trustless execution of asset swaps directly between trading peers. Finally, robust wallet integration, including support for the Bitcoin Development Kit (BDK), is a critical component, enabling users to securely manage their Bitcoin, Rune, and Alkane balances and authorize transactions necessary for trading directly within the DarkSwap environment.
+
+\begin{figure}[h!]
+    \centering
+    % \includegraphics[width=\textwidth]{architecture_diagram.png} % Uncomment and replace with your diagram file
+    \caption{Overall Architecture of the DarkSwap Platform. This diagram should illustrate the main components (SDK, CLI, Daemon, Web, Relay Server) and their interactions, including the P2P Network, User Wallets, and the Bitcoin Blockchain.}
+    \label{fig:architecture}
+\end{figure}
 
 
 \subsection{P2P Protocol}
-Describe the P2P protocol in detail, including how peers discover each other, establish connections, and exchange messages using libp2p and WebRTC.
-DarkSwap's P2P protocol is built upon the \texttt{libp2p} framework, a modular networking stack designed for decentralized applications. The P2P network enables direct communication between peers for tasks such as order propagation, trade negotiation, and data exchange.
+The peer-to-peer (P2P) communication layer is a cornerstone of the DarkSwap architecture, enabling decentralized interaction among participants without reliance on a central authority. This layer is built upon the \texttt{libp2p} framework, a sophisticated and modular networking stack chosen for its adaptability, extensibility, and native support for diverse transport protocols. The selection of \texttt{libp2p} provides DarkSwap with the flexibility to operate across various environments, from command-line interfaces and background daemons to web browsers.
 
-\subsubsection{Peer Discovery}
-Peers in the DarkSwap network can discover each other through various mechanisms supported by \texttt{libp2p}, including:
-\begin{itemize}
-    \item \textbf{mDNS (Multicast DNS):} For local peer discovery within a local network.
-    \item \textbf{Kademlia DHT (Distributed Hash Table):} For discovering peers in a larger network by storing and retrieving peer information in a decentralized manner.
-    \item \textbf{Bootstrap Nodes:} Predefined nodes that help new peers join the network and discover other peers.
-\end{itemize}
+Peer discovery within the DarkSwap network is a critical function facilitated by \texttt{libp2p}'s integrated mechanisms. These include Multicast DNS (mDNS) for efficient and automatic discovery of peers within local network segments, and the Kademlia Distributed Hash Table (DHT) for scalable peer discovery across a wider, geographically dispersed network by decentralizing the storage and retrieval of peer addressing information. The network also utilizes a set of predefined bootstrap nodes, which serve as initial connection points for new peers to join the network and subsequently discover other participants through the DHT.
 
-\subsubsection{Connection Establishment}
-Once peers discover each other, they can establish direct connections using various transports supported by \texttt{libp2p}. DarkSwap utilizes:
-\begin{itemize}
-    \item \textbf{TCP:} For reliable stream-based communication between peers.
-    \item \textbf{WebSockets:} To enable browser-based peers to connect to the P2P network.
-    \item \textbf{WebRTC:} For direct browser-to-browser peer connections, facilitating efficient data transfer without intermediaries.
-\end{itemize}
-To overcome challenges with Network Address Translation (NAT), DarkSwap utilizes a Circuit Relay mechanism. Peers behind NATs can establish connections by relaying traffic through a public relay server.
+Once peers have discovered each other, \texttt{libp2p} supports the establishment of direct connections using a variety of transport protocols. DarkSwap leverages TCP for reliable, stream-oriented communication between traditional nodes and WebSockets to enable seamless connectivity for browser-based clients. Crucially, WebRTC is employed to facilitate direct peer-to-peer connections between web browsers, significantly reducing latency and optimizing data transfer efficiency by bypassing intermediate servers after the initial connection setup. Acknowledging the prevalent challenges posed by Network Address Translation (NAT) and firewalls, DarkSwap incorporates a Circuit Relay mechanism. This allows peers situated behind restrictive network configurations to establish connections by relaying their traffic through a publicly accessible DarkSwap Relay Server, thereby enhancing network reachability and resilience.
 
-\subsubsection{Message Exchange}
-Messages are exchanged between peers over established connections using protocols built on top of \texttt{libp2p}. Key messaging patterns include:
-\begin{itemize}
-    \item \textbf{GossipSub:} A pub/sub protocol used for propagating information like new orders and trade updates across the network efficiently.
-    \item \textbf{Request-Response:} For direct communication between two peers, used for tasks like requesting specific order details or negotiating trades.
-\end{itemize}
+Message exchange between connected peers occurs over secure channels established by \texttt{libp2p}, utilizing application-level protocols tailored to DarkSwap's needs. The GossipSub protocol, a robust and scalable publish/subscribe mechanism, is effectively utilized for the efficient dissemination of information such as new trading orders and updates across the network. This ensures that all interested peers receive relevant orderbook information in a timely manner. Additionally, a request-response pattern is implemented for direct, point-to-point communication between two peers, facilitating specific interactions such as requesting detailed information about a particular order or engaging in the step-by-step negotiation process of a trade. Maintaining a consistent view of the distributed orderbook across all peers in the face of network latency and churn is a key challenge addressed through careful design and ongoing optimization of the message propagation and validation mechanisms.
+\begin{figure}[h!]
+    \centering
+    % \includegraphics[width=\textwidth]{p2p_network_diagram.png} % Uncomment and replace with your diagram file
+    \caption{DarkSwap P2P Network Connectivity. This diagram should illustrate how different types of peers (e.g., CLI, Daemon, Browser) connect to each other, showing the role of libp2p, WebRTC, and the relay server in facilitating connections, including NAT traversal.}
+    \label{fig:p2p_network}
+\end{figure}
 \subsection{Trading Protocol}
-Explain the trading protocol, covering order creation, propagation, matching, and execution using PSBTs.
-The DarkSwap trading protocol governs the process of exchanging assets between peers in a trustless manner. It is designed to be secure and atomic, ensuring that either both legs of a trade are executed or neither is.
+The DarkSwap trading protocol orchestrates the process of exchanging assets between peers in a trustless and atomic fashion. Engineered for security and reliability, this protocol guarantees that asset swaps are executed such that either both sides of the trade are successfully completed on the Bitcoin blockchain, or neither is, thereby effectively eliminating counterparty risk.
 
-\subsubsection{Order Creation and Propagation}
-Users create orders specifying the asset they want to sell, the asset they want to buy, and the desired price and amount. These orders are then signed by the user's wallet and propagated across the P2P network using the GossipSub protocol. Peers receive and validate these orders, adding them to their local orderbooks.
+The lifecycle of a trade within DarkSwap commences with the creation and propagation of trading orders. Users specify the parameters of their desired exchange, including the asset to be sold, the asset to be acquired, and the terms of the trade (e.g., price and quantity). These orders are cryptographically signed by the user's wallet to ensure authenticity and integrity, and are then disseminated across the decentralized P2P network. The efficient propagation of these orders is facilitated by the GossipSub protocol, enabling peers to receive and validate new orders and update their local copies of the distributed orderbook.
 
-\subsubsection{Order Matching}
-Peers continuously monitor their local orderbook for matching orders. A match occurs when a buy order for a specific asset pair is compatible with a sell order for the same pair (i.e., the buyer's desired price is greater than or equal to the seller's asking price). Matching can happen directly between any two peers on the network.
+Order matching is a continuous and decentralized process. Peers actively monitor their local orderbooks for compatible buy and sell orders. A match is identified when the terms of a buy order for a specific asset pair align with or exceed the terms of a sell order for the same pair. Matching can occur directly between any two peers on the network that discover a compatible order.
 
-\subsubsection{Trade Negotiation and Execution}
-When a match is found, the involved peers initiate a trade negotiation process. This involves exchanging information necessary to construct a Partially Signed Bitcoin Transaction (PSBT). The PSBT is a standard format that allows participants to collaborate in building and signing a Bitcoin transaction without revealing their private keys to each other.
+Upon identifying a match, the involved peers engage in a structured trade negotiation phase. This phase involves the secure exchange of information necessary to construct a Partially Signed Bitcoin Transaction (PSBT). The PSBT format is a standardized and widely adopted method that allows multiple participants to collaborate in building and signing a complex Bitcoin transaction without exposing their private keys to one another. The atomic execution of the trade is enforced through the PSBT mechanism, requiring both the maker and the taker to apply their digital signatures to the transaction. The trade is only considered valid and broadcastable to the Bitcoin network if all required signatures are present. This design inherently handles potential edge cases such as one party going offline or refusing to sign; in such scenarios, the PSBT remains incomplete, the transaction is not broadcast, and the assets remain unspent in the participants' wallets. The typical flow of trade negotiation and execution involves the maker sending an initial trade proposal (encapsulating their desired terms and initial PSBT data) to the taker. The taker validates this proposal and, if acceptable, contributes their necessary inputs and outputs to the PSBT and applies their signature. The partially signed PSBT is then returned to the maker, who performs a final validation, adds their own inputs and outputs, and applies their signature. The now fully signed PSBT represents the atomic swap transaction and is broadcast to the Bitcoin network for confirmation. The successful inclusion of this transaction in a Bitcoin block signifies the completion of the trustless atomic swap. This reliance on native Bitcoin scripting capabilities and the PSBT standard, rather than complex smart contracts, enhances the security and simplicity of the trading protocol.
 
-The trading protocol ensures atomicity by requiring both parties to sign the PSBT. If either party fails to sign or broadcast the transaction, the trade is not executed, and no funds are lost. The process typically involves:
-\begin{enumerate}
-    \item The maker (the peer who created the initial order) sends a trade proposal to the taker (the peer who found the match).
-    \item The taker validates the proposal and, if acceptable, adds their inputs and outputs to the PSBT and signs it.
-    \item The taker sends the partially signed PSBT back to the maker.
-    \item The maker validates the taker's contribution, adds their own inputs and outputs, and signs the PSBT.
-    \item The fully signed PSBT is then broadcast to the Bitcoin network for inclusion in a block.
-\end{enumerate}
-The use of PSBTs and the atomic nature of the protocol eliminate the need for trusted third parties or complex smart contracts for basic swaps.
-
+\begin{figure}[h!]
+    \centering
+    % \includegraphics[width=\textwidth]{trading_protocol_flow.png} % Uncomment and replace with your diagram file
+    \caption{DarkSwap Trading Protocol Flow. This diagram should illustrate the sequence of events in a trustless atomic swap, from order creation and propagation to matching, negotiation, PSBT exchange, and broadcasting the final transaction.}
+    \label{fig:trading_protocol}
+\end{figure}
 \subsection{Signaling Protocol}
-Detail the signaling protocol used for WebRTC connections, including how SDP offers/answers and ICE candidates are exchanged.
-The signaling protocol in DarkSwap is crucial for establishing WebRTC connections between peers, particularly for browser-based clients. Since WebRTC is a peer-to-peer technology, it requires an initial signaling phase to exchange network information between the peers that want to connect.
+The signaling protocol is an indispensable component of the DarkSwap network, specifically facilitating the establishment of WebRTC connections between peers, a requirement particularly pronounced for clients operating within web browser environments. As WebRTC is fundamentally a peer-to-peer communication technology, it mandates an initial signaling phase to enable the exchange of crucial network configuration and session capabilities information between the peers intending to establish a direct connection.
 
-The signaling process typically involves a signaling server (which can be a separate component or integrated into the relay server) and the peers wishing to establish a WebRTC connection. The steps are generally as follows:
+This signaling process involves a dedicated signaling server, which can be deployed as a standalone service or integrated into the DarkSwap Relay Server infrastructure, and the individual peers seeking to form a WebRTC connection. The typical sequence of events in the signaling exchange is as follows: An initiating peer, acting as the offerer, generates a WebRTC offer. This offer is formatted as a Session Description Protocol (SDP) message, containing essential details about the offerer's media capabilities, supported codecs, and potential network addresses. The offerer securely transmits this SDP offer to the signaling server, specifying the unique identifier of the intended recipient peer. The signaling server acts as a secure intermediary, responsible for reliably forwarding the received SDP offer to the designated answerer peer. Upon receiving the offer, the answerer processes the information and generates a compatible WebRTC answer, also encapsulated within an SDP message. This answer is then transmitted back to the signaling server, again specifying the target peer. The signaling server subsequently delivers the SDP answer to the original offerer.
 
-\begin{enumerate}
-    \item \textbf{Offer Creation:} One peer (the offerer) creates a WebRTC offer, which is an Session Description Protocol (SDP) message containing information about its media capabilities and network addresses.
-    \item \textbf{Offer Transmission:} The offerer sends the SDP offer to the signaling server, specifying the peer it wants to connect to.
-    \item \textbf{Offer Delivery:} The signaling server forwards the SDP offer to the intended recipient peer (the answerer).
-    \item \textbf{Answer Creation:} The answerer receives the SDP offer and creates a WebRTC answer (another SDP message) that is compatible with the offer.
-    \item \textbf{Answer Transmission:} The answerer sends the SDP answer back to the signaling server, again specifying the target peer.
-    \item \textbf{Answer Delivery:} The signaling server forwards the SDP answer to the original offerer.
-    \item \textbf{ICE Candidate Exchange:} While the SDP offer and answer are being exchanged, both peers also gather ICE (Interactive Connectivity Establishment) candidates. These candidates are potential network addresses and protocols that the peers can use to communicate. ICE candidates are also exchanged via the signaling server.
-    \item \textbf{Connection Establishment:} Once both peers have exchanged sufficient SDP and ICE information, they can attempt to establish a direct peer-to-peer connection using the gathered candidates.
-\end{enumerate}
+Concurrently with the exchange of SDP offers and answers, both peers engage in the process of gathering ICE (Interactive Connectivity Establishment) candidates. ICE candidates represent potential network transport addresses and protocols (e.g., IP addresses, ports, TURN/STUN relay information) that the peers can use to establish a direct connection. These ICE candidates are also exchanged between the peers via the signaling server. The signaling server's role in this phase is purely facilitative, ensuring the secure and timely delivery of signaling messages between the peers. Security considerations for the signaling server include implementing robust authentication and authorization mechanisms to prevent unauthorized access and message manipulation. The signaling server should also employ secure communication channels (e.g., WSS for WebSockets) to protect the confidentiality and integrity of the signaling data.
 
-The signaling server in DarkSwap acts as a temporary intermediary to facilitate the exchange of this initial connection information. After the direct WebRTC connection is established, communication bypasses the signaling server and flows directly between the peers.
+Once both peers have successfully exchanged sufficient SDP and ICE information, they possess the necessary data to traverse NATs and firewalls and attempt to establish a direct peer-to-peer connection using the gathered candidates. The signaling server's involvement concludes once the direct WebRTC connection is successfully established, with subsequent data communication flowing directly between the peers, bypassing the signaling infrastructure.
 
 \section{Key Features}
-Describe the key features of DarkSwap, including support for Bitcoin, runes, and alkanes, wallet integration, the orderbook, etc.
-DarkSwap offers a range of key features designed to provide a decentralized and user-friendly trading experience:
+DarkSwap is distinguished by a suite of key features meticulously designed to deliver a truly decentralized, secure, and user-centric trading experience within the Bitcoin ecosystem.
 
-\begin{itemize}
-    \item \textbf{Decentralized P2P Trading:} Trades occur directly between users without the need for a central exchange, reducing counterparty risk and increasing censorship resistance.
-    \item \textbf{Bitcoin, Runes, and Alkanes Support:} DarkSwap is built to support the trading of native Bitcoin, as well as emerging assets like Runes and Alkanes on the Bitcoin blockchain.
-    \item \textbf{Trustless Atomic Swaps:} Utilizing PSBTs, trades are executed as atomic swaps, guaranteeing that either both assets are exchanged successfully or the trade is reverted, eliminating the risk of one party failing to uphold their end of the deal.
-    \item \textbf{Distributed Orderbook:} The orderbook is distributed across the network, providing transparency and resilience. Users maintain their own copies and can match orders directly with other peers.
-    \item \textbf{Wallet Integration:} Seamless integration with compatible Bitcoin wallets (including BDK-based wallets) allows users to manage their assets and sign transactions directly within the DarkSwap environment.
-    \item \textbf{Browser Compatibility:} Through the use of WebRTC and WebAssembly, DarkSwap can be accessed and used directly within a web browser, making it easily accessible without requiring dedicated software installations.
-    \item \textbf{Open Source:} The entire DarkSwap project is open source, promoting transparency, community involvement, and allowing for independent security audits.
-\end{itemize}
+A fundamental feature is the platform's decentralized peer-to-peer trading capability. Unlike centralized exchanges where users relinquish control of their assets to a third party, DarkSwap enables direct trading between users. This architecture significantly reduces counterparty risk and enhances censorship resistance, aligning with the core principles of decentralized finance.
+
+DarkSwap is engineered to provide comprehensive support for trading native Bitcoin alongside emerging assets on the Bitcoin blockchain, specifically Runes and Alkanes. This broad asset support positions DarkSwap as a versatile platform for the evolving Bitcoin asset landscape.
+
+The implementation of trustless atomic swaps, facilitated by Partially Signed Bitcoin Transactions (PSBTs), is a cornerstone of DarkSwap's security model. This feature ensures that trades are executed atomically, meaning either both legs of the swap are successfully completed on the blockchain, or neither is. This cryptographic guarantee eliminates the possibility of one party failing to uphold their end of the trade after the other has committed, thereby removing the need for trust between trading partners.
+
+The distributed orderbook is another salient feature contributing to the platform's transparency and resilience. Instead of a single, centralized orderbook, order information is propagated and maintained across the decentralized network of peers. Users have access to their local copy of the orderbook and can directly identify and match with compatible orders from other participants. This distributed approach enhances the platform's resistance to manipulation and single points of failure.
+
+Seamless wallet integration is crucial for a user-friendly decentralized trading experience. DarkSwap provides robust integration with compatible Bitcoin wallets, including those built using the Bitcoin Development Kit (BDK). This allows users to manage their Bitcoin, Rune, and Alkane balances and securely sign transactions required for trading directly within the DarkSwap environment, without exposing their private keys to the trading platform itself.
+
+Browser compatibility, achieved through the strategic use of WebRTC and WebAssembly, significantly enhances the accessibility of DarkSwap. Users can access and utilize the full functionality of the platform directly within a standard web browser, eliminating the need for dedicated software installations and lowering the barrier to entry for new users.
+
+Finally, DarkSwap's commitment to being open source is a key feature that fosters transparency, community engagement, and security. The entire codebase is publicly available, allowing for independent security audits, community contributions, and ensuring that the platform operates as described without hidden backdoors or vulnerabilities. This open approach builds trust and accelerates the development and improvement of the platform.
 
 \section{Security}
-Discuss the security aspects of DarkSwap, including how transactions are secured, how the network is protected, and any cryptographic measures used.
-Security is a paramount concern in the design and implementation of DarkSwap. The platform leverages several mechanisms to ensure the safety of user assets and the integrity of the trading process:
+Security is a foundational pillar of the DarkSwap platform, with meticulous attention paid to safeguarding user assets and ensuring the integrity of all trading operations. The decentralized nature of DarkSwap inherently provides significant security advantages over centralized alternatives by eliminating single points of failure and reducing susceptibility to censorship and malicious attacks targeting a central authority.
 
-\begin{itemize}
-    \item \textbf{Trustless Atomic Swaps:} As detailed in the Trading Protocol section, the use of PSBTs for atomic swaps is a fundamental security feature. It eliminates the need for trust between trading partners and prevents scenarios where one party can abscond with funds without completing their part of the trade.
-    \item \textbf{Decentralized Architecture:} The decentralized nature of the P2P network removes single points of failure and makes the platform more resilient to attacks and censorship compared to centralized exchanges.
-    \item \textbf{Cryptographic Signatures:} All orders and trade-related messages are cryptographically signed by the user's private keys. This ensures the authenticity and integrity of the data and prevents unauthorized manipulation.
-    \item \textbf{Wallet Integration:} By integrating with secure and reputable wallet libraries like BDK, DarkSwap relies on established and audited solutions for key management and transaction signing, rather than implementing its own potentially vulnerable wallet functionality.
-    \item \textbf{Open Source and Auditable Code:} The entire codebase is open source, allowing for public scrutiny and security audits by the community and security experts. This transparency helps identify and address potential vulnerabilities proactively.
-    \item \textbf{Input Validation and Error Handling:} Rigorous input validation and comprehensive error handling are implemented throughout the codebase to prevent unexpected behavior and potential attack vectors.
-\end{itemize}
+A cornerstone of DarkSwap's security framework is the implementation of trustless atomic swaps, facilitated by the strategic use of Partially Signed Bitcoin Transactions (PSBTs). As elaborated in the Trading Protocol section, this mechanism ensures that the exchange of assets is atomic: either both legs of the trade are successfully executed on the Bitcoin blockchain, or neither is. This cryptographic guarantee is paramount, as it removes the necessity for trust between trading participants and effectively prevents scenarios such as one party absconding with funds without completing their side of the swap. The reliance on native Bitcoin scripting capabilities and the well-audited PSBT standard, rather than introducing complex and potentially vulnerable smart contracts, further enhances the security posture of the trading process.
 
-While DarkSwap provides a secure trading environment, users are still responsible for the security of their own wallets and private keys. Best practices for wallet security, such as using strong passwords, enabling two-factor authentication where available, and backing up recovery phrases, are essential for protecting assets.
+Cryptographic signatures are employed extensively throughout the DarkSwap network to ensure the authenticity and integrity of data. All trading orders and protocol-specific messages are cryptographically signed using the user's private keys. This process verifies the origin of messages and guarantees that they have not been tampered with in transit, thereby preventing unauthorized order manipulation or fraudulent trade initiation.
+
+Robust wallet integration is another critical security consideration. DarkSwap integrates with reputable and security-focused Bitcoin wallet libraries, such as the Bitcoin Development Kit (BDK). By leveraging these established and audited solutions for key management and transaction signing, DarkSwap avoids the complexities and potential vulnerabilities associated with implementing custom wallet functionality. Users retain full control over their private keys, which never leave their local environment, significantly mitigating the risk of asset theft due to platform compromise.
+
+The open-source nature of the entire DarkSwap codebase is a deliberate security measure. Public availability of the code allows for continuous scrutiny and independent security audits by the broader community and cybersecurity experts. This transparency fosters trust and facilitates the proactive identification and remediation of potential vulnerabilities, contributing to the long-term security and stability of the platform.
+
+Furthermore, rigorous input validation and comprehensive error handling are implemented throughout the DarkSwap codebase. This defensive programming approach is essential for preventing unexpected behavior, mitigating potential attack vectors, and ensuring the platform's resilience in the face of malformed or malicious inputs.
+
+While DarkSwap is designed to provide a highly secure trading environment, it is crucial to emphasize that users remain responsible for the security of their own wallets and the diligent management of their private keys. Adhering to best practices for personal wallet security, including the use of strong, unique passwords, enabling two-factor authentication where applicable, and securely backing up recovery phrases, is indispensable for protecting assets within the decentralized ecosystem. Compared to centralized exchanges, where users deposit funds into exchange-controlled wallets, DarkSwap's non-custodial approach fundamentally shifts control and responsibility to the user, representing a significant security advantage for those prioritizing self-custody.
 
 \section{Performance}
-Address the performance considerations of DarkSwap, including scalability and efficiency.
-The performance of DarkSwap is influenced by its decentralized architecture and the underlying technologies. Key considerations include scalability, efficiency of order propagation, and the speed of trade execution.
+The performance characteristics of DarkSwap are intrinsically linked to its decentralized architecture and the underlying networking and processing technologies employed. Key considerations for performance include the platform's scalability, the efficiency of order propagation across the P2P network, and the speed of trade execution.
 
-\begin{itemize}
-    \item \textbf{Scalability:} The P2P architecture with a distributed orderbook allows DarkSwap to scale horizontally as more users join the network. Unlike centralized exchanges that can become bottlenecks, the processing and storage of orders are distributed among peers. However, the efficiency of order propagation via GossipSub in a very large network is an area that requires ongoing monitoring and optimization.
-    \item \textbf{Order Propagation Efficiency:} The GossipSub protocol is designed for efficient message dissemination in a P2P network. However, the volume of orders and network churn (peers frequently joining and leaving) can impact propagation speed and consistency of the orderbook across all peers. Optimizations in message serialization, compression, and network topology management are crucial for maintaining a responsive orderbook.
-    \item \textbf{Trade Execution Speed:} The speed of trade execution is primarily dependent on the latency of the P2P connection between the trading peers and the confirmation times on the Bitcoin blockchain. While P2P negotiation is typically fast, the finality of the atomic swap relies on the Bitcoin network's block confirmation times, which are outside of DarkSwap's direct control.
-    \item \textbf{Resource Utilization:} The DarkSwap SDK and associated components are developed with performance in mind, particularly the Rust-based core logic. Efficient data structures and algorithms are used for orderbook management and trade processing. For browser-based clients, the performance of WebAssembly bindings and WebRTC data channels are important factors.
-\end{itemize}
+Scalability is a significant advantage of DarkSwap's P2P architecture with a distributed orderbook. As the number of users and trading activity increase, the platform can scale horizontally by distributing the load of order processing and storage across a larger number of peers. This contrasts with centralized exchanges, which can experience performance bottlenecks under high load due to their centralized infrastructure. However, the efficiency of order propagation via the GossipSub protocol in a very large and dynamic network presents a continuous area for monitoring and optimization. Factors such as network latency, peer churn (peers frequently joining and leaving the network), and the sheer volume of orders can impact the speed at which orderbook updates are disseminated and the consistency of the orderbook view across all participating peers. Ongoing efforts in optimizing message serialization, compression techniques, and network topology management are crucial for maintaining a responsive and synchronized distributed orderbook.
 
-Ongoing performance testing and optimization are essential to ensure DarkSwap remains fast and responsive as the network grows and trading activity increases.
+The speed of trade execution in DarkSwap is primarily determined by two factors: the latency of the direct P2P connection established between the trading peers for negotiation and the confirmation times on the Bitcoin blockchain for the final atomic swap transaction. While the P2P negotiation phase is typically fast, occurring directly between peers, the ultimate finality of the trade is contingent upon the inclusion of the resulting PSBT in a Bitcoin block. Bitcoin block confirmation times are inherently variable and outside the direct control of the DarkSwap platform.
+
+Resource utilization is another important performance aspect. The core logic of the DarkSwap SDK is implemented in Rust, a language known for its performance and efficiency. The use of optimized data structures and algorithms for critical operations such as orderbook management and trade processing contributes to minimizing resource consumption. For browser-based clients utilizing the web interface, the performance of WebAssembly bindings, which allow the Rust-based SDK to run in the browser, and the efficiency of WebRTC data channels for direct peer-to-peer communication are key factors influencing the user experience.
+
+Continuous performance testing, profiling, and optimization efforts are integral to the DarkSwap development process. These activities aim to identify and address potential performance bottlenecks as the network grows and trading volume increases, ensuring that DarkSwap remains a fast, responsive, and efficient trading platform.
 
 \section{Future Development}
-Outline the future plans and roadmap for the DarkSwap project.
-The DarkSwap project is under active development, with a roadmap focused on enhancing its capabilities, improving user experience, and expanding its reach. Future development areas include:
+The DarkSwap project is committed to continuous evolution and improvement, guided by a strategic roadmap focused on expanding its capabilities, refining the user experience, and broadening its impact within the decentralized trading landscape. Future development efforts are prioritized to address key areas identified for enhancing the platform's functionality, performance, and accessibility.
 
-\begin{itemize}
-    \item \textbf{Advanced Trading Features:} Implementing more sophisticated trading features such as limit orders, stop orders, and potentially more complex atomic swap types.
-    \item \textbf{Improved P2P Network Efficiency:} Further optimizing the P2P network for faster order propagation and improved resilience, potentially exploring alternative or complementary network protocols.
-    \item \textbf{Enhanced Wallet Support:} Integrating with a wider range of Bitcoin wallets and potentially supporting other blockchain networks in the future, based on user demand and technical feasibility.
-    \item \textbf{User Interface Enhancements:} Continuously improving the web interface based on user feedback, focusing on usability, performance, and providing more comprehensive trading tools and visualizations.
-    \item \textbf{Mobile Applications:} Developing native mobile applications for iOS and Android to provide a seamless trading experience on mobile devices.
-    \item \textbf{Increased Asset Support:} Exploring support for additional Bitcoin-based assets or assets on other compatible blockchains, following careful evaluation of their technical specifications and security implications.
-    \item \textbf{Community Governance:} Establishing a framework for community involvement in the project's direction and decision-making process.
-\end{itemize}
+Key areas for future development include the implementation of more advanced trading features. This encompasses the introduction of sophisticated order types beyond basic market orders, such as limit orders and stop orders, to provide users with greater control and flexibility over their trading strategies. Exploration into more complex atomic swap types may also be pursued to support a wider range of cross-asset exchanges.
 
-The DarkSwap team is committed to building a robust, decentralized, and user-centric trading platform for the Bitcoin ecosystem.
+Further optimization of the P2P network efficiency is a critical focus area. Efforts will be directed towards enhancing the speed and reliability of order propagation and overall network resilience. This may involve exploring alternative or complementary network protocols and optimizing existing mechanisms to ensure efficient data dissemination in a growing network.
+
+Expanding enhanced wallet support is another priority to improve user accessibility and convenience. Plans include integrating with a wider array of compatible Bitcoin wallets to offer users more choices and potentially exploring support for assets on other blockchain networks in the future, contingent upon thorough technical evaluation and user demand.
+
+Continuous user interface enhancements for the web platform are planned, driven by user feedback. The focus will be on improving usability, optimizing performance, and providing more comprehensive trading tools, charts, and visualizations to create a more engaging and efficient trading experience.
+
+To cater to the growing mobile user base, the development of native mobile applications for iOS and Android is a key future objective. These applications will aim to provide a seamless and optimized DarkSwap trading experience on mobile devices.
+
+Increasing asset support is a potential area for expansion, involving the careful evaluation and integration of additional Bitcoin-based assets or assets residing on other compatible blockchains, based on their technical specifications and security implications.
+
+Finally, the project intends to establish a framework for community governance, enabling greater involvement of the DarkSwap community in the project's direction and key decision-making processes, fostering a truly decentralized and community-driven platform.
+
+The DarkSwap team remains dedicated to building a robust, decentralized, and user-centric trading platform that serves the evolving needs of the Bitcoin ecosystem.
 \end{document}

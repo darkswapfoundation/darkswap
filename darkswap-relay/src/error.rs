@@ -3,7 +3,6 @@
 //! This module provides error types for the relay server.
 
 use std::{
-    fmt,
     io,
     result,
 };

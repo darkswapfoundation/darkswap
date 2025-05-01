@@ -7,11 +7,10 @@
 use crate::{
     auth::{AuthManager, AuthManagerConfig, AuthMethod, AuthorizationLevel},
     connection_pool::{ConnectionPool, ConnectionPoolConfig, ConnectionPoolStats},
-    darkswap_lib::{Error, Result},
+    Error, Result,
     relay_discovery::{RelayDiscoveryManager, RelayDiscoveryConfig, RelayInfo},
-    webrtc_connection::{WebRtcConnection, WebRtcConnectionManager},
-    webrtc_signaling_client::WebRtcSignalingClient,
-    Result,
+    crate::webrtc_connection::{WebRtcConnection, WebRtcConnectionManager}, // Corrected import
+    crate::webrtc_signaling_client::WebRtcSignalingClient, // Corrected import
 };
 use libp2p::{Multiaddr, PeerId};
 use std::{
@@ -196,15 +195,15 @@ impl RelayConnectionPool {
             if let Some(auth_manager) = &self.auth_manager {
                 // Check if the peer is banned
                 if auth_manager.is_banned(peer_id) {
-                    return Err(Error::AuthError(format!("Relay {} is banned", peer_id)));
+                    return Err(Error::Authorization(format!("Relay {} is banned", peer_id)));
                 }
                 
                 // Check if the peer is authorized for relay
                 if !auth_manager.is_authorized(peer_id, self.config.min_relay_auth_level) {
-                    return Err(Error::AuthError(format!("Relay {} is not authorized", peer_id)));
+                    return Err(Error::Authorization(format!("Relay {} is not authorized", peer_id)));
                 }
             } else {
-                return Err(Error::AuthError("Authentication required but no auth manager configured".to_string()));
+                return Err(Error::Authorization("Authentication required but no auth manager configured".to_string()));
             }
         }
         
@@ -239,7 +238,7 @@ impl RelayConnectionPool {
                         },
                     );
                 } else {
-                    return Err(Error::PeerNotFound(peer_id.to_string()));
+                    return Err(Error::NotFound(peer_id.to_string()));
                 }
             }
         }
@@ -282,7 +281,7 @@ impl RelayConnectionPool {
         // Get the best relays
         let best_relays = self.relay_discovery.get_best_relays(5);
         if best_relays.is_empty() {
-            return Err(Error::NoRelaysAvailable);
+            return Err(Error::P2P("No relays available".to_string()));
         }
         
         // Try to connect to each relay in order
@@ -293,7 +292,7 @@ impl RelayConnectionPool {
             }
         }
         
-        Err(Error::NoRelaysAvailable)
+        Err(Error::P2P("No relays available".to_string()))
     }
     
     /// Disconnect from a relay
@@ -390,7 +389,7 @@ impl RelayConnectionPool {
         if let Some(auth_manager) = &self.auth_manager {
             // Check if the peer is banned
             if auth_manager.is_banned(peer_id) {
-                return Err(Error::AuthError(format!("Peer {} is banned", peer_id)));
+                return Err(Error::Authorization(format!("Peer {} is banned", peer_id)));
             }
         }
         
@@ -433,7 +432,7 @@ impl RelayConnectionPool {
             }
         }
         
-        Err(Error::PeerNotFound(peer_id.to_string()))
+        Err(Error::NotFound(peer_id.to_string()))
     }
     
     /// Add a relay
@@ -451,10 +450,10 @@ impl RelayConnectionPool {
                     Ok(())
                 }
                 crate::auth::AuthResult::Failure(reason) => {
-                    Err(Error::AuthError(format!("Authentication failed: {}", reason)))
+                    Err(Error::Authorization(format!("Authentication failed: {}", reason)))
                 }
                 crate::auth::AuthResult::Pending => {
-                    Err(Error::AuthError("Authentication pending".to_string()))
+                    Err(Error::Authorization("Authentication pending".to_string()))
                 }
             }
         } else {
@@ -484,10 +483,10 @@ impl RelayConnectionPool {
                     Ok(())
                 }
                 crate::auth::AuthResult::Failure(reason) => {
-                    Err(Error::AuthError(format!("Challenge verification failed: {}", reason)))
+                    Err(Error::Authorization(format!("Challenge verification failed: {}", reason)))
                 }
                 crate::auth::AuthResult::Pending => {
-                    Err(Error::AuthError("Challenge verification pending".to_string()))
+                    Err(Error::Authorization("Challenge verification pending".to_string()))
                 }
             }
         } else {
@@ -595,5 +594,9 @@ mod tests {
         // Get connection stats
         let stats = pool.get_connection_stats();
         assert_eq!(stats.total_connections, 0);
+        assert_eq!(stats.in_use_connections, 0);
+        assert_eq!(stats.idle_connections, 0);
+        assert_eq!(stats.peers, 0);
+        assert_eq!(stats.in_use_peers, 0);
     }
 }
