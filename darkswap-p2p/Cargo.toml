@@ -17,8 +17,8 @@ futures = { workspace = true }
 futures-util = "0.3"
 
 # P2P networking
-libp2p = { version = "0.50.1", default-features = false, features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "relay", "macros", "request-response"] }
-libp2p-tcp = { version = "0.38.0", features = ["async-io"] }
+libp2p = { version = "0.52.4", default-features = false, features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "relay", "macros", "request-response", "dns"] }
+libp2p-tcp = { version = "0.43.0", features = ["async-io"] }
 libp2p-webrtc = { version = "0.9.0-alpha" }
 libp2p-webrtc-websys = { version = "0.4.0-alpha" }
 wasm-bindgen = "0.2"
@@ -43,6 +43,8 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.3", features = ["v4", "serde"] }
 rand = { workspace = true }
 hex = { workspace = true }
+ring = "0.17" # Add ring dependency
+tracing = "0.1" # Add tracing dependency
 
 [dev-dependencies]
 mockall = "0.11"

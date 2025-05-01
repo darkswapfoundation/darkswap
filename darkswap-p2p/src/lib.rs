@@ -16,6 +16,8 @@ pub mod protocol;
 pub mod relay_connection_pool;
 pub mod relay_discovery;
 pub mod transport;
+pub mod webrtc_connection;
+pub mod webrtc_signaling_client;
 
 /// Re-export common types from darkswap-lib
 pub use darkswap_lib::{Error, Result};

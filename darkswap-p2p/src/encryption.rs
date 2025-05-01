@@ -3,7 +3,7 @@
 //! This module provides functionality for encrypting and decrypting
 //! messages between peers, with a focus on relay communications.
 
-use crate::error::Error;
+use darkswap_lib::{Error, Result};
 use libp2p::PeerId;
 use ring::{
     aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey},

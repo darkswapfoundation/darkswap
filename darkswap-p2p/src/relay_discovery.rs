@@ -5,7 +5,7 @@
 //! a list of known relays.
 
 use crate::{
-    error::Error,
+    darkswap_lib::{Error, Result},
     Result,
 };
 use libp2p::{

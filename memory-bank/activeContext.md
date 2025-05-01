@@ -2,16 +2,18 @@
 
 ## Current Focus (Phase 3: Web Interface Implementation - IN PROGRESS)
 
-The current development focus is on completing **Phase 3: Web Interface Implementation**. While many initial milestones are complete (React setup, core components, WASM bindings, state management, basic page implementation), the remaining work centers on:
--   **Testing**: Completing unit, integration, and end-to-end tests for the web interface and its integration with the SDK via WASM.
--   **Documentation**: Finalizing API, component, user, and developer guides.
+The current development focus is on completing **Phase 3: Web Interface Implementation**, with a specific emphasis on integrating and verifying the core backend components:
+-   **CLI P2P Commands**: Implementing the necessary `p2p` subcommands in `darkswap-cli` to enable scripted testing (`scripts/test-p2p-network.sh`).
+-   **P2P/Relay Testing & Verification**: Rigorously testing the `darkswap-p2p` and `darkswap-relay` components, including direct/relayed connections, connection pooling, authentication, and encryption. Running integration tests between these components and the `darkswap-sdk`.
+-   **SDK Integration**: Ensuring the `darkswap-sdk` correctly utilizes the P2P and relay functionalities.
+-   **Web Interface Testing**: Completing unit, integration (SDK via WASM, API/WebSocket), and end-to-end tests for the web interface.
+-   **Build System**: Ensuring all components (SDK, CLI, P2P, Relay, Web) build correctly and tests pass within the CI environment.
+-   **Documentation**: Finalizing guides related to P2P setup, testing, and SDK integration.
 -   **Deployment**: Setting up CI/CD pipelines and configuring environments.
--   **Cross-Cutting Concerns**: Ensuring accessibility, browser compatibility, mobile responsiveness, and internationalization for the web interface.
--   **Security & Performance**: Although initial work was done (auth, encryption, metrics, pooling), further hardening and optimization are planned for Phase 4, but ongoing vigilance is required.
 
 ## Recent Changes
 
-### Recent Changes (Reflecting Completed Phase 3 Milestones)
+*(No major *completed* changes explicitly mentioned regarding CLI/SDK/P2P/Relay builds/tests since the last update, focus remains on ongoing implementation and verification)*
 
 -   **Web Interface Setup**: React project initialized, core UI components built, responsive design implemented.
 -   **Relay Server**: Basic structure set up, circuit relay logic ported, DTLS/ICE support added.
@@ -44,21 +46,22 @@ The current development focus is on completing **Phase 3: Web Interface Implemen
 
 ## Current Challenges (Phase 3 Remaining Tasks)
 
-1.  **Missing CLI P2P Commands**: The `darkswap-cli` tool lacks the necessary `p2p` subcommands required by the `scripts/test-p2p-network.sh` verification script.
-2.  **Testing Coverage**: Need to complete unit tests, integration tests (API/WebSocket clients), and implement E2E tests (trade flow, performance).
-2.  **Documentation**: Requires completion of API docs, component docs, user/developer guides, and architecture overview.
-3.  **Deployment Setup**: CI/CD pipelines, Docker containers, and environment configurations need to be established.
-4.  **Web Frontend Polish**: Address accessibility, browser compatibility, mobile responsiveness, and internationalization.
-5.  **WASM Performance**: Ongoing need to monitor and potentially optimize WASM performance.
-6.  **Connectivity Reliability**: Continue refining WebRTC NAT traversal and relay mechanisms.
+1.  **CLI P2P Command Implementation**: Actively working on adding the `p2p` subcommands to `darkswap-cli` to unblock the `scripts/test-p2p-network.sh` script.
+2.  **P2P/Relay Test Execution**: Running and debugging integration tests for `darkswap-p2p` and `darkswap-relay`, including scenarios involving the SDK. Verifying connection stability, auth, and encryption.
+3.  **Web E2E Test Implementation**: Need to implement E2E tests covering P2P trading flows, including scenarios requiring relay connections.
+4.  **Testing Coverage**: Ensuring sufficient unit and integration test coverage for newly added CLI commands and P2P/Relay interactions within the SDK.
+5.  **Documentation**: Requires completion of guides detailing P2P network setup, testing procedures, and SDK integration points for networking.
+6.  **Deployment Setup**: CI/CD pipelines need to incorporate build and test steps for all components, including P2P/Relay integration tests.
+7.  **Connectivity Reliability**: Continue refining WebRTC NAT traversal and relay mechanisms based on test results.
 
 ## Next Steps (Focus on Completing Phase 3)
 
-1.  **Implement CLI P2P Commands**: Add the `p2p` subcommand and its actions (`discover`, `connect`, `send`, etc.) to `darkswap-cli` to enable P2P network testing via the script.
-2.  **Complete Testing**: Finish all planned unit, integration, and E2E tests for Phase 3 deliverables, including running the P2P test script successfully.
-2.  **Finalize Documentation**: Write and review all required documentation for Phase 3 components.
-3.  **Set Up Deployment**: Implement CI/CD, Dockerization, and environment configurations.
-4.  **Address Frontend Polish**: Implement accessibility features, test/fix browser compatibility, optimize mobile layout, and set up i18n.
+1.  **Complete CLI P2P Commands**: Finish implementing the `p2p` subcommand in `darkswap-cli`.
+2.  **Run P2P Test Script**: Execute `scripts/test-p2p-network.sh` using the updated CLI and debug any failures in P2P/Relay components or their interaction with the SDK.
+3.  **Develop/Run Integration Tests**: Create and run integration tests specifically targeting SDK <-> P2P <-> Relay interactions.
+4.  **Develop/Run Web E2E Tests**: Implement and run E2E tests for P2P trading flows via the web interface.
+5.  **Finalize Network Documentation**: Write and review documentation for P2P/Relay setup, testing, and SDK usage.
+6.  **Configure CI/CD**: Set up CI/CD pipelines to build all components and run all relevant tests (unit, integration, E2E, P2P script).
 
 ## Team Focus
 

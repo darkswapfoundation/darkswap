@@ -5,7 +5,7 @@ members = [
     "darkswap-cli",
     "darkswap-daemon",
     "darkswap-support",
-    "darkswap-p2p",
+    "darkswap-p2p", # Uncomment darkswap-p2p
     "darkswap-web-sys",
     "darkswap-relay",
 ]
@@ -31,7 +31,10 @@ env_logger = "0.10"
 bitcoin = { version = "0.30", features = ["rand", "serde"] }
 
 # P2P networking dependencies
-libp2p = { version = "0.50.1", default-features = false, features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "relay", "macros", "request-response"] }
+libp2p = { version = "0.52.4", default-features = false, features = ["gossipsub", "identify", "kad", "noise", "ping", "tcp", "tokio", "yamux", "websocket", "relay", "macros", "request-response", "dns"] }
+libp2p-tcp = { version = "0.43.0", features = ["async-io"] }
+libp2p-webrtc = { version = "0.9.0-alpha" }
+libp2p-webrtc-websys = { version = "0.4.0-alpha" }
 prost = "0.11"
 prost-build = "0.11"
 bytes = "1.4"

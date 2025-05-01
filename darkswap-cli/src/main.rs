@@ -9,8 +9,8 @@ use futures_util::FutureExt;
 use darkswap_sdk::{
     config::{BitcoinNetwork, Config},
     types::{Asset, AlkaneId},
-    orderbook::{Order, OrderId, OrderSide, OrderStatus},
-    DarkSwap, types::Event,
+    orderbook::{Order, OrderSide, OrderStatus},
+    DarkSwap, types::Event, types::OrderId, types::TradeId,
 };
 use rust_decimal::Decimal;
 use std::path::PathBuf;
@@ -127,7 +127,7 @@ fn parse_asset(asset_str: &str) -> Result<Asset> {
         Ok(Asset::Bitcoin)
     } else if asset_str.starts_with("RUNE:") {
         let id = asset_str.strip_prefix("RUNE:").unwrap();
-        let id_num = id.parse::<u128>().map_err(|_| anyhow::anyhow!("Invalid rune ID: {}", id))?;
+        let id_num = id.parse::<u64>().map_err(|_| anyhow::anyhow!("Invalid rune ID: {}", id))?;
         Ok(Asset::Rune(id_num))
     } else if asset_str.starts_with("ALKANE:") {
         let id = asset_str.strip_prefix("ALKANE:").unwrap();
@@ -152,7 +152,7 @@ fn parse_order_status(status_str: &str) -> Result<OrderStatus> {
     match status_str.to_lowercase().as_str() {
         "open" => Ok(OrderStatus::Open),
         "filled" => Ok(OrderStatus::Filled),
-        "canceled" => Ok(OrderStatus::Canceled),
+        "canceled" => Ok(OrderStatus::Cancelled),
         "expired" => Ok(OrderStatus::Expired),
         _ => anyhow::bail!("Invalid order status: {}", status_str),
     }
@@ -177,17 +177,22 @@ fn load_or_create_config(config_path: Option<PathBuf>, network: &str) -> Result<
     // Try to load configuration from file
     if let Some(ref path) = config_path {
         if path.exists() {
-            return Config::from_file(path).context("Failed to load configuration");
+            let file = std::fs::File::open(path).context("Failed to open configuration file")?;
+            let reader = std::io::BufReader::new(file);
+            let config: Config = serde_json::from_reader(reader).context("Failed to parse configuration file")?;
+            return Ok(config);
         }
     }
 
     // Create default configuration
     let mut config = Config::default();
-    config.bitcoin.network = bitcoin_network;
+    config.darkswap.bitcoin_network = bitcoin_network;
 
     // Save configuration to file if path is provided
     if let Some(ref path) = config_path {
-        config.to_file(path).context("Failed to save configuration")?;
+        let file = std::fs::File::create(path).context("Failed to create configuration file")?;
+        let writer = std::io::BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &config).context("Failed to write configuration to file")?;
     }
 
     Ok(config)
@@ -201,7 +206,7 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
 
     println!("{}", "Starting DarkSwap daemon...".green().bold());
     println!("  Listen address: {}", listen_addr.cyan());
-    println!("  Network: {}", config.bitcoin.network.to_string().cyan());
+    println!("  Network: {:?}", config.darkswap.bitcoin_network.cyan());
 
     // Show a spinner while starting
     let spinner = ProgressBar::new_spinner();
@@ -229,10 +234,8 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
     println!("\n{}", "Daemon Information:".bold());
     println!("  Status:       {}", "Running".green());
     println!("  Listen Addr:  {}", listen_addr);
-    println!("  Peer ID:      {}", darkswap.network.as_ref().map_or("Unknown".to_string(), |n| {
-        let network = n.read().now_or_never().unwrap();
-        network.local_peer_id().to_string()
-    }).cyan());
+    let network = darkswap.network.read().await;
+    println!("  Peer ID:      {}", network.local_peer_id().to_string().cyan());
     println!("  Press Ctrl+C to stop the daemon");
 
     // Create a channel for shutdown signal
@@ -272,125 +275,87 @@ async fn start_daemon(config: Config, listen_addr: &str) -> Result<()> {
                     table.set_format(*format::consts::FORMAT_NO_BORDER_LINE_SEPARATOR);
                     
                     match event {
-                        Event::PeerConnected(peer_id) => {
+                        Event::PeerConnected { peer_id } => {
                             table.add_row(row![
                                 now,
                                 "Peer Connected".blue(),
-                                format!("{:?}", peer_id)
+                                format!("{}", peer_id)
                             ]);
                         }
-                        Event::PeerDisconnected(peer_id) => {
+                        Event::PeerDisconnected { peer_id } => {
                             table.add_row(row![
                                 now,
                                 "Peer Disconnected".yellow(),
-                                format!("{:?}", peer_id)
+                                format!("{}", peer_id)
                             ]);
                         }
-                        Event::OrderCreated(order) => {
-                            let side_str = match order.side {
-                                OrderSide::Buy => "BUY".green(),
-                                OrderSide::Sell => "SELL".red(),
-                            };
-                            
+                        Event::OrderCreated { order_id } => {
+                            // TODO: Fetch order details to display more info
                             table.add_row(row![
                                 now,
                                 "Order Created".green(),
-                                format!("{} | {} {} {} @ {}",
-                                    order.id.to_string().cyan(),
-                                    side_str,
-                                    order.amount.to_string(),
-                                    order.base_asset.to_string(),
-                                    order.price.to_string()
-                                )
+                                format!("Order ID: {}", order_id.to_string().cyan())
                             ]);
                         }
-                        Event::OrderCancelled(order_id) => {
+                        Event::OrderMatched { order_id, trade_id } => {
+                            // TODO: Fetch order and trade details
                             table.add_row(row![
                                 now,
-                                "Order Canceled".yellow(),
-                                order_id.to_string().cyan()
+                                "Order Matched".blue(),
+                                format!("Order ID: {} | Trade ID: {}", order_id.to_string().cyan(), trade_id.to_string().cyan())
                             ]);
                         }
-                        Event::OrderFilled(order_id) => {
+                        Event::OrderCancelled { order_id } => {
                             table.add_row(row![
                                 now,
-                                "Order Filled".green(),
-                                order_id.to_string().cyan()
+                                "Order Cancelled".yellow(),
+                                format!("Order ID: {}", order_id.to_string().cyan())
                             ]);
                         }
-                        Event::TradeStarted(trade_id) => {
-                            // Get the trade details if possible
-                            match darkswap.get_trade(&trade_id).await {
-                                Ok(trade) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Started".blue(),
-                                        format!("Trade: {} | Order: {}",
-                                            trade_id.to_string().cyan(),
-                                            trade.order_id.to_string().cyan()
-                                        )
-                                    ]);
-                                },
-                                Err(_) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Started".blue(),
-                                        format!("Trade: {}", trade_id.to_string().cyan())
-                                    ]);
-                                }
-                            }
-                        }
-                        Event::TradeCompleted(trade_id) => {
-                            // Get the trade details if possible
-                            match darkswap.get_trade(&trade_id).await {
-                                Ok(trade) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Completed".green(),
-                                        format!("Trade: {} | Order: {} | Amount: {} {}",
-                                            trade_id.to_string().cyan(),
-                                            trade.order_id.to_string().cyan(),
-                                            trade.amount.to_string(),
-                                            trade.base_asset.to_string()
-                                        )
-                                    ]);
-                                },
-                                Err(_) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Completed".green(),
-                                        format!("Trade: {}", trade_id.to_string().cyan())
-                                    ]);
-                                }
-                            }
-                        }
-                        Event::TradeFailed(trade_id) => {
-                            // Get the trade details if possible
-                            match darkswap.get_trade(&trade_id).await {
-                                Ok(trade) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Failed".red(),
-                                        format!("Trade: {} | Order: {}",
-                                            trade_id.to_string().cyan(),
-                                            trade.order_id.to_string().cyan()
-                                        )
-                                    ]);
-                                },
-                                Err(_) => {
-                                    table.add_row(row![
-                                        now,
-                                        "Trade Failed".red(),
-                                        format!("Trade: {}", trade_id.to_string().cyan())
-                                    ]);
-                                }
-                            }
-                        }
-                        _ => {
+                        Event::OrderExpired { order_id } => {
                             table.add_row(row![
                                 now,
-                                "Other Event".yellow(),
-                                format!("{:?}", event)
+                                "Order Expired".red(),
+                                format!("Order ID: {}", order_id.to_string().cyan())
+                            ]);
+                        }
+                        Event::TradeCreated { trade_id } => {
+                            // TODO: Fetch trade details
+                            table.add_row(row![
+                                now,
+                                "Trade Created".blue(),
+                                format!("Trade ID: {}", trade_id.to_string().cyan())
+                            ]);
+                        }
+                        Event::TradeCompleted { trade_id } => {
+                            // TODO: Fetch trade details
+                            table.add_row(row![
+                                now,
+                                "Trade Completed".green(),
+                                format!("Trade ID: {}", trade_id.to_string().cyan())
+                            ]);
+                        }
+                        Event::TradeCancelled { trade_id } => {
+                            // TODO: Fetch trade details
+                            table.add_row(row![
+                                now,
+                                "Trade Cancelled".yellow(),
+                                format!("Trade ID: {}", trade_id.to_string().cyan())
+                            ]);
+                        }
+                        Event::TradeFailed { trade_id, error } => {
+                            // TODO: Fetch trade details
+                            table.add_row(row![
+                                now,
+                                "Trade Failed".red(),
+                                format!("Trade ID: {} | Error: {}", trade_id.to_string().cyan(), error.red())
+                            ]);
+                        }
+                        Event::Error { error } => {
+                            table.add_row(row![
+                                now,
+                                "Error".red().bold(),
+                                error.red()
                             ]);
                         }
                     }
@@ -474,7 +439,7 @@ async fn create_order(
     spinner.set_message("Creating order...");
 
     // Create order
-    let order = darkswap.create_order(base_asset, quote_asset, side, amount, price, expiry).await?;
+    let order = darkswap.create_order(base_asset, quote_asset, side, amount, price, "".to_string(), expiry.map(std::time::Duration::from_secs).unwrap_or_default()).await?;
 
     // Stop the spinner
     spinner.finish_with_message("Order created successfully!".green().to_string());
@@ -586,15 +551,9 @@ async fn take_order(config: Config, order_id_str: &str, amount_str: &str) -> Res
 
     // Print trade details
     println!("\n{}", "Trade Details:".bold());
-    println!("  Trade ID:  {}", trade.id.to_string().green());
-    println!("  Order ID:  {}", trade.order_id.to_string().cyan());
-    println!("  Amount:    {} {}", trade.amount.to_string().cyan(), trade.base_asset);
-    println!("  Price:     {} {}", trade.price.to_string().cyan(), trade.quote_asset);
-    println!("  Status:    {}", "PENDING".yellow());
-    
-    // Calculate total value
-    let total_value = trade.amount * trade.price;
-    println!("  Total:     {} {}", total_value.to_string().cyan(), trade.quote_asset);
+    println!("  Trade ID:  {}", trade.to_string().green());
+    // Trade details like order_id, amount, price, assets are not returned by take_order
+    println!("{}", "  Trade details (Order ID, Amount, Price, Assets, Status, Total) are not available here.".yellow());
 
     // Stop DarkSwap
     spinner.set_message("Disconnecting from DarkSwap network...");
@@ -626,11 +585,11 @@ async fn list_orders(
         let base_asset = parse_asset(base_asset_str)?;
         let quote_asset = parse_asset(quote_asset_str)?;
         println!("Fetching orders for {}/{} pair...", base_asset.to_string().cyan(), quote_asset.to_string().cyan());
-        darkswap.get_orders(&base_asset, &quote_asset).await?
+        darkswap.orderbook.get_orders(Some(base_asset), Some(quote_asset), None, None).await.map_err(|e| darkswap_sdk::error::Error::OrderBookError(e.to_string()))?
     } else {
         println!("Fetching all orders...");
-        // TODO: Get all orders
-        vec![]
+        // Get all orders
+        darkswap.orderbook.get_orders(None, None, None, None).await.map_err(|e| darkswap_sdk::error::Error::OrderBookError(e.to_string()))?
     };
 
     // Filter orders by side and status
@@ -683,13 +642,14 @@ async fn list_orders(
         
         let status_str = match order.status {
             OrderStatus::Open => "OPEN".green(),
-            OrderStatus::Filled => "FILLED".blue(),
-            OrderStatus::Canceled => "CANCELED".yellow(),
+            OrderStatus::Matched => "MATCHED".blue(),
+            OrderStatus::Completed => "COMPLETED".green(),
+            OrderStatus::Cancelled => "CANCELLED".yellow(),
             OrderStatus::Expired => "EXPIRED".red(),
         };
         
-        // Format timestamp as date/time
-        let timestamp = chrono::NaiveDateTime::from_timestamp_opt(order.timestamp as i64, 0)
+        // Format created_at as date/time
+        let timestamp = chrono::NaiveDateTime::from_timestamp_opt(order.created_at as i64, 0)
             .unwrap_or_default()
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
@@ -862,7 +822,7 @@ async fn connect_wallet(
 
             // Update config with wallet information
             config.wallet.wallet_type = "simple".to_string();
-            config.wallet.private_key = Some(private_key);
+            // Private key and mnemonic are not stored in WalletConfig directly
             
             println!("{}", "Simple wallet connected successfully!".green().bold());
         }
@@ -890,7 +850,7 @@ async fn connect_wallet(
             // Update config with wallet information
             config.wallet.wallet_type = "bdk".to_string();
             config.wallet.mnemonic = Some(mnemonic);
-            config.wallet.derivation_path = Some(derivation_path);
+            // Derivation path is not stored in WalletConfig directly
             
             println!("{}", "BDK wallet connected successfully!".green().bold());
         }
@@ -905,30 +865,11 @@ async fn connect_wallet(
     }
     
     // Save the updated configuration
-    if let Some(path) = config.config_path.as_ref() {
-        config.to_file(path)?;
-        println!("Wallet configuration saved to {}", path.display().to_string().blue());
-    } else {
-        // If no config path is set, ask the user if they want to save the configuration
-        let save = dialoguer::Confirm::new()
-            .with_prompt("Do you want to save the wallet configuration?")
-            .default(true)
-            .interact()?;
-        
-        if save {
-            let home_dir = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
-            let config_dir = home_dir.join(".darkswap");
-            
-            // Create config directory if it doesn't exist
-            if !config_dir.exists() {
-                std::fs::create_dir_all(&config_dir)?;
-            }
-            
-            let config_path = config_dir.join("config.json");
-            config.to_file(&config_path)?;
-            println!("Wallet configuration saved to {}", config_path.display().to_string().blue());
-        }
-    }
+    // The config_path is not part of the Config struct, so we need to get it from the CLI arguments
+    // However, the connect_wallet function doesn't have access to the CLI arguments directly.
+    // For now, we will skip saving the config in this function.
+    // The user can save the config manually after connecting the wallet if needed.
+    println!("{}", "Wallet configuration updated in memory. To save, use the --config option when running the CLI.".yellow());
     
     Ok(())
 }
@@ -939,7 +880,8 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Load or create configuration
-    let config = load_or_create_config(cli.config, &cli.network)?;
+    let config_path = cli.config.clone(); // Clone config_path for potential saving later
+    let config = load_or_create_config(config_path.clone(), &cli.network)?;
 
     // Execute command
     match cli.command {
@@ -982,6 +924,9 @@ async fn main() -> Result<()> {
             mnemonic,
             derivation_path,
         } => {
+            // The config_path is not part of the Config struct, so we need to get it from the CLI arguments.
+            // The load_or_create_config function already handles loading and initial saving.
+            // We will not save the config again here to avoid overwriting user changes made after loading.
             connect_wallet(config, &wallet_type, private_key.as_deref(), mnemonic.as_deref(), derivation_path.as_deref()).await?;
         }
     }

@@ -2,8 +2,10 @@
 //!
 //! This module provides configuration options for DarkSwap.
 
+use serde::{Serialize, Deserialize};
+
 /// Bitcoin network
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BitcoinNetwork {
     /// Mainnet
     Mainnet,
@@ -22,7 +24,7 @@ impl Default for BitcoinNetwork {
 }
 
 /// DarkSwap configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DarkSwapConfig {
     /// Bitcoin network
     pub bitcoin_network: BitcoinNetwork,
@@ -46,7 +48,7 @@ impl Default for DarkSwapConfig {
 }
 
 /// P2P configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2PConfig {
     /// Listen address
     pub listen_address: String,
@@ -70,7 +72,7 @@ impl Default for P2PConfig {
 }
 
 /// WebRTC configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebRTCConfig {
     /// STUN servers
     pub stun_servers: Vec<String>,
@@ -91,7 +93,7 @@ impl Default for WebRTCConfig {
 }
 
 /// Wallet configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletConfig {
     /// Bitcoin network
     pub bitcoin_network: BitcoinNetwork,
@@ -118,7 +120,7 @@ impl Default for WalletConfig {
 }
 
 /// Main configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// DarkSwap configuration
     pub darkswap: DarkSwapConfig,
@@ -148,7 +150,7 @@ impl Default for Config {
 }
 
 /// Orderbook configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderbookConfig {
     /// Order expiry time in seconds
     pub order_expiry: u64,
@@ -166,7 +168,7 @@ impl Default for OrderbookConfig {
 }
 
 /// Trade configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeConfig {
     /// Trade expiry time in seconds
     pub trade_expiry: u64,

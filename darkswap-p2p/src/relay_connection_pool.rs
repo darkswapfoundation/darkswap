@@ -7,7 +7,7 @@
 use crate::{
     auth::{AuthManager, AuthManagerConfig, AuthMethod, AuthorizationLevel},
     connection_pool::{ConnectionPool, ConnectionPoolConfig, ConnectionPoolStats},
-    error::Error,
+    darkswap_lib::{Error, Result},
     relay_discovery::{RelayDiscoveryManager, RelayDiscoveryConfig, RelayInfo},
     webrtc_connection::{WebRtcConnection, WebRtcConnectionManager},
     webrtc_signaling_client::WebRtcSignalingClient,
